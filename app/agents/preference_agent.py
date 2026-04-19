@@ -1,10 +1,17 @@
 """
 preference_agent.py
-역할: 슬롯 추출, 대화 로직, 피드백 인텐트 분류, 벡터 업데이트 해석, 사용자 프로필 빌드
+역할:
+  - LLM(Qwen3) 단일 호출로 슬롯 추출 + 종료 판단 + 다음 질문 생성
+  - 피드백 인텐트 분류 및 선호 벡터 조정 (rule-based MVP — 추후 별도 리팩토링)
+  - DB → 통합 프로필 빌드
 """
 from __future__ import annotations
 
+import json
+import logging
+import re
 from typing import Any, Optional
+
 from sqlalchemy.orm import Session
 
 from app.db.crud import (
@@ -15,15 +22,92 @@ from app.db.crud import (
     get_latest_space_analysis_by_party,
 )
 
+logger = logging.getLogger(__name__)
+
 
 # ============================================================
-# 피드백 인텐트 분류 (rule-based MVP)
+# 슬롯 스키마 (영문 enum + intensity dict)
+# ============================================================
+
+CURRENT_MOOD_VALUES = {"good", "soso", "bad"}
+
+PARTY_PURPOSE_VALUES = {
+    "celebration",
+    "date",
+    "business",
+    "solo",
+    "hangout",
+}
+
+STRENGTH_VALUES = {"zero", "light", "medium", "strong"}
+
+TASTE_KEYS = {"sweet", "sour", "bitter", "body", "creamy", "freshness"}
+AROMA_KEYS = {"woody", "minty", "fruity", "citrus", "floral", "coffee", "herbal"}
+INTENSITY_VALUES = {"low", "medium", "high"}
+
+DISLIKED_BASE_VALUES = {"whiskey", "gin", "rum", "vodka", "tequila"}
+
+SLOT_KEYS = [
+    "current_mood",
+    "party_purpose",
+    "taste_profile",
+    "aroma_profile",
+    "strength_preference",
+    "disliked_bases",
+    "favorite_drinks",
+]
+
+
+# ============================================================
+# 종료 판단
+# ============================================================
+
+MIN_FILLED_SLOTS_FOR_PROCEED = 4
+MAX_USER_TURNS = 7
+
+
+def _count_filled_slots(slots: dict) -> int:
+    n = 0
+    for k in SLOT_KEYS:
+        v = slots.get(k)
+        if v is None:
+            continue
+        if isinstance(v, (list, dict)) and len(v) == 0:
+            continue
+        if isinstance(v, str) and not v.strip():
+            continue
+        n += 1
+    return n
+
+
+def _calc_effective_completion(slots: dict) -> float:
+    return round(_count_filled_slots(slots) / len(SLOT_KEYS) * 100, 2)
+
+
+def should_move_to_recommendation(
+    merged_slots: dict,
+    user_turn_count: int,
+    user_msg: str,
+    llm_should_stop: bool = False,
+    llm_stop_reason: str = "",
+) -> tuple[bool, str]:
+    """LLM 판단 + 턴/슬롯 상한 조합으로 종료 결정."""
+    if llm_should_stop:
+        return True, llm_stop_reason or "llm_stop"
+    if user_turn_count >= MAX_USER_TURNS:
+        return True, "turn_limit"
+    if _count_filled_slots(merged_slots) >= MIN_FILLED_SLOTS_FOR_PROCEED:
+        # LLM이 더 물어볼 게 있다고 판단 안 했으면 계속 진행
+        return False, "enough_slots_but_continue"
+    return False, "keep_collecting"
+
+
+# ============================================================
+# 피드백 인텐트 분류 / 벡터 업데이트 (rule-based MVP — 별도 리팩토링 예정)
 # ============================================================
 
 def classify_intent(feedback_text: str) -> str:
-    """피드백 텍스트를 ACCEPT / ADJUST / REJECT 중 하나로 분류."""
     text = feedback_text.lower()
-
     accept_keywords = [
         "좋아", "완벽", "이걸로", "맛있어", "마음에 들어",
         "ok", "오케이", "선택", "확정", "맞아", "딱이야",
@@ -32,7 +116,6 @@ def classify_intent(feedback_text: str) -> str:
         "더", "조금", "살짝", "약간", "달게", "쓰게", "시게",
         "강하게", "약하게", "바꿔", "수정", "변경", "달았으면", "썼으면",
     ]
-
     for kw in accept_keywords:
         if kw in text:
             return "ACCEPT"
@@ -42,12 +125,7 @@ def classify_intent(feedback_text: str) -> str:
     return "REJECT"
 
 
-# ============================================================
-# 선호 벡터 조정 (rule-based MVP)
-# ============================================================
-
 def update_vector(before_vec: dict[str, float], feedback_text: str) -> dict[str, float]:
-    """피드백 키워드에 따라 선호 벡터를 소폭 조정."""
     updated = dict(before_vec)
     text = feedback_text.lower()
 
@@ -55,339 +133,371 @@ def update_vector(before_vec: dict[str, float], feedback_text: str) -> dict[str,
         return max(0.0, min(5.0, v))
 
     adjustments: list[tuple[list[str], str, float]] = [
-        (["더 달", "달게", "달았으면"],          "sweetness_score",  +0.5),
-        (["덜 달", "덜달", "달지 않게"],          "sweetness_score",  -0.5),
-        (["더 쓰", "쓰게", "썼으면"],             "bitterness_score", +0.5),
-        (["덜 쓰", "덜쓰"],                       "bitterness_score", -0.5),
-        (["더 시", "시게"],                       "sourness_score",   +0.5),
-        (["덜 시", "덜시"],                       "sourness_score",   -0.5),
-        (["더 강", "강하게"],                     "alcohol_score",    +0.5),
-        (["약하게", "더 약", "가볍게"],            "alcohol_score",    -0.5),
-        (["청량", "상큼"],                        "freshness_score",  +0.5),
+        (["더 달", "달게", "달았으면"], "sweetness_score", +0.5),
+        (["덜 달", "덜달", "달지 않게"], "sweetness_score", -0.5),
+        (["더 쓰", "쓰게", "썼으면"], "bitterness_score", +0.5),
+        (["덜 쓰", "덜쓰"], "bitterness_score", -0.5),
+        (["더 시", "시게"], "sourness_score", +0.5),
+        (["덜 시", "덜시"], "sourness_score", -0.5),
+        (["더 강", "강하게"], "alcohol_score", +0.5),
+        (["약하게", "더 약", "가볍게"], "alcohol_score", -0.5),
+        (["청량", "상큼"], "freshness_score", +0.5),
     ]
-
     for keywords, field, delta in adjustments:
         if any(kw in text for kw in keywords):
             updated[field] = clamp(updated.get(field, 2.5) + delta)
-
     return updated
 
 
 # ============================================================
-# 대화 에이전트 — 슬롯 추출 + 다음 질문 생성 (rule-based MVP)
+# Qwen 프롬프트 구성
 # ============================================================
 
-_SLOT_QUESTIONS: list[tuple[str, str]] = [
-    ("party_purpose",       "오늘 어떤 자리인가요? (생일, 데이트, 모임 등)"),
-    ("strength_preference", "알코올은 어느 정도 선호하세요? (약하게, 중간, 강하게)"),
-    ("current_mood",        "지금 기분이 어떠세요?"),
-    ("preferred_tastes",    "어떤 맛을 좋아하세요? (단맛, 쓴맛, 신맛 등)"),
-    ("preferred_aromas",    "어떤 향을 좋아하세요? (과일향, 민트향, 커피향 등)"),
-    ("disliked_tastes",     "싫어하는 맛이 있나요?"),
-    ("disliked_bases",      "못 마시는 술 베이스가 있나요? (위스키, 럼, 보드카 등)"),
-    ("finish_preference",   "끝맛은 어떤 게 좋으세요? (깔끔하게, 여운 있게)"),
-    ("favorite_drinks",     "평소에 즐겨 마시는 술이 있나요?"),
-    ("disliked_aromas",     "싫어하는 향이 있나요?"),
-]
+_SYSTEM_PROMPT = """
+너는 칵테일 추천 시스템의 대화 컨트롤러다.
+반드시 JSON 객체 하나만 출력한다. 설명, 마크다운, 코드블록 금지.
 
-_TASTE_KEYWORDS: list[tuple[str, str]] = [
-    ("달", "단맛"), ("단맛", "단맛"),
-    ("쓴", "쓴맛"), ("쓴맛", "쓴맛"),
-    ("신", "신맛"), ("상큼", "신맛"),
-    ("청량", "청량함"),
-    ("바디", "바디감"),
-    ("크리미", "크리미함"),
-    ("스파이시", "스파이시"),
-    ("고소", "고소함"),
-]
+출력 형식:
+{
+  "extracted_slots": {
+    "current_mood": null 또는 "good"|"soso"|"bad",
+    "party_purpose": null 또는 "celebration"|"date"|"business"|"solo"|"hangout",
+    "taste_profile": { "sweet"|"sour"|"bitter"|"body"|"creamy"|"freshness": "low"|"medium"|"high", ... },
+    "aroma_profile": { "woody"|"minty"|"fruity"|"citrus"|"floral"|"coffee"|"herbal": "low"|"medium"|"high", ... },
+    "strength_preference": null 또는 "zero"|"light"|"medium"|"strong",
+    "disliked_bases": ["whiskey"|"gin"|"rum"|"vodka"|"tequila", ...],
+    "favorite_drinks": [문자열, ...]
+  },
+  "should_stop": true 또는 false,
+  "stop_reason": "user_requested"|"enough_info"|"",
+  "next_question": "한국어 한 문장"
+}
 
-_AROMA_KEYWORDS: list[tuple[str, str]] = [
-    ("민트", "민트향"), ("과일", "과일향"), ("시트러스", "시트러스향"),
-    ("허브", "허브향"), ("커피", "커피향"), ("우디", "우디향"), ("꽃", "꽃향"),
-]
+규칙:
+1. 최근 USER 발화에서 새롭게 드러난 정보만 extracted_slots에 넣어라.
+2. USER가 말하지 않은 것은 추측하지 마라.
+3. "없어/없음/상관없어/가리는 거 없어/다 잘 마셔"는 비선호 베이스 질문에 대한 응답이면 disliked_bases = [] 로 둔다.
+4. 맛/향에서 싫어함은 같은 key의 low intensity로 표현한다.
+5. next_question은 한국어 존댓말 한 문장으로 자연스럽게 작성한다.
+6. 사용자가 "이제 추천해줘", "그만", "바로 추천"처럼 말하면 should_stop=true.
 
-_DISLIKED_TASTE_KEYWORDS: list[tuple[str, str]] = [
-    ("쓴 거 싫", "쓴맛"), ("단 거 싫", "단맛"), ("신 거 싫", "신맛"),
-    ("쓴맛 싫", "쓴맛"), ("단맛 싫", "단맛"), ("신맛 싫", "신맛"),
-]
+예시:
+- "친구 생일파티" -> {"party_purpose":"celebration"}
+- "회사 사람들이랑" -> {"party_purpose":"business"}
+- "친구들이랑 놀러" -> {"party_purpose":"hangout"}
+- "기분 좋아" -> {"current_mood":"good"}
+- "그냥 그저 그래" -> {"current_mood":"soso"}
+- "기분 안 좋아" -> {"current_mood":"bad"}
+- "술 안 들어간 걸로" -> {"strength_preference":"zero"}
+- "무알콜로 부탁해" -> {"strength_preference":"zero"}
+- "술고래야" -> {"strength_preference":"strong"}
+- "풀냄새 좋아" -> {"aroma_profile":{"herbal":"high"}}
+- "우유맛 싫어" -> {"taste_profile":{"creamy":"low"}}
+- "가리는 거 없어" -> {"disliked_bases":[]}
 
-_BASE_KEYWORDS: list[str] = ["위스키", "럼", "보드카", "진", "데킬라", "사케", "소주", "맥주", "와인"]
-
-#대화 중단 의사 감지
-STOP_KEYWORDS = [
-    "그만", "됐어", "충분해", "이제 추천해줘", "추천해",
-    "그냥 해줘", "바로 해줘", "넘어가자", "skip", "그정도면 돼",
-]
-
-def wants_to_skip(user_msg: str) -> bool:
-    """사용자가 대화 중단 의사를 표현했는지 확인"""
-    text = user_msg.lower()
-    return any(kw in text for kw in STOP_KEYWORDS)
-
-def _is_slot_empty(value: Any) -> bool:
-    if value is None:
-        return True
-    if isinstance(value, list) and len(value) == 0:
-        return True
-    if isinstance(value, dict) and len(value) == 0:
-        return True
-    if isinstance(value, str) and value.strip() == "":
-        return True
-    return False
-
-# 필수 슬롯 — 추천 품질 보장을 위해 최소한 채워져야 하는 필드 (FR-06)
-REQUIRED_SLOTS: list[str] = ["strength_preference", "disliked_bases"]
+반드시 JSON만 출력해라.
+""".strip()
 
 
-def missing_required_slots(merged_slots: dict) -> list[str]:
-    """필수 슬롯 중 비어있는 키 목록 반환. disliked_bases는 빈 리스트도 '응답함'으로 간주."""
-    missing: list[str] = []
-    for key in REQUIRED_SLOTS:
-        value = merged_slots.get(key)
-        # disliked_bases는 '없음'이라는 빈 리스트도 유효 응답으로 인정
-        if key == "disliked_bases":
-            if value is None:
-                missing.append(key)
+def _format_history(history: list[dict], max_turns: int = 6) -> str:
+    if not history:
+        return "(대화 없음)"
+    rows = history[-max_turns:]
+    lines = []
+    for r in rows:
+        role = r.get("speaker_role", "?")
+        text = r.get("utterance_text") or r.get("message_text") or ""
+        tag = "LLM" if role == "LLM" else "USER"
+        lines.append(f"{tag}: {text}")
+    return "\n".join(lines)
+
+def _last_llm_question(history: list[dict]) -> str:
+    for row in reversed(history or []):
+        if row.get("speaker_role") == "LLM":
+            return (row.get("utterance_text") or row.get("message_text") or "").strip()
+    return ""
+
+
+def _build_user_prompt(history: list[dict], slots: dict, user_msg: str) -> str:
+    last_q = _last_llm_question(history)
+    return (
+        f"Current accumulated slots (JSON):\n{json.dumps(slots, ensure_ascii=False)}\n\n"
+        f"Most recent assistant question:\n{last_q or '(없음)'}\n\n"
+        f"Recent dialogue:\n{_format_history(history)}\n\n"
+        f"Latest user message:\n{user_msg}\n\n"
+        "The user may answer indirectly or contextually.\n"
+        "Interpret the latest user message relative to the most recent assistant question.\n"
+        "Extract ONLY what the latest user message newly says.\n"
+        "Return JSON now."
+    )
+
+
+# ============================================================
+# JSON 파서 + 검증
+# ============================================================
+
+def _extract_json_object(text: str) -> Optional[dict]:
+    # 가장 바깥쪽 중괄호 추출 (greedy)
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        return None
+    try:
+        obj = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return None
+    return obj if isinstance(obj, dict) else None
+
+
+def _validate_intensity_dict(raw: Any, allowed_keys: set[str]) -> dict:
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, str] = {}
+    for k, v in raw.items():
+        if k not in allowed_keys:
             continue
-        if _is_slot_empty(value):
-            missing.append(key)
-    return missing
+        if not isinstance(v, str):
+            continue
+        vv = v.strip().lower()
+        if vv in INTENSITY_VALUES:
+            out[k] = vv
+    return out
 
 
-def _calc_effective_completion(merged_slots: dict) -> float:
-    fields = [
-        merged_slots.get("party_purpose"),
-        merged_slots.get("current_mood"),
-        merged_slots.get("preferred_tastes"),
-        merged_slots.get("disliked_tastes"),
-        merged_slots.get("preferred_aromas"),
-        merged_slots.get("disliked_aromas"),
-        merged_slots.get("strength_preference"),
-        merged_slots.get("favorite_drinks"),
-        merged_slots.get("disliked_bases"),
-        merged_slots.get("finish_preference"),
+def _validate_enum(raw: Any, allowed: set[str]) -> Optional[str]:
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        return None
+    v = raw.strip().lower()
+    return v if v in allowed else None
+
+
+def _validate_list_enum(raw: Any, allowed: set[str]) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        v = item.strip().lower()
+        if v in allowed and v not in out:
+            out.append(v)
+    return out
+
+
+def _validate_free_list(raw: Any) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for item in raw:
+        if not isinstance(item, (str, int, float)):
+            continue
+        s = str(item).strip()
+        if s and s not in out:
+            out.append(s)
+    return out
+
+
+def validate_extracted_slots(raw: dict) -> dict:
+    if not isinstance(raw, dict):
+        return {}
+    cleaned: dict[str, Any] = {}
+
+    if "current_mood" in raw:
+        v = _validate_enum(raw["current_mood"], CURRENT_MOOD_VALUES)
+        if v:
+            cleaned["current_mood"] = v
+
+    if "party_purpose" in raw:
+        v = _validate_enum(raw["party_purpose"], PARTY_PURPOSE_VALUES)
+        if v:
+            cleaned["party_purpose"] = v
+
+    if "strength_preference" in raw:
+        v = _validate_enum(raw["strength_preference"], STRENGTH_VALUES)
+        if v:
+            cleaned["strength_preference"] = v
+
+    if "taste_profile" in raw:
+        d = _validate_intensity_dict(raw["taste_profile"], TASTE_KEYS)
+        if d:
+            cleaned["taste_profile"] = d
+
+    if "aroma_profile" in raw:
+        d = _validate_intensity_dict(raw["aroma_profile"], AROMA_KEYS)
+        if d:
+            cleaned["aroma_profile"] = d
+
+    if "disliked_bases" in raw:
+        if isinstance(raw["disliked_bases"], list) and len(raw["disliked_bases"]) == 0:
+            cleaned["disliked_bases"] = []
+        else:
+            lst = _validate_list_enum(raw["disliked_bases"], DISLIKED_BASE_VALUES)
+            if lst:
+                cleaned["disliked_bases"] = lst
+
+    if "favorite_drinks" in raw:
+        lst = _validate_free_list(raw["favorite_drinks"])
+        if lst:
+            cleaned["favorite_drinks"] = lst
+
+    return cleaned
+
+
+# ============================================================
+# Qwen 단일 호출 — 추출 + 종료 + 다음 질문
+# ============================================================
+
+def _parse_llm_output(raw: str) -> dict:
+    parsed = _extract_json_object(raw) or {}
+    extracted = validate_extracted_slots(parsed.get("extracted_slots") or {})
+    should_stop = bool(parsed.get("should_stop"))
+    stop_reason = str(parsed.get("stop_reason") or "")
+    next_q = str(parsed.get("next_question") or "").strip() or "조금 더 알려주실 만한 게 있을까요?"
+    return {
+        "extracted_slots": extracted,
+        "should_stop": should_stop,
+        "stop_reason": stop_reason,
+        "next_question": next_q,
+        "raw": raw,
+    }
+
+
+def _analyze_via_ollama(history: list[dict], slots: dict, user_msg: str, model_name: str) -> dict:
+    import ollama
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "user", "content": _build_user_prompt(history, slots, user_msg)},
     ]
-    filled = sum(1 for v in fields if not _is_slot_empty(v))
-    return round((filled / 10) * 100, 2)
+    resp = ollama.chat(model=model_name, messages=messages, options={"temperature": 0})
+    raw = resp["message"]["content"].strip()
+    result = _parse_llm_output(raw)
+    result["source"] = f"ollama:{model_name}"
+    return result
 
-def choose_next_question(slots: dict) -> str:
-    # 필수 슬롯을 최우선으로 질문 (FR-06)
-    missing_required = set(missing_required_slots(slots))
-    if missing_required:
-        for slot_key, q in _SLOT_QUESTIONS:
-            if slot_key in missing_required:
-                return q
-    for slot_key, q in _SLOT_QUESTIONS:
-        if _is_slot_empty(slots.get(slot_key)):
-            return q
-    return "네, 알겠습니다! 더 말씀해 주실 내용이 있나요?"
 
-def should_move_to_recommendation(
-    merged_slots: dict,
-    user_turn_count: int,
-    user_msg: str,
-) -> tuple[bool, str]:
-    completion = _calc_effective_completion(merged_slots)
-    required_missing = missing_required_slots(merged_slots)
+def _analyze_via_qwen(history: list[dict], slots: dict, user_msg: str, max_new_tokens: int) -> dict:
+    from app.utils.model_loader import load_qwen3
+    import torch
 
-    if completion >= 80:
-        return True, "slot_completion"
-    if user_turn_count >= 7:
-        # 턴 한도 도달 시엔 필수 누락이어도 진행 (무한 루프 방지)
-        return True, "turn_limit"
-    if wants_to_skip(user_msg):
-        # 사용자가 중단 의사 표현해도 필수 슬롯 누락 상태면 한 번 더 묻는다
-        if required_missing:
-            return False, "need_required_slots"
-        return True, "user_skip"
+    tokenizer, model = load_qwen3()
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "user", "content": _build_user_prompt(history, slots, user_msg)},
+    ]
+    rendered = tokenizer.apply_chat_template(
+        messages, add_generation_prompt=True, tokenize=False, enable_thinking=False,
+    )
+    inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
+    input_len = inputs["input_ids"].shape[-1]
+    with torch.no_grad():
+        out = model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+            repetition_penalty=1.05,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+    raw = tokenizer.decode(out[0][input_len:], skip_special_tokens=True).strip()
+    result = _parse_llm_output(raw)
+    result["source"] = "qwen"
+    return result
 
-    return False, "continue"
 
-def run_dialogue(
+def analyze_user_turn(
     history: list[dict],
     slots: dict,
     user_msg: str,
+    max_new_tokens: int = 512,
 ) -> dict:
+    """LLM 단일 호출로 추출/종료/질문을 한 번에 얻는다.
+
+    QWEN3_MODEL 환경변수가 'name:tag' 형식이면 Ollama로, 아니면 HuggingFace로 로드.
     """
-    대화 한 턴 처리.
-    slots: 현재까지 채워진 슬롯 (초기 태그 포함 병합 상태)
-    Returns: { extracted_slots, question, completion, should_proceed }
-    """
-    extracted: dict[str, Any] = {}
-    text = user_msg.lower()
+    from app.utils.config import QWEN3_MODEL
+    try:
+        if ":" in QWEN3_MODEL:
+            return _analyze_via_ollama(history, slots, user_msg, QWEN3_MODEL)
+        else:
+            return _analyze_via_qwen(history, slots, user_msg, max_new_tokens)
+    except Exception as e:
+        logger.warning("analyze_user_turn failed: %r", e, exc_info=True)
+        return {
+            "extracted_slots": {},
+            "should_stop": False,
+            "stop_reason": "",
+            "next_question": "조금 더 알려주실 만한 게 있을까요?",
+            "source": "fallback",
+            "raw": "",
+        }
 
-    # ── 파티 목적 추출 ──────────────────────────────────────────
-    purpose_map = [
-        ("생일", "생일 파티"), ("기념일", "기념일"), ("데이트", "데이트"),
-        ("회식", "회식"), ("모임", "친목 모임"), ("파티", "파티"),
-    ]
-    for kw, val in purpose_map:
-        if kw in text:
-            extracted["party_purpose"] = val
-            break
 
-    # ── 도수 선호 추출 ──────────────────────────────────────────
-    strength_map = [
-        ("못 마셔", "약함"), ("약하게", "약함"), ("약한", "약함"), ("가볍게", "약함"),
-        ("강하게", "강함"), ("강한", "강함"), ("잘 마셔", "강함"),
-        ("중간", "중간"), ("보통", "중간"), ("적당히", "중간"),
-    ]
-    for kw, val in strength_map:
-        if kw in text:
-            extracted["strength_preference"] = val
-            break
-
-    # ── 선호 맛 추출 ────────────────────────────────────────────
-    prev_tastes: list[str] = list(slots.get("preferred_tastes") or [])
-    new_tastes = list(prev_tastes)
-    for kw, tag in _TASTE_KEYWORDS:
-        if kw in text and tag not in new_tastes:
-            new_tastes.append(tag)
-    if new_tastes != prev_tastes:
-        extracted["preferred_tastes"] = new_tastes
-
-    # ── 선호 향 추출 ────────────────────────────────────────────
-    prev_aromas: list[str] = list(slots.get("preferred_aromas") or [])
-    new_aromas = list(prev_aromas)
-    for kw, tag in _AROMA_KEYWORDS:
-        if kw in text and tag not in new_aromas:
-            new_aromas.append(tag)
-    if new_aromas != prev_aromas:
-        extracted["preferred_aromas"] = new_aromas
-
-    # ── 비선호 맛 추출 ──────────────────────────────────────────
-    prev_disliked: list[str] = list(slots.get("disliked_tastes") or [])
-    new_disliked = list(prev_disliked)
-    for kw, tag in _DISLIKED_TASTE_KEYWORDS:
-        if kw in text and tag not in new_disliked:
-            new_disliked.append(tag)
-    if new_disliked != prev_disliked:
-        extracted["disliked_tastes"] = new_disliked
-
-    # ── 비선호 베이스 추출 ──────────────────────────────────────
-    neg_markers = ["싫어", "못 마셔", "안 마셔", "안마셔", "싫"]
-    is_negative_context = any(m in text for m in neg_markers)
-    if is_negative_context:
-        prev_bases: list[str] = list(slots.get("disliked_bases") or [])
-        new_bases = list(prev_bases)
-        for base in _BASE_KEYWORDS:
-            if base in text and base not in new_bases:
-                new_bases.append(base)
-        if new_bases != prev_bases:
-            extracted["disliked_bases"] = new_bases
-
-    # ── 기분 추출 ────────────────────────────────────────────────
-    mood_map = [
-        ("신나", "신남"), ("설레", "설렘"), ("피곤", "피곤함"),
-        ("편안", "편안함"), ("슬프", "슬픔"), ("기뻐", "기쁨"), ("즐거", "즐거움"),
-    ]
-    for kw, val in mood_map:
-        if kw in text:
-            extracted["current_mood"] = val
-            break
-
-    # ── 끝맛 선호 ────────────────────────────────────────────────
-    if "깔끔" in text:
-        extracted["finish_preference"] = "깔끔하게"
-    elif "여운" in text or "진하게" in text:
-        extracted["finish_preference"] = "여운 있게"
-
-    # ── 좋아하는 음료 추출 ───────────────────────────────────────
-    favorite_drink_keywords = ["모히토", "하이볼", "마가리타", "진토닉", "위스키 사워"]
-    for drink in favorite_drink_keywords:
-        if drink in text:
-            extracted["favorite_drinks"] = drink
-            break
-
-    # ── 완성도 재계산 ────────────────────────────────────────────
-    merged = dict(slots)
-    merged.update(extracted)
-    completion = _calc_effective_completion(merged)
-
-    # ── 다음 질문 결정 ───────────────────────────────────────────
-    question = "네, 알겠습니다! 더 말씀해 주실 내용이 있나요?"
-    for slot_key, q in _SLOT_QUESTIONS:
-        if _is_slot_empty(merged.get(slot_key)):
-            question = q
-            break
-
-    return {
-        "extracted_slots": extracted,
-        "question": question,
-        "completion": completion,
-        "should_proceed": completion >= 80,
-    }
+def generate_opening_question() -> str:
+    """대화 첫 질문 — 정해진 오프너. (Qwen 호출 비용 아끼려고 고정)"""
+    return "오늘 어떤 자리이고 어떤 분위기를 원하세요? 원하는 맛이나 향도 같이 알려주시면 좋아요."
 
 
 # ============================================================
-# 사용자 프로필 빌드 (초기 태그 + 슬롯 병합)
+# 슬롯 병합
 # ============================================================
 
-def _merge_unique_list(*values) -> list[str]:
-    merged: list[str] = []
-    for v in values:
-        if not v:
-            continue
-        for item in v:
-            if item not in merged:
-                merged.append(item)
+def merge_slots(current: dict, extracted: dict) -> dict:
+    merged = dict(current) if current else {}
+
+    for key in ("current_mood", "party_purpose", "strength_preference"):
+        if key in extracted and extracted[key]:
+            merged[key] = extracted[key]
+
+    for key in ("taste_profile", "aroma_profile"):
+        if key in extracted and isinstance(extracted[key], dict):
+            base = dict(merged.get(key) or {})
+            base.update(extracted[key])
+            merged[key] = base
+
+    for key in ("disliked_bases", "favorite_drinks"):
+        if key in extracted and isinstance(extracted[key], list):
+            base = list(merged.get(key) or [])
+            for item in extracted[key]:
+                if item not in base:
+                    base.append(item)
+            merged[key] = base
+
     return merged
 
 
-def _normalize_strength_tag(value: Optional[str]) -> Optional[str]:
-    if not value:
-        return None
-    mapping = {
-        "약함": "약함", "약한": "약함", "술 못 마셔요": "약함", "가볍게": "약함",
-        "중간": "중간", "적당히": "중간", "보통": "중간", "무난하게": "중간",
-        "강함": "강함", "센 거": "강함", "센걸 원해요": "강함", "술 잘 마셔요": "강함",
-    }
-    return mapping.get(value, value)
+# ============================================================
+# User profile builder
+# ============================================================
+
+def _empty_slot_dict() -> dict:
+    return {k: None for k in SLOT_KEYS}
 
 
 def build_user_profile(db: Session, guest_session_id: str) -> dict:
-    """초기 태그 + preference_slot + preference_vector + space_analysis 통합."""
     guest = get_guest_session(db, guest_session_id)
-    tags  = get_initial_tag_response(db, guest_session_id)
-    slot  = get_preference_slot(db, guest_session_id)
+    tags = get_initial_tag_response(db, guest_session_id)
+    slot = get_preference_slot(db, guest_session_id)
     vector = get_preference_vector(db, guest_session_id)
-    space  = get_latest_space_analysis_by_party(db, guest.party_session_id) if guest else None
+    space = get_latest_space_analysis_by_party(db, guest.party_session_id) if guest else None
 
-    merged_slots = {
-        "party_purpose": slot.party_purpose if slot else None,
-        "current_mood":  slot.current_mood  if slot else None,
-        "preferred_tastes": _merge_unique_list(
-            tags.taste_tags_json  if tags else [],
-            slot.preferred_tastes_json if slot else [],
-        ),
-        "disliked_tastes": _merge_unique_list(
-            slot.disliked_tastes_json if slot else [],
-        ),
-        "preferred_aromas": _merge_unique_list(
-            tags.aroma_tags_json   if tags else [],
-            slot.preferred_aromas_json if slot else [],
-        ),
-        "disliked_aromas": _merge_unique_list(
-            slot.disliked_aromas_json if slot else [],
-        ),
-        "strength_preference": (
-            slot.strength_preference
-            if slot and slot.strength_preference
-            else _normalize_strength_tag(tags.strength_tag if tags else None)
-        ),
-        "favorite_drinks": slot.favorite_drinks_text if slot else None,
-        "disliked_bases":  _merge_unique_list(
-            slot.disliked_bases_json if slot else [],
-        ),
-        "finish_preference": slot.finish_preference if slot else None,
-    }
+    merged_slots = _empty_slot_dict()
+    if slot:
+        merged_slots.update({
+            "current_mood": slot.current_mood,
+            "party_purpose": slot.party_purpose,
+            "taste_profile": slot.taste_profile_json or {},
+            "aroma_profile": slot.aroma_profile_json or {},
+            "strength_preference": slot.strength_preference,
+            "disliked_bases": slot.disliked_bases_json or [],
+            "favorite_drinks": slot.favorite_drinks_json or [],
+        })
 
     return {
-        "guest":              guest,
-        "initial_tags":       tags,
-        "slot":               slot,
-        "vector":             vector,
-        "space":              space,
-        "merged_slots":       merged_slots,
+        "guest": guest,
+        "initial_tags": tags,
+        "slot": slot,
+        "vector": vector,
+        "space": space,
+        "merged_slots": merged_slots,
         "effective_completion": _calc_effective_completion(merged_slots),
     }

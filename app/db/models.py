@@ -71,6 +71,8 @@ class GuestSession(Base):
     )
     guest_label = Column(String(50), nullable=False)
     session_status = Column(String(20), nullable=False, default="IN_PROGRESS")
+    conversation_stage = Column(String(30), nullable=False, server_default=text("'INIT'"), default="INIT")
+    feedback_round = Column(Integer, nullable=False, server_default=text("0"), default=0)
     started_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
     ended_at = Column(TIMESTAMP, nullable=True)
     created_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
@@ -124,16 +126,17 @@ class PreferenceSlot(Base):
         nullable=False,
         unique=True,
     )
-    party_purpose = Column(String(50), nullable=True)
-    current_mood = Column(String(50), nullable=True)
-    preferred_tastes_json = Column(JSONB, nullable=True)
-    disliked_tastes_json = Column(JSONB, nullable=True)
-    preferred_aromas_json = Column(JSONB, nullable=True)
-    disliked_aromas_json = Column(JSONB, nullable=True)
-    strength_preference = Column(String(20), nullable=True)
-    favorite_drinks_text = Column(Text, nullable=True)
+    # enum 값은 영문 소문자 (preference_agent.SLOT_SCHEMA 참조)
+    party_purpose = Column(String(30), nullable=True)
+    current_mood = Column(String(30), nullable=True)
+    # {sweet|sour|bitter|body|creamy|freshness: low|medium|high}
+    taste_profile_json = Column(JSONB, nullable=True)
+    # {woody|minty|fruity|citrus|floral|coffee|herbal: low|medium|high}
+    aroma_profile_json = Column(JSONB, nullable=True)
+    strength_preference = Column(String(10), nullable=True)
+    #finish_preference = Column(String(10), nullable=True)
     disliked_bases_json = Column(JSONB, nullable=True)
-    finish_preference = Column(String(30), nullable=True)
+    favorite_drinks_json = Column(JSONB, nullable=True)
     slot_completion_score = Column(DECIMAL(5, 2), nullable=False, default=0.00)
     updated_at = Column(
         TIMESTAMP,

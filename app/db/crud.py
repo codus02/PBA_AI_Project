@@ -337,19 +337,16 @@ def _ensure_preference_vector(
 def calculate_slot_completion(slots: PreferenceSlot) -> Decimal:
     """
     슬롯 완료도 계산:
-    아래 10개 중 채워진 개수 / 10 * 100
+    아래 7개 중 채워진 개수 / 7 * 100
     """
     fields = [
         slots.party_purpose,
         slots.current_mood,
-        slots.preferred_tastes_json,
-        slots.disliked_tastes_json,
-        slots.preferred_aromas_json,
-        slots.disliked_aromas_json,
+        slots.taste_profile_json,
+        slots.aroma_profile_json,
         slots.strength_preference,
-        slots.favorite_drinks_text,
         slots.disliked_bases_json,
-        slots.finish_preference,
+        slots.favorite_drinks_json,
     ]
 
     filled_count = 0
@@ -364,7 +361,7 @@ def calculate_slot_completion(slots: PreferenceSlot) -> Decimal:
             continue
         filled_count += 1
 
-    score = round((filled_count / 10) * 100, 2)
+    score = round((filled_count / 7) * 100, 2)
     return Decimal(str(score))
 
 
@@ -378,14 +375,11 @@ def update_preference_slots(
     slot_to_column = {
         "party_purpose": "party_purpose",
         "current_mood": "current_mood",
-        "preferred_tastes": "preferred_tastes_json",
-        "disliked_tastes": "disliked_tastes_json",
-        "preferred_aromas": "preferred_aromas_json",
-        "disliked_aromas": "disliked_aromas_json",
+        "taste_profile": "taste_profile_json",
+        "aroma_profile": "aroma_profile_json",
         "strength_preference": "strength_preference",
-        "favorite_drinks": "favorite_drinks_text",
         "disliked_bases": "disliked_bases_json",
-        "finish_preference": "finish_preference",
+        "favorite_drinks": "favorite_drinks_json",
     }
 
     for slot_key, value in extracted_slots.items():

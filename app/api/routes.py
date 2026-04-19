@@ -26,11 +26,13 @@ from app.db.crud import (
 )
 from app.utils.config import UPLOAD_DIR
 from app.agents.preference_agent import (
-    run_dialogue,
-    choose_next_question,
+    analyze_user_turn,
+    generate_opening_question,
+    merge_slots,
     should_move_to_recommendation,
+    _calc_effective_completion,
 )
-from app.agents.orchestration_agent import run_recommendation, process_feedback
+from app.agents.orchestration_agent import run_recommendation, process_feedback, finalize_sample
 from app.agents.output_agent import generate_output_json
 
 
@@ -77,6 +79,68 @@ class EvaluationRequest(BaseModel):
 # Helpers
 # ============================================================
 
+def _seed_slots_from_initial_tags(tag_row) -> dict:
+    if not tag_row:
+        return {}
+
+    seeded = {}
+
+    strength_map = {
+        "무알콜":"zero",
+        "논알콜":"zero",
+        "알코올 없음":"zero",
+        "제로":"zero",
+        "약함": "light",
+        "가볍게": "light",
+        "중간": "medium",
+        "적당히": "medium",
+        "보통": "medium",
+        "강함": "strong",
+        "센 거": "strong",
+        "강하게": "strong",
+    }
+
+    aroma_map = {
+        "과일향": "fruity",
+        "허브향": "herbal",
+        "민트향": "minty",
+        "시트러스향": "citrus",
+        "우디향": "woody",
+        "커피향": "coffee",
+        "꽃향": "floral",
+    }
+
+    taste_map = {
+        "단맛": "sweet",
+        "신맛": "sour",
+        "쓴맛": "bitter",
+        "청량함": "freshness",
+        "청량감": "freshness",
+        "바디감": "body",
+        "크리미함": "creamy",
+    }
+
+    if tag_row.strength_tag in strength_map:
+        seeded["strength_preference"] = strength_map[tag_row.strength_tag]
+
+    taste_profile = {}
+    for t in (tag_row.taste_tags_json or []):
+        k = taste_map.get(t)
+        if k:
+            taste_profile[k] = "high"
+    if taste_profile:
+        seeded["taste_profile"] = taste_profile
+
+    aroma_profile = {}
+    for a in (tag_row.aroma_tags_json or []):
+        k = aroma_map.get(a)
+        if k:
+            aroma_profile[k] = "high"
+    if aroma_profile:
+        seeded["aroma_profile"] = aroma_profile
+
+    return seeded
+
 def _serialize_dialogue_turn(turn) -> dict:
     return {
         "turn_id": str(turn.turn_id),
@@ -94,16 +158,13 @@ def _slot_row_to_internal_dict(slot_row) -> dict:
         return {}
 
     return {
-        "party_purpose": slot_row.party_purpose,
         "current_mood": slot_row.current_mood,
-        "preferred_tastes": slot_row.preferred_tastes_json,
-        "disliked_tastes": slot_row.disliked_tastes_json,
-        "preferred_aromas": slot_row.preferred_aromas_json,
-        "disliked_aromas": slot_row.disliked_aromas_json,
+        "party_purpose": slot_row.party_purpose,
+        "taste_profile": slot_row.taste_profile_json or {},
+        "aroma_profile": slot_row.aroma_profile_json or {},
         "strength_preference": slot_row.strength_preference,
-        "favorite_drinks": slot_row.favorite_drinks_text,
-        "disliked_bases": slot_row.disliked_bases_json,
-        "finish_preference": slot_row.finish_preference,
+        "disliked_bases": slot_row.disliked_bases_json or [],
+        "favorite_drinks": slot_row.favorite_drinks_json or [],
     }
 
 
@@ -111,16 +172,13 @@ def _serialize_preference_slot(slot_row) -> dict:
     return {
         "slot_profile_id": str(slot_row.slot_profile_id),
         "guest_session_id": str(slot_row.guest_session_id),
-        "party_purpose": slot_row.party_purpose,
         "current_mood": slot_row.current_mood,
-        "preferred_tastes_json": slot_row.preferred_tastes_json,
-        "disliked_tastes_json": slot_row.disliked_tastes_json,
-        "preferred_aromas_json": slot_row.preferred_aromas_json,
-        "disliked_aromas_json": slot_row.disliked_aromas_json,
+        "party_purpose": slot_row.party_purpose,
+        "taste_profile_json": slot_row.taste_profile_json,
+        "aroma_profile_json": slot_row.aroma_profile_json,
         "strength_preference": slot_row.strength_preference,
-        "favorite_drinks_text": slot_row.favorite_drinks_text,
         "disliked_bases_json": slot_row.disliked_bases_json,
-        "finish_preference": slot_row.finish_preference,
+        "favorite_drinks_json": slot_row.favorite_drinks_json,
         "slot_completion_score": float(slot_row.slot_completion_score),
         "updated_at": slot_row.updated_at.isoformat() if slot_row.updated_at else None,
     }
@@ -153,6 +211,18 @@ def recommend_sample_endpoint(
 
     if result.get("status") == "ok":
         update_guest_stage(db, gid, "FEEDBACK_LOOP")
+        top = (result.get("top_k") or [{}])[0]
+        name = top.get("name_kr", "이 칵테일")
+        question = f"추천드린 '{name}' 어떠세요? 드셔보시고 느낌 알려주세요."
+        llm_turn = create_dialogue_turn(
+            db=db,
+            guest_session_id=gid,
+            speaker_role="LLM",
+            utterance_text=question,
+            extracted_slots_json=None,
+        )
+        result["llm_question"] = question
+        result["llm_turn"] = _serialize_dialogue_turn(llm_turn)
 
     return result
 
@@ -169,8 +239,33 @@ def feedback_endpoint(
     if not guest:
         raise HTTPException(status_code=404, detail="guest_session_id not found")
 
+    # USER 피드백을 dialogue turn에도 남김
+    create_dialogue_turn(
+        db=db,
+        guest_session_id=gid,
+        speaker_role="USER",
+        utterance_text=req.feedback_text,
+        extracted_slots_json=None,
+    )
+
+    current_round = (guest.feedback_round or 0) + 1
+    update_feedback_round(db, gid, current_round)
+
+    # 4회차 요청: 추가 피드백 받지 않고 현재 sample을 강제 확정
+    if current_round > 3:
+        try:
+            result = finalize_sample(
+                db=db,
+                guest_session_id=gid,
+                sample_recommendation_id=req.sample_recommendation_id,
+                forced=True,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        return result
+
     try:
-        return process_feedback(
+        result = process_feedback(
             db=db,
             guest_session_id=gid,
             sample_recommendation_id=req.sample_recommendation_id,
@@ -178,6 +273,37 @@ def feedback_endpoint(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    # 3회차인데 ACCEPT 아니면 강제 확정 (이 시점의 sample 기준)
+    if current_round == 3 and result.get("status") != "accepted":
+        forced_sample_id = result.get("sample_recommendation_id") or req.sample_recommendation_id
+        try:
+            result = finalize_sample(
+                db=db,
+                guest_session_id=gid,
+                sample_recommendation_id=forced_sample_id,
+                forced=True,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        return result
+
+    # 재추천된 경우 "어떠세요?" LLM 턴 추가
+    if result.get("status") == "re_recommended":
+        top = (result.get("top_k") or [{}])[0]
+        name = top.get("name_kr", "이 칵테일")
+        question = f"그럼 이번엔 '{name}' 어떠세요?"
+        llm_turn = create_dialogue_turn(
+            db=db,
+            guest_session_id=gid,
+            speaker_role="LLM",
+            utterance_text=question,
+            extracted_slots_json=None,
+        )
+        result["llm_question"] = question
+        result["llm_turn"] = _serialize_dialogue_turn(llm_turn)
+
+    return result
 
 # ============================================================
 # 1. Party / Guest Session
@@ -319,10 +445,9 @@ def start_dialogue_endpoint(
     if not guest:
         raise HTTPException(status_code=404, detail="guest_session_id not found")
 
-    slot_row = get_preference_slot(db, gid)
-    current_slots = _slot_row_to_internal_dict(slot_row)
-
-    question = choose_next_question(current_slots)
+    # 오프닝은 Qwen 호출 없이 고정 문구 사용 (첫 턴은 정보가 0이라 생성 의미가 적음)
+    greeting = "안녕하세요! 오늘 취향에 맞는 칵테일 찾아드릴게요. "
+    question = greeting + generate_opening_question()
 
     llm_turn = create_dialogue_turn(
         db=db,
@@ -360,18 +485,13 @@ def dialogue_endpoint(
         extracted_slots_json=None,
     )
 
-    # 2) 현재 슬롯 + 초기 태그 병합
+    # 2) 현재 슬롯 로드
     slot_row = get_preference_slot(db, gid)
     current_slots = _slot_row_to_internal_dict(slot_row)
 
     tag_row = get_initial_tag_response(db, gid)
-    if tag_row:
-        if not current_slots.get("preferred_tastes"):
-            current_slots["preferred_tastes"] = tag_row.taste_tags_json or []
-        if not current_slots.get("preferred_aromas"):
-            current_slots["preferred_aromas"] = tag_row.aroma_tags_json or []
-        if not current_slots.get("strength_preference") and tag_row.strength_tag:
-            current_slots["strength_preference"] = tag_row.strength_tag
+    seeded_slots = _seed_slots_from_initial_tags(tag_row)
+    current_slots = merge_slots(seeded_slots, current_slots)
 
     # 3) 대화 히스토리 구성
     history_rows = list_dialogue_turns(db, gid)
@@ -384,39 +504,30 @@ def dialogue_endpoint(
         for row in history_rows
     ]
 
-    # 4) 에이전트 실행
-    agent_result = run_dialogue(
+    # 4) 단일 Qwen 호출 — 추출 + 종료 + 다음 질문
+    agent_result = analyze_user_turn(
         history=history,
         slots=current_slots,
         user_msg=req.message,
     )
-    extracted_slots = agent_result.get("extracted_slots", {})
+    extracted_slots = agent_result["extracted_slots"]
 
-    # 5) 추출된 슬롯 DB 반영
+    # 5) 추출된 슬롯 DB 반영 (merge_slots로 병합 후 저장)
+    merged_slots = merge_slots(current_slots, extracted_slots)
     updated_slot_row = update_preference_slots(
         db=db,
         guest_session_id=gid,
-        extracted_slots=extracted_slots,
+        extracted_slots=merged_slots,
     )
 
-    # 6) 병합 슬롯 재구성 (초기 태그 포함)
-    merged_slots = _slot_row_to_internal_dict(updated_slot_row)
-    if tag_row:
-        merged_slots["preferred_tastes"] = list(dict.fromkeys(
-            (merged_slots.get("preferred_tastes") or []) + (tag_row.taste_tags_json or [])
-        ))
-        merged_slots["preferred_aromas"] = list(dict.fromkeys(
-            (merged_slots.get("preferred_aromas") or []) + (tag_row.aroma_tags_json or [])
-        ))
-        if not merged_slots.get("strength_preference") and tag_row.strength_tag:
-            merged_slots["strength_preference"] = tag_row.strength_tag
-
-    # 7) 추천 이동 판단
+    # 6) 추천 이동 판단
     user_turn_count = count_user_turns(db, gid)
     should_proceed, proceed_reason = should_move_to_recommendation(
         merged_slots=merged_slots,
         user_turn_count=user_turn_count,
         user_msg=req.message,
+        llm_should_stop=agent_result["should_stop"],
+        llm_stop_reason=agent_result["stop_reason"],
     )
 
     if should_proceed:
@@ -430,13 +541,8 @@ def dialogue_endpoint(
             "should_proceed": True,
         }
 
-    # 8) 다음 질문 생성 + LLM 턴 저장
-    question = choose_next_question(merged_slots)
-    if proceed_reason == "need_required_slots":
-        question = (
-            "추천 전에 한 가지만 더 확인할게요. "
-            + question
-        )
+    # 7) LLM이 생성한 다음 질문 저장
+    question = agent_result["next_question"]
     llm_turn = create_dialogue_turn(
         db=db,
         guest_session_id=gid,
@@ -454,7 +560,7 @@ def dialogue_endpoint(
         "question": question,
         "extracted_slots": extracted_slots,
         "slot_state": _serialize_preference_slot(updated_slot_row) if updated_slot_row else {},
-        "completion": agent_result.get("completion", 0.0),
+        "completion": _calc_effective_completion(merged_slots),
         "should_proceed": False,
     }
 
@@ -499,10 +605,13 @@ def save_evaluation(
         review_text=req.review_text,
     )
 
+    update_guest_stage(db, gid, "FINISHED")
+
     return {
         "status": "ok",
         "evaluation_id": str(row.evaluation_id),
         "satisfaction_score": float(row.final_satisfaction_score),
         "would_reorder": row.would_reorder,
+        "stage": "FINISHED",
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }

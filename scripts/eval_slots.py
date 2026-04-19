@@ -1,254 +1,214 @@
-# scripts/eval_slots.py
+"""슬롯 추출 평가 — 신규 스키마 (영문 enum + intensity dict).
+
+data/eval/slot_extraction_eval_v2_500.csv의 gold 라벨과 analyze_user_turn 출력 비교.
+
+메트릭:
+  - 스칼라 enum (current_mood, party_purpose, strength, finish): exact match
+  - intensity dict (taste_profile, aroma_profile):
+      * key_presence: gold 키가 pred에 있는지 (F1)
+      * exact_kv: 키 일치 && 값 일치 (F1)
+  - list enum (disliked_bases): set F1
+  - favorite_drinks: 존재 여부(binary) — free-form이라 문자열 정확 비교는 무의미
 """
-슬롯 추출 평가 스크립트
-gold 데이터(영어) → 우리 출력 형식(한국어)으로 정규화 후 비교
-"""
-import sys, json
-sys.path.insert(0, ".")
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+from pathlib import Path
 
 import pandas as pd
-from app.agents.preference_agent import run_dialogue
 
-# ── gold → 우리 형식 매핑 ─────────────────────────────────────────
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-PARTY_PURPOSE_MAP = {
-    "birthday":       "생일 파티",
-    "date":           "데이트",
-    "casual_hangout": "친목 모임",
-    "social":         "친목 모임",
-    "after_work":     "회식",
-    "business":       "회식",
-    "work":           "회식",
-    "party":          "파티",
-    "celebration":    "파티",
-    "special_day":    "기념일",
-    "anniversary":    "기념일",
-    "solo":           "혼술",
-    "alone":          "혼술",
-}
+from app.agents.preference_agent import analyze_user_turn
 
-CURRENT_MOOD_MAP = {
-    "social":    "즐거움",
-    "lively":    "신남",
-    "relaxing":  "편안함",
-    "dark":      "우울함",
-    "cool":      "편안함",
-    "casual":    "편안함",
-    "spacious":  "편안함",
-    "brunch":    "편안함",
-    "classic":   "편안함",
-    "private":   "편안함",
-    "happy":     "기쁨",
-    "excited":   "신남",
-    "cozy":      "편안함",
-    "calm":      "편안함",
-    "tired":     "피곤함",
-    "sad":       "슬픔",
-}
-
-STRENGTH_MAP = {
-    "light":  "약함",
-    "medium": "중간",
-    "strong": "강함",
-    "low":    "약함",
-    "high":   "강함",
-}
-
-FINISH_MAP = {
-    "clean":  "깔끔하게",
-    "crisp":  "깔끔하게",
-    "light":  "깔끔하게",
-    "smooth": "여운 있게",
-    "heavy":  "여운 있게",
-    "long":   "여운 있게",
-    "rich":   "여운 있게",
-}
-
-# taste_profile: JSON {"sour":"low","sweet":"high",...} → 한국어 리스트
-TASTE_KEY_MAP = {
-    "sweet":     "단맛",
-    "bitter":    "쓴맛",
-    "sour":      "신맛",
-    "fresh":     "청량함",
-    "freshness": "청량함",
-    "body":      "바디감",
-    "creamy":    "크리미함",
-    "spicy":     "스파이시",
-    "nutty":     "고소함",
-}
-
-# aroma_profile: JSON {"fruity":"high","minty":"low",...} → 한국어 리스트
-AROMA_KEY_MAP = {
-    "minty":    "민트향",
-    "mint":     "민트향",
-    "fruity":   "과일향",
-    "fruit":    "과일향",
-    "citrus":   "시트러스향",
-    "herbal":   "허브향",
-    "herb":     "허브향",
-    "coffee":   "커피향",
-    "woody":    "우디향",
-    "wood":     "우디향",
-    "floral":   "꽃향",
-    "flower":   "꽃향",
-}
-
-# disliked_bases: ["whiskey","rum",...] → 한국어
-BASE_MAP = {
-    "whiskey": "위스키",
-    "rum":     "럼",
-    "vodka":   "보드카",
-    "gin":     "진",
-    "tequila": "데킬라",
-    "sake":    "사케",
-    "beer":    "맥주",
-    "wine":    "와인",
-    "soju":    "소주",
-}
+CSV_PATH = Path("data/eval/slot_extraction_eval_v2_500.csv")
 
 
-def _norm_single(val, mapping):
-    if pd.isna(val) or str(val).strip() == "":
+# ============================================================
+# gold 파싱 유틸
+# ============================================================
+
+def _s(val):
+    if pd.isna(val):
         return None
-    return mapping.get(str(val).strip().lower())
+    s = str(val).strip()
+    return s or None
 
 
-def _parse_taste_profile(val) -> list:
-    """{"sweet":"high","sour":"low"} → "high"인 것만 한국어 리스트로"""
-    if pd.isna(val) or str(val).strip() == "":
+def _parse_json_list(val) -> list:
+    s = _s(val)
+    if not s:
         return []
     try:
-        d = json.loads(val)
-        result = []
-        for k, v in d.items():
-            kr = TASTE_KEY_MAP.get(k.lower())
-            if kr and str(v).lower() in ("high", "medium"):  # low는 비선호로 간주
-                result.append(kr)
-        return result
-    except:
+        v = json.loads(s)
+        return v if isinstance(v, list) else []
+    except Exception:
         return []
 
 
-def _parse_aroma_profile(val) -> list:
-    """{"fruity":"high","minty":"low"} → "high"/"medium"인 것만 한국어 리스트로"""
-    if pd.isna(val) or str(val).strip() == "":
-        return []
+def _parse_json_dict(val) -> dict:
+    s = _s(val)
+    if not s:
+        return {}
     try:
-        d = json.loads(val)
-        result = []
-        for k, v in d.items():
-            kr = AROMA_KEY_MAP.get(k.lower())
-            if kr and str(v).lower() in ("high", "medium"):
-                result.append(kr)
-        return result
-    except:
-        return []
+        v = json.loads(s)
+        return v if isinstance(v, dict) else {}
+    except Exception:
+        return {}
 
 
-def _parse_disliked_bases(val) -> list:
-    """["whiskey","rum"] → ["위스키","럼"]"""
-    if pd.isna(val) or str(val).strip() == "":
-        return []
-    try:
-        lst = json.loads(val)
-        return [BASE_MAP[x.lower()] for x in lst if x.lower() in BASE_MAP]
-    except:
-        return []
+# ============================================================
+# 메트릭
+# ============================================================
+
+class Accum:
+    __slots__ = ("correct", "total")
+
+    def __init__(self):
+        self.correct = 0
+        self.total = 0
+
+    def add(self, ok: bool):
+        self.total += 1
+        if ok:
+            self.correct += 1
+
+    def pct(self) -> float:
+        return (self.correct / self.total * 100) if self.total else 0.0
 
 
-def _list_overlap(pred_list, gold_list) -> bool:
-    """1개 이상 겹치면 True"""
-    if not pred_list or not gold_list:
-        return False
-    pred_set = set(str(x) for x in pred_list)
-    gold_set = set(str(x) for x in gold_list)
-    return bool(pred_set & gold_set)
+class PRF:
+    __slots__ = ("tp", "fp", "fn")
+
+    def __init__(self):
+        self.tp = self.fp = self.fn = 0
+
+    def add(self, pred: set, gold: set):
+        self.tp += len(pred & gold)
+        self.fp += len(pred - gold)
+        self.fn += len(gold - pred)
+
+    def f1(self) -> tuple[float, float, float]:
+        p = self.tp / (self.tp + self.fp) if (self.tp + self.fp) else 0.0
+        r = self.tp / (self.tp + self.fn) if (self.tp + self.fn) else 0.0
+        f = (2 * p * r / (p + r)) if (p + r) else 0.0
+        return p * 100, r * 100, f * 100
 
 
-def eval_slots():
-    df = pd.read_csv("data/eval/slot_extraction_eval_v2_500.csv")
+# ============================================================
+# 평가 루프
+# ============================================================
 
-    results = {
-        "party_purpose":      {"correct": 0, "total": 0},
-        "current_mood":       {"correct": 0, "total": 0},
-        "strength_preference":{"correct": 0, "total": 0},
-        "finish_preference":  {"correct": 0, "total": 0},
-        "preferred_tastes":   {"correct": 0, "total": 0},
-        "preferred_aromas":   {"correct": 0, "total": 0},
-        "disliked_bases":     {"correct": 0, "total": 0},
-    }
+def run_eval(limit: int | None = None, verbose: bool = False):
+    df = pd.read_csv(CSV_PATH)
+    if limit:
+        df = df.head(limit)
 
-    for _, row in df.iterrows():
-        # 슬롯 추출 실행
-        result = run_dialogue(history=[], slots={}, user_msg=row["user_text"])
-        ext = result.get("extracted_slots", {})
+    enum_acc = {k: Accum() for k in ["current_mood", "party_purpose", "strength_preference", "finish_preference"]}
 
-        # ── party_purpose ──────────────────────────────────────────
-        gold = _norm_single(row.get("gold_party_purpose"), PARTY_PURPOSE_MAP)
-        if gold:
-            results["party_purpose"]["total"] += 1
-            if ext.get("party_purpose") == gold:
-                results["party_purpose"]["correct"] += 1
+    taste_key_prf = PRF()
+    taste_kv_prf = PRF()
+    aroma_key_prf = PRF()
+    aroma_kv_prf = PRF()
+    bases_prf = PRF()
+    favs_bin = Accum()  # gold에 값이 있을 때 pred도 비어있지 않으면 correct
 
-        # ── current_mood ───────────────────────────────────────────
-        gold = _norm_single(row.get("gold_current_mood"), CURRENT_MOOD_MAP)
-        if gold:
-            results["current_mood"]["total"] += 1
-            if ext.get("current_mood") == gold:
-                results["current_mood"]["correct"] += 1
+    t0 = time.perf_counter()
+    n = len(df)
+    for i, row in enumerate(df.itertuples(index=False), 1):
+        result = analyze_user_turn(history=[], slots={}, user_msg=row.user_text)
+        pred = result["extracted_slots"]
 
-        # ── strength_preference ────────────────────────────────────
-        gold = _norm_single(row.get("gold_strength_preference"), STRENGTH_MAP)
-        if gold:
-            results["strength_preference"]["total"] += 1
-            if ext.get("strength_preference") == gold:
-                results["strength_preference"]["correct"] += 1
+        # scalar enums
+        for csv_key, slot_key in [
+            ("gold_current_mood", "current_mood"),
+            ("gold_party_purpose", "party_purpose"),
+            ("gold_strength_preference", "strength_preference"),
+            ("gold_finish_preference", "finish_preference"),
+        ]:
+            g = _s(getattr(row, csv_key))
+            if g is None:
+                continue  # gold 비어 있으면 평가 대상 아님
+            p = pred.get(slot_key)
+            enum_acc[slot_key].add(p == g)
 
-        # ── finish_preference ──────────────────────────────────────
-        gold = _norm_single(row.get("gold_finish_preference"), FINISH_MAP)
-        if gold:
-            results["finish_preference"]["total"] += 1
-            if ext.get("finish_preference") == gold:
-                results["finish_preference"]["correct"] += 1
+        # taste_profile
+        g_taste = _parse_json_dict(row.gold_taste_profile)
+        p_taste = pred.get("taste_profile") or {}
+        if g_taste or p_taste:
+            taste_key_prf.add(set(p_taste.keys()), set(g_taste.keys()))
+            taste_kv_prf.add(
+                {(k, v) for k, v in p_taste.items()},
+                {(k, v) for k, v in g_taste.items()},
+            )
 
-        # ── preferred_tastes (1개 이상 겹치면 정답) ─────────────────
-        gold_tastes = _parse_taste_profile(row.get("gold_taste_profile"))
-        if gold_tastes:
-            results["preferred_tastes"]["total"] += 1
-            pred_tastes = ext.get("preferred_tastes") or []
-            if _list_overlap(pred_tastes, gold_tastes):
-                results["preferred_tastes"]["correct"] += 1
+        # aroma_profile
+        g_aroma = _parse_json_dict(row.gold_aroma_profile)
+        p_aroma = pred.get("aroma_profile") or {}
+        if g_aroma or p_aroma:
+            aroma_key_prf.add(set(p_aroma.keys()), set(g_aroma.keys()))
+            aroma_kv_prf.add(
+                {(k, v) for k, v in p_aroma.items()},
+                {(k, v) for k, v in g_aroma.items()},
+            )
 
-        # ── preferred_aromas (1개 이상 겹치면 정답) ─────────────────
-        gold_aromas = _parse_aroma_profile(row.get("gold_aroma_profile"))
-        if gold_aromas:
-            results["preferred_aromas"]["total"] += 1
-            pred_aromas = ext.get("preferred_aromas") or []
-            if _list_overlap(pred_aromas, gold_aromas):
-                results["preferred_aromas"]["correct"] += 1
+        # disliked_bases
+        g_bases = set(_parse_json_list(row.gold_disliked_bases))
+        p_bases = set(pred.get("disliked_bases") or [])
+        if g_bases or p_bases:
+            bases_prf.add(p_bases, g_bases)
 
-        # ── disliked_bases (1개 이상 겹치면 정답) ───────────────────
-        gold_bases = _parse_disliked_bases(row.get("gold_disliked_bases"))
-        if gold_bases:
-            results["disliked_bases"]["total"] += 1
-            pred_bases = ext.get("disliked_bases") or []
-            if _list_overlap(pred_bases, gold_bases):
-                results["disliked_bases"]["correct"] += 1
+        # favorite_drinks: binary presence
+        g_favs = _parse_json_list(row.gold_favorite_drinks)
+        # gold_favorite_drinks is sometimes free string, not JSON — handle both
+        if not g_favs:
+            raw = _s(row.gold_favorite_drinks)
+            g_favs = [raw] if raw else []
+        if g_favs:
+            p_favs = pred.get("favorite_drinks") or []
+            favs_bin.add(bool(p_favs))
 
-    print("\n[슬롯 추출 평가]")
-    total_c, total_t = 0, 0
-    for field, r in results.items():
-        if r["total"] == 0:
-            continue
-        acc = r["correct"] / r["total"] * 100
-        print(f"  {field:25s}: {r['correct']:3d}/{r['total']:3d} = {acc:.1f}%")
-        total_c += r["correct"]
-        total_t += r["total"]
+        if verbose and i <= 10:
+            print(f"[{i}/{n}] user={row.user_text[:60]}...")
+            print(f"  pred: {json.dumps(pred, ensure_ascii=False)}")
+        elif i % 25 == 0:
+            dt = time.perf_counter() - t0
+            print(f"  progress {i}/{n}  elapsed={dt:.1f}s")
 
-    overall = total_c / total_t * 100 if total_t else 0
-    print(f"\n  전체 평균 정확도: {overall:.1f}%")
-    return overall
+    total_time = time.perf_counter() - t0
+
+    print("\n" + "=" * 60)
+    print(f"SLOT EXTRACTION EVAL — {n} cases ({total_time:.1f}s, {total_time/max(n,1):.2f}s/case)")
+    print("=" * 60)
+
+    print("\n[Scalar enums — exact match]")
+    for k, acc in enum_acc.items():
+        print(f"  {k:22s}: {acc.correct:4d}/{acc.total:4d} = {acc.pct():5.1f}%")
+
+    def _pr(label, prf: PRF):
+        p, r, f = prf.f1()
+        print(f"  {label:32s}: P={p:5.1f}  R={r:5.1f}  F1={f:5.1f}  (tp={prf.tp} fp={prf.fp} fn={prf.fn})")
+
+    print("\n[Intensity dicts]")
+    _pr("taste_profile KEY presence", taste_key_prf)
+    _pr("taste_profile KEY+VALUE exact", taste_kv_prf)
+    _pr("aroma_profile KEY presence", aroma_key_prf)
+    _pr("aroma_profile KEY+VALUE exact", aroma_kv_prf)
+
+    print("\n[List enum]")
+    _pr("disliked_bases", bases_prf)
+
+    print("\n[Favorite drinks — binary presence]")
+    print(f"  favorite_drinks detected : {favs_bin.correct:4d}/{favs_bin.total:4d} = {favs_bin.pct():5.1f}%")
+    print()
 
 
 if __name__ == "__main__":
-    eval_slots()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--limit", type=int, default=None, help="처음 N건만 평가")
+    ap.add_argument("-v", "--verbose", action="store_true")
+    args = ap.parse_args()
+    run_eval(limit=args.limit, verbose=args.verbose)

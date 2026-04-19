@@ -73,7 +73,7 @@ def run_feedback_loop(guest_id: str, sample_rec_id: str) -> dict:
         )
         result = expect_ok(r, f"feedback-{round_idx}")
 
-        if result.get("status") == "accepted":
+        if result.get("status") in ("accepted", "force_finalized"):
             final_result = result
             break
 
@@ -176,7 +176,7 @@ def main():
 
     # 8. 피드백 루프 (최대 3회, 이후 강제 확정)
     final_result = run_feedback_loop(guest_id, sample_rec_id)
-    if final_result.get("status") != "accepted":
+    if final_result.get("status") not in ("accepted", "force_finalized"):
         raise RuntimeError(f"final confirmation failed: {final_result}")
 
     final_rec_id = final_result["final_recommendation_id"]

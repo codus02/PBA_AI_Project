@@ -26,35 +26,38 @@ from app.agents.output_agent import generate_recipe_snapshot
 # 매핑 테이블
 # ============================================================
 
+# taste_profile 키 → Cocktail 컬럼
 TASTE_TO_COCKTAIL = {
-    "단맛": "sweet_level",
-    "달콤함": "sweet_level",
-    "쓴맛": "bitter_level",
-    "쌉쌀함": "bitter_level",
-    "신맛": "sour_level",
-    "상큼함": "sour_level",
-    "청량함": "freshness_level",
-    "바디감": "body_level",
-    "크리미함": "creamy_level",
-    "스파이시": "spicy_level",
-    "고소함": "nutty_level",
+    "sweet": "sweet_level",
+    "sour": "sour_level",
+    "bitter": "bitter_level",
+    "body": "body_level",
+    "creamy": "creamy_level",
+    "freshness": "freshness_level",
 }
 
+# aroma_profile 키 → Ingredient 컬럼
 AROMA_TO_INGREDIENT = {
-    "민트향": "minty_score",
-    "과일향": "fruity_score",
-    "시트러스향": "citrus_score",
-    "허브향": "herbal_score",
-    "커피향": "coffee_score",
-    "우디향": "woody_score",
-    "꽃향": "floral_score",
+    "minty": "minty_score",
+    "fruity": "fruity_score",
+    "citrus": "citrus_score",
+    "herbal": "herbal_score",
+    "coffee": "coffee_score",
+    "woody": "woody_score",
+    "floral": "floral_score",
 }
 
 STRENGTH_RANGE = {
-    "약함": (0.0, 2.0),
-    "중간": (1.5, 3.5),
-    "강함": (3.0, 5.0),
+    "light": (0.0, 2.0),
+    "medium": (1.5, 3.5),
+    "strong": (3.0, 5.0),
 }
+
+# intensity → 점수 스케일
+INTENSITY_WEIGHT = {"low": -1.0, "medium": 0.3, "high": 1.0}
+# high/medium만 "선호"로 취급하고 점수에 가점, low는 감점
+HIGH_THRESHOLD_COL_VALUE = 3.5
+AROMA_ING_THRESHOLD = 3.0
 
 # ============================================================
 # helper
@@ -90,23 +93,27 @@ def _build_reason_parts(
     space = profile["space"]
     reasons: list[str] = []
 
+    taste_profile: dict = merged.get("taste_profile") or {}
     matched_tastes: list[str] = []
-    for tag in (merged.get("preferred_tastes") or []):
+    for tag, intensity in taste_profile.items():
+        if intensity not in ("medium", "high"):
+            continue
         col = TASTE_TO_COCKTAIL.get(tag)
         if col and getattr(cocktail, col) is not None:
-            if float(getattr(cocktail, col)) >= 3.5:
+            if float(getattr(cocktail, col)) >= HIGH_THRESHOLD_COL_VALUE:
                 matched_tastes.append(tag)
-
     if matched_tastes:
         reasons.append(f"선호 맛과 일치: {', '.join(matched_tastes)}")
 
+    aroma_profile: dict = merged.get("aroma_profile") or {}
     matched_aromas: list[str] = []
     for _, ingredient in recipe_ingredients:
-        for tag in (merged.get("preferred_aromas") or []):
+        for tag, intensity in aroma_profile.items():
+            if intensity not in ("medium", "high"):
+                continue
             col = AROMA_TO_INGREDIENT.get(tag)
-            if col and getattr(ingredient, col, 0) >= 3.0 and tag not in matched_aromas:
+            if col and getattr(ingredient, col, 0) >= AROMA_ING_THRESHOLD and tag not in matched_aromas:
                 matched_aromas.append(tag)
-
     if matched_aromas:
         reasons.append(f"선호 향과 일치: {', '.join(matched_aromas)}")
 
@@ -122,6 +129,9 @@ def _build_reason_parts(
     finish_pref = merged.get("finish_preference")
     if finish_pref:
         reasons.append(f"끝맛 선호 반영: {finish_pref}")
+
+    if merged.get("favorite_drinks"):
+        reasons.append(f"선호 음료 참고: {', '.join(merged['favorite_drinks'][:3])}")
 
     if not reasons:
         reasons.append("기본 취향 점수 기반 추천")
@@ -147,14 +157,38 @@ def get_candidate_cocktails(
 # 3. 비선호 베이스
 # ============================================================
 
+# 영문 베이스 enum → 한국어 재료명 후보
+_BASE_EN_TO_KR_NAMES = {
+    "whiskey": ("위스키", "whiskey", "whisky", "wh-"),
+    "gin": ("진", "gin"),
+    "rum": ("럼", "rum"),
+    "vodka": ("보드카", "vodka"),
+    "tequila": ("테킬라", "tequila"),
+}
+
+
+def _ingredient_matches_base(ingredient_name: str, base_en: str) -> bool:
+    if not ingredient_name:
+        return False
+    name = ingredient_name.lower()
+    for kw in _BASE_EN_TO_KR_NAMES.get(base_en, ()):
+        if kw.lower() in name:
+            return True
+    return False
+
+
 def _has_disliked_base(merged_slots: dict, recipe_ingredients: list[tuple]) -> bool:
     disliked_bases = merged_slots.get("disliked_bases") or []
     if not disliked_bases:
         return False
 
     for _, ingredient in recipe_ingredients:
-        if ingredient.ingredient_type == "BASE" and _ingredient_name(ingredient) in disliked_bases:
-            return True
+        if ingredient.ingredient_type != "BASE":
+            continue
+        name = _ingredient_name(ingredient)
+        for base_en in disliked_bases:
+            if _ingredient_matches_base(name, base_en):
+                return True
     return False
 
 
@@ -205,41 +239,51 @@ def score_cocktail(
             continue
         score += _normalize(float(user_s), float(cocktail_s), max_r) * weight
 
-    # 2. 선호 맛 보너스
-    for tag in (merged.get("preferred_tastes") or []):
+    # 2. 맛 프로파일 (intensity 가중)
+    taste_profile: dict = merged.get("taste_profile") or {}
+    for tag, intensity in taste_profile.items():
         col = TASTE_TO_COCKTAIL.get(tag)
-        if col and getattr(cocktail, col) is not None:
-            if float(getattr(cocktail, col)) >= 3.5:
+        if not col:
+            continue
+        val = getattr(cocktail, col)
+        if val is None:
+            continue
+        val = float(val)
+        if intensity == "high":
+            if val >= 3.5:
                 score += 10
-
-    # 3. 선호 향 보너스
-    for _, ingredient in recipe_ingredients:
-        for tag in (merged.get("preferred_aromas") or []):
-            col = AROMA_TO_INGREDIENT.get(tag)
-            if col and getattr(ingredient, col, 0) >= 3.0:
-                score += 8
-
-    # 4. 공간 무드 보너스
-    if space and cocktail.mood_tag:
-        mood_prob = (space.mood_tags_json or {}).get(cocktail.mood_tag, 0.0)
-        score += mood_prob * 15
-
-    # 5. 비선호 맛 패널티
-    for tag in (merged.get("disliked_tastes") or []):
-        col = TASTE_TO_COCKTAIL.get(tag)
-        if col and getattr(cocktail, col) is not None:
-            val = float(getattr(cocktail, col))
+            elif val <= 1.5:
+                score -= 12
+        elif intensity == "medium":
+            if val >= 3.0:
+                score += 5
+        elif intensity == "low":
+            # 사용자가 "이 맛 안 좋아함" → 강하게 있으면 감점
             if val >= 4.0:
                 score -= 25
             elif val >= 3.0:
                 score -= 10
 
-    # 6. 비선호 향 패널티
+    # 3. 향 프로파일 (intensity 가중)
+    aroma_profile: dict = merged.get("aroma_profile") or {}
     for _, ingredient in recipe_ingredients:
-        for tag in (merged.get("disliked_aromas") or []):
+        for tag, intensity in aroma_profile.items():
             col = AROMA_TO_INGREDIENT.get(tag)
-            if col and getattr(ingredient, col, 0) >= 3.0:
+            if not col:
+                continue
+            ing_val = getattr(ingredient, col, 0) or 0
+            ing_val = float(ing_val)
+            if intensity == "high" and ing_val >= AROMA_ING_THRESHOLD:
+                score += 8
+            elif intensity == "medium" and ing_val >= AROMA_ING_THRESHOLD:
+                score += 3
+            elif intensity == "low" and ing_val >= AROMA_ING_THRESHOLD:
                 score -= 20
+
+    # 4. 공간 무드 보너스
+    if space and cocktail.mood_tag:
+        mood_prob = (space.mood_tags_json or {}).get(cocktail.mood_tag, 0.0)
+        score += mood_prob * 15
 
     # 7. 도수 선호 보너스
     strength_pref = merged.get("strength_preference")
@@ -356,6 +400,73 @@ def run_recommendation(
 
 
 # ============================================================
+# 6.5 최종 추천 확정 (ACCEPT 또는 3회 초과 강제)
+# ============================================================
+
+def finalize_sample(
+    db: Session,
+    guest_session_id: str,
+    sample_recommendation_id: str,
+    forced: bool = False,
+) -> dict:
+    sample_row = get_sample_recommendation(db, sample_recommendation_id)
+    if not sample_row:
+        raise ValueError("sample recommendation not found")
+
+    all_feedbacks = list_feedbacks_by_sample_recommendation(db, sample_recommendation_id)
+    feedback_ids = [str(row.sample_feedback_id) for row in all_feedbacks]
+
+    aggregated_deltas = {
+        "sweetness_delta":  sum(float(fb.sweetness_delta  or 0) for fb in all_feedbacks),
+        "sourness_delta":   sum(float(fb.sourness_delta   or 0) for fb in all_feedbacks),
+        "bitterness_delta": sum(float(fb.bitterness_delta or 0) for fb in all_feedbacks),
+        "body_delta":       sum(float(fb.body_delta       or 0) for fb in all_feedbacks),
+        "freshness_delta":  sum(float(fb.freshness_delta  or 0) for fb in all_feedbacks),
+    }
+
+    final_snapshot = generate_recipe_snapshot(
+        db=db,
+        cocktail_id=sample_row.recommended_cocktail_id,
+        volume_ml=90,
+        feedback_deltas=aggregated_deltas,
+    )
+    is_adjusted = bool(final_snapshot.get("is_adjusted"))
+
+    if forced:
+        reason_parts = ["피드백 3회 한도 도달하여 현재 추천을 최종 확정했습니다."]
+    else:
+        reason_parts = ["사용자가 시음 후 현재 추천을 최종 선택했습니다."]
+
+    if is_adjusted:
+        adjusted_names = [
+            item["ingredient_name"] for item in final_snapshot["recipe"]
+            if item.get("adjusted")
+        ]
+        if adjusted_names:
+            reason_parts.append(
+                f"누적 피드백 반영하여 재료량 조정: {', '.join(adjusted_names)}"
+            )
+
+    final_row = create_final_recommendation(
+        db=db,
+        guest_session_id=guest_session_id,
+        sample_recommendation_id=sample_recommendation_id,
+        final_cocktail_id=sample_row.recommended_cocktail_id,
+        used_feedback_ids_json=feedback_ids,
+        is_adjusted_recipe=is_adjusted,
+        final_recipe_snapshot_json=final_snapshot,
+        final_reason_text=" ".join(reason_parts),
+    )
+
+    return {
+        "status": "accepted" if not forced else "force_finalized",
+        "intent": "ACCEPT" if not forced else "FORCED",
+        "final_recommendation_id": str(final_row.final_recommendation_id),
+        "final_cocktail_id": sample_row.recommended_cocktail_id,
+    }
+
+
+# ============================================================
 # 7. 피드백 처리
 # ============================================================
 
@@ -423,54 +534,7 @@ def process_feedback(
 
     # ACCEPT → 최종 추천 확정
     if intent == "ACCEPT":
-        all_feedbacks = list_feedbacks_by_sample_recommendation(db, sample_recommendation_id)
-        feedback_ids = [str(row.sample_feedback_id) for row in all_feedbacks]
-
-        # 누적 피드백 델타 합산 → 최종 레시피에 반영 (FR-16)
-        aggregated_deltas = {
-            "sweetness_delta":  sum(float(fb.sweetness_delta  or 0) for fb in all_feedbacks),
-            "sourness_delta":   sum(float(fb.sourness_delta   or 0) for fb in all_feedbacks),
-            "bitterness_delta": sum(float(fb.bitterness_delta or 0) for fb in all_feedbacks),
-            "body_delta":       sum(float(fb.body_delta       or 0) for fb in all_feedbacks),
-            "freshness_delta":  sum(float(fb.freshness_delta  or 0) for fb in all_feedbacks),
-        }
-
-        final_snapshot = generate_recipe_snapshot(
-            db=db,
-            cocktail_id=sample_row.recommended_cocktail_id,
-            volume_ml=90,
-            feedback_deltas=aggregated_deltas,
-        )
-        is_adjusted = bool(final_snapshot.get("is_adjusted"))
-
-        reason_parts = ["사용자가 시음 후 현재 추천을 최종 선택했습니다."]
-        if is_adjusted:
-            adjusted_names = [
-                item["ingredient_name"] for item in final_snapshot["recipe"]
-                if item.get("adjusted")
-            ]
-            if adjusted_names:
-                reason_parts.append(
-                    f"누적 피드백 반영하여 재료량 조정: {', '.join(adjusted_names)}"
-                )
-
-        final_row = create_final_recommendation(
-            db=db,
-            guest_session_id=guest_session_id,
-            sample_recommendation_id=sample_recommendation_id,
-            final_cocktail_id=sample_row.recommended_cocktail_id,
-            used_feedback_ids_json=feedback_ids,
-            is_adjusted_recipe=is_adjusted,
-            final_recipe_snapshot_json=final_snapshot,
-            final_reason_text=" ".join(reason_parts),
-        )
-
-        return {
-            "status": "accepted",
-            "intent": "ACCEPT",
-            "final_recommendation_id": str(final_row.final_recommendation_id),
-            "final_cocktail_id": sample_row.recommended_cocktail_id,
-        }
+        return finalize_sample(db, guest_session_id, sample_recommendation_id, forced=False)
 
 # ADJUST → 벡터 업데이트 후 재추천
     if intent == "ADJUST":
