@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import List, Optional, Any
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
@@ -19,11 +19,20 @@ from app.db.crud import (
     update_preference_slots,
     get_final_recommendation_by_id,
     get_initial_tag_response,
+    create_evaluation_log,
+    update_guest_stage,
+    update_feedback_round,
+    count_user_turns,
 )
 from app.utils.config import UPLOAD_DIR
-from app.agents.preference_agent import run_dialogue
+from app.agents.preference_agent import (
+    run_dialogue,
+    choose_next_question,
+    should_move_to_recommendation,
+)
 from app.agents.orchestration_agent import run_recommendation, process_feedback
 from app.agents.output_agent import generate_output_json
+
 
 router = APIRouter()
 
@@ -56,6 +65,12 @@ class DialogueRequest(BaseModel):
 class FeedbackRequest(BaseModel):
     sample_recommendation_id: str
     feedback_text: str
+
+class EvaluationRequest(BaseModel):
+    final_recommendation_id: str
+    satisfaction_score: float = Field(..., ge=1.0, le=5.0, description="1~5점")
+    would_reorder: bool
+    review_text: Optional[str] = None
 
 
 # ============================================================
@@ -127,13 +142,21 @@ def healthcheck():
 @router.post("/sessions/{gid}/recommend-sample")
 def recommend_sample_endpoint(
     gid: str,
+    force: bool = False,
     db: Session = Depends(get_db),
 ):
     guest = get_guest_session(db, gid)
     if not guest:
         raise HTTPException(status_code=404, detail="guest_session_id not found")
 
-    return run_recommendation(db, gid, k=3)
+    result = run_recommendation(db, gid, k=3, force=force)
+
+    if result.get("status") == "ok":
+        update_guest_stage(db, gid, "FEEDBACK_LOOP")
+
+    return result
+
+  
 
 
 @router.post("/sessions/{gid}/feedback")
@@ -287,6 +310,37 @@ async def upload_space_image(
 # 4. Dialogue
 # ============================================================
 
+@router.post("/sessions/{gid}/start-dialogue")
+def start_dialogue_endpoint(
+    gid: str,
+    db: Session = Depends(get_db),
+):
+    guest = get_guest_session(db, gid)
+    if not guest:
+        raise HTTPException(status_code=404, detail="guest_session_id not found")
+
+    slot_row = get_preference_slot(db, gid)
+    current_slots = _slot_row_to_internal_dict(slot_row)
+
+    question = choose_next_question(current_slots)
+
+    llm_turn = create_dialogue_turn(
+        db=db,
+        guest_session_id=gid,
+        speaker_role="LLM",
+        utterance_text=question,
+        extracted_slots_json=None,
+    )
+
+    update_guest_stage(db, gid, "COLLECTING")
+
+    return {
+        "status": "ok",
+        "stage": "COLLECTING",
+        "question": question,
+        "llm_turn": _serialize_dialogue_turn(llm_turn),
+    }
+
 @router.post("/sessions/{gid}/dialogue")
 def dialogue_endpoint(
     gid: str,
@@ -297,18 +351,6 @@ def dialogue_endpoint(
     if not guest:
         raise HTTPException(status_code=404, detail="guest_session_id not found")
 
-    # 0) 대화 히스토리 조회 (턴 수 체크용)
-    history_rows = list_dialogue_turns(db, gid)
-    user_turn_count = sum(1 for r in history_rows if r.speaker_role == "USER")
-    if user_turn_count >= 7:
-        slot_row = get_preference_slot(db, gid)
-        return {
-            "status": "max_turns_reached",
-            "message": "대화 한도(7회)에 도달했습니다. 추천을 진행해주세요.",
-            "should_proceed": True,
-            "completion": float(slot_row.slot_completion_score) if slot_row else 0.0,
-        }
-
     # 1) 사용자 턴 저장
     user_turn = create_dialogue_turn(
         db=db,
@@ -318,11 +360,10 @@ def dialogue_endpoint(
         extracted_slots_json=None,
     )
 
-    # 2) 현재 슬롯 상태 조회
+    # 2) 현재 슬롯 + 초기 태그 병합
     slot_row = get_preference_slot(db, gid)
     current_slots = _slot_row_to_internal_dict(slot_row)
 
-    # 2-1) 초기 태그를 슬롯에 병합 (대화 완성도에 반영)
     tag_row = get_initial_tag_response(db, gid)
     if tag_row:
         if not current_slots.get("preferred_tastes"):
@@ -332,7 +373,8 @@ def dialogue_endpoint(
         if not current_slots.get("strength_preference") and tag_row.strength_tag:
             current_slots["strength_preference"] = tag_row.strength_tag
 
-    # 3) 전체 대화 히스토리 구성
+    # 3) 대화 히스토리 구성
+    history_rows = list_dialogue_turns(db, gid)
     history = [
         {
             "speaker_role": row.speaker_role,
@@ -348,11 +390,7 @@ def dialogue_endpoint(
         slots=current_slots,
         user_msg=req.message,
     )
-
     extracted_slots = agent_result.get("extracted_slots", {})
-    question = agent_result.get("question", "")
-    completion = agent_result.get("completion", 0.0)
-    should_proceed = agent_result.get("should_proceed", False)
 
     # 5) 추출된 슬롯 DB 반영
     updated_slot_row = update_preference_slots(
@@ -361,7 +399,44 @@ def dialogue_endpoint(
         extracted_slots=extracted_slots,
     )
 
-    # 6) LLM 질문 턴 저장
+    # 6) 병합 슬롯 재구성 (초기 태그 포함)
+    merged_slots = _slot_row_to_internal_dict(updated_slot_row)
+    if tag_row:
+        merged_slots["preferred_tastes"] = list(dict.fromkeys(
+            (merged_slots.get("preferred_tastes") or []) + (tag_row.taste_tags_json or [])
+        ))
+        merged_slots["preferred_aromas"] = list(dict.fromkeys(
+            (merged_slots.get("preferred_aromas") or []) + (tag_row.aroma_tags_json or [])
+        ))
+        if not merged_slots.get("strength_preference") and tag_row.strength_tag:
+            merged_slots["strength_preference"] = tag_row.strength_tag
+
+    # 7) 추천 이동 판단
+    user_turn_count = count_user_turns(db, gid)
+    should_proceed, proceed_reason = should_move_to_recommendation(
+        merged_slots=merged_slots,
+        user_turn_count=user_turn_count,
+        user_msg=req.message,
+    )
+
+    if should_proceed:
+        update_guest_stage(db, gid, "READY_TO_RECOMMEND")
+        return {
+            "status": "proceed_to_recommendation",
+            "guest_session_id": gid,
+            "reason": proceed_reason,
+            "slot_state": _serialize_preference_slot(updated_slot_row),
+            "completion": float(updated_slot_row.slot_completion_score),
+            "should_proceed": True,
+        }
+
+    # 8) 다음 질문 생성 + LLM 턴 저장
+    question = choose_next_question(merged_slots)
+    if proceed_reason == "need_required_slots":
+        question = (
+            "추천 전에 한 가지만 더 확인할게요. "
+            + question
+        )
     llm_turn = create_dialogue_turn(
         db=db,
         guest_session_id=gid,
@@ -369,6 +444,7 @@ def dialogue_endpoint(
         utterance_text=question,
         extracted_slots_json=extracted_slots,
     )
+    update_guest_stage(db, gid, "COLLECTING")
 
     return {
         "status": "ok",
@@ -377,9 +453,9 @@ def dialogue_endpoint(
         "llm_turn": _serialize_dialogue_turn(llm_turn),
         "question": question,
         "extracted_slots": extracted_slots,
-        "slot_state": _serialize_preference_slot(updated_slot_row),
-        "completion": completion,
-        "should_proceed": should_proceed,
+        "slot_state": _serialize_preference_slot(updated_slot_row) if updated_slot_row else {},
+        "completion": agent_result.get("completion", 0.0),
+        "should_proceed": False,
     }
 
 @router.get("/final-output/{final_recommendation_id}")
@@ -396,3 +472,37 @@ def final_output_endpoint(
         cocktail_id=final_row.final_cocktail_id,
         volume_ml=90,
     )
+
+@router.post("/sessions/{gid}/evaluation")
+def save_evaluation(
+    gid: str,
+    req: EvaluationRequest,
+    db: Session = Depends(get_db),
+):
+    guest = get_guest_session(db, gid)
+    if not guest:
+        raise HTTPException(status_code=404, detail="guest_session_id not found")
+
+    # final_recommendation 존재 확인
+    final = get_final_recommendation_by_id(db, req.final_recommendation_id)
+    if not final:
+        raise HTTPException(status_code=404, detail="final_recommendation not found")
+
+    if str(final.guest_session_id) != str(gid):
+        raise HTTPException(status_code=403, detail="이 세션의 추천이 아닙니다")
+
+    row = create_evaluation_log(
+        db=db,
+        guest_session_id=gid,
+        final_satisfaction_score=req.satisfaction_score,
+        would_reorder=req.would_reorder,
+        review_text=req.review_text,
+    )
+
+    return {
+        "status": "ok",
+        "evaluation_id": str(row.evaluation_id),
+        "satisfaction_score": float(row.final_satisfaction_score),
+        "would_reorder": row.would_reorder,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }

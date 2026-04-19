@@ -113,13 +113,45 @@ _DISLIKED_TASTE_KEYWORDS: list[tuple[str, str]] = [
 
 _BASE_KEYWORDS: list[str] = ["위스키", "럼", "보드카", "진", "데킬라", "사케", "소주", "맥주", "와인"]
 
+#대화 중단 의사 감지
+STOP_KEYWORDS = [
+    "그만", "됐어", "충분해", "이제 추천해줘", "추천해",
+    "그냥 해줘", "바로 해줘", "넘어가자", "skip", "그정도면 돼",
+]
 
-def _is_slot_empty(val: Any) -> bool:
-    return (
-        val is None
-        or (isinstance(val, list) and len(val) == 0)
-        or (isinstance(val, str) and val.strip() == "")
-    )
+def wants_to_skip(user_msg: str) -> bool:
+    """사용자가 대화 중단 의사를 표현했는지 확인"""
+    text = user_msg.lower()
+    return any(kw in text for kw in STOP_KEYWORDS)
+
+def _is_slot_empty(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, list) and len(value) == 0:
+        return True
+    if isinstance(value, dict) and len(value) == 0:
+        return True
+    if isinstance(value, str) and value.strip() == "":
+        return True
+    return False
+
+# 필수 슬롯 — 추천 품질 보장을 위해 최소한 채워져야 하는 필드 (FR-06)
+REQUIRED_SLOTS: list[str] = ["strength_preference", "disliked_bases"]
+
+
+def missing_required_slots(merged_slots: dict) -> list[str]:
+    """필수 슬롯 중 비어있는 키 목록 반환. disliked_bases는 빈 리스트도 '응답함'으로 간주."""
+    missing: list[str] = []
+    for key in REQUIRED_SLOTS:
+        value = merged_slots.get(key)
+        # disliked_bases는 '없음'이라는 빈 리스트도 유효 응답으로 인정
+        if key == "disliked_bases":
+            if value is None:
+                missing.append(key)
+            continue
+        if _is_slot_empty(value):
+            missing.append(key)
+    return missing
 
 
 def _calc_effective_completion(merged_slots: dict) -> float:
@@ -138,6 +170,38 @@ def _calc_effective_completion(merged_slots: dict) -> float:
     filled = sum(1 for v in fields if not _is_slot_empty(v))
     return round((filled / 10) * 100, 2)
 
+def choose_next_question(slots: dict) -> str:
+    # 필수 슬롯을 최우선으로 질문 (FR-06)
+    missing_required = set(missing_required_slots(slots))
+    if missing_required:
+        for slot_key, q in _SLOT_QUESTIONS:
+            if slot_key in missing_required:
+                return q
+    for slot_key, q in _SLOT_QUESTIONS:
+        if _is_slot_empty(slots.get(slot_key)):
+            return q
+    return "네, 알겠습니다! 더 말씀해 주실 내용이 있나요?"
+
+def should_move_to_recommendation(
+    merged_slots: dict,
+    user_turn_count: int,
+    user_msg: str,
+) -> tuple[bool, str]:
+    completion = _calc_effective_completion(merged_slots)
+    required_missing = missing_required_slots(merged_slots)
+
+    if completion >= 80:
+        return True, "slot_completion"
+    if user_turn_count >= 7:
+        # 턴 한도 도달 시엔 필수 누락이어도 진행 (무한 루프 방지)
+        return True, "turn_limit"
+    if wants_to_skip(user_msg):
+        # 사용자가 중단 의사 표현해도 필수 슬롯 누락 상태면 한 번 더 묻는다
+        if required_missing:
+            return False, "need_required_slots"
+        return True, "user_skip"
+
+    return False, "continue"
 
 def run_dialogue(
     history: list[dict],
@@ -227,6 +291,13 @@ def run_dialogue(
         extracted["finish_preference"] = "깔끔하게"
     elif "여운" in text or "진하게" in text:
         extracted["finish_preference"] = "여운 있게"
+
+    # ── 좋아하는 음료 추출 ───────────────────────────────────────
+    favorite_drink_keywords = ["모히토", "하이볼", "마가리타", "진토닉", "위스키 사워"]
+    for drink in favorite_drink_keywords:
+        if drink in text:
+            extracted["favorite_drinks"] = drink
+            break
 
     # ── 완성도 재계산 ────────────────────────────────────────────
     merged = dict(slots)

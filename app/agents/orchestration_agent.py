@@ -3,22 +3,23 @@ from __future__ import annotations
 from typing import Optional
 from sqlalchemy.orm import Session
 
-from app.db.models import Cocktail, Recipe, Ingredient
+from app.db.models import Cocktail, Ingredient
 from app.db.crud import (
-    get_guest_session,
-    get_initial_tag_response,
-    get_preference_slot,
-    get_preference_vector,
-    get_latest_space_analysis_by_party,
     create_sample_recommendation,
     get_all_recipes_with_ingredients,
+    get_available_ingredient_ids,
     get_sample_recommendation,
     create_sample_feedback,
     create_final_recommendation,
     update_preference_vector,
     list_feedbacks_by_sample_recommendation,
+    list_recommended_cocktail_ids_by_guest,
 )
-from app.agents.preference_agent import classify_intent, update_vector
+from app.agents.preference_agent import (
+    classify_intent,
+    update_vector,
+    build_user_profile,
+)
 from app.agents.output_agent import generate_recipe_snapshot
 
 # ============================================================
@@ -58,65 +59,6 @@ STRENGTH_RANGE = {
 # ============================================================
 # helper
 # ============================================================
-
-def _merge_unique_list(*values) -> list[str]:
-    merged: list[str] = []
-    for v in values:
-        if not v:
-            continue
-        for item in v:
-            if item not in merged:
-                merged.append(item)
-    return merged
-
-
-def _normalize_strength_tag(value: Optional[str]) -> Optional[str]:
-    if not value:
-        return None
-
-    mapping = {
-        "약함": "약함",
-        "약한": "약함",
-        "술 못 마셔요": "약함",
-        "가볍게": "약함",
-        "중간": "중간",
-        "적당히": "중간",
-        "보통": "중간",
-        "무난하게": "중간",
-        "강함": "강함",
-        "센 거": "강함",
-        "센걸 원해요": "강함",
-        "술 잘 마셔요": "강함",
-    }
-    return mapping.get(value, value)
-
-
-def _calc_effective_completion(merged_slots: dict) -> float:
-    fields = [
-        merged_slots.get("party_purpose"),
-        merged_slots.get("current_mood"),
-        merged_slots.get("preferred_tastes"),
-        merged_slots.get("disliked_tastes"),
-        merged_slots.get("preferred_aromas"),
-        merged_slots.get("disliked_aromas"),
-        merged_slots.get("strength_preference"),
-        merged_slots.get("favorite_drinks"),
-        merged_slots.get("disliked_bases"),
-        merged_slots.get("finish_preference"),
-    ]
-
-    filled = 0
-    for value in fields:
-        if value is None:
-            continue
-        if isinstance(value, list) and len(value) == 0:
-            continue
-        if isinstance(value, str) and value.strip() == "":
-            continue
-        filled += 1
-
-    return round((filled / 10) * 100, 2)
-
 
 def _normalize(user: float, cocktail: float, max_range: float = 4.0) -> float:
     return 1.0 - abs(user - cocktail) / max_range
@@ -188,60 +130,7 @@ def _build_reason_parts(
 
 
 # ============================================================
-# 1. 사용자 프로필 빌드
-# ============================================================
-
-def build_user_profile(db: Session, guest_session_id: str) -> dict:
-    guest = get_guest_session(db, guest_session_id)
-    tags = get_initial_tag_response(db, guest_session_id)
-    slot = get_preference_slot(db, guest_session_id)
-    vector = get_preference_vector(db, guest_session_id)
-    space = get_latest_space_analysis_by_party(db, guest.party_session_id) if guest else None
-
-    merged_slots = {
-        "party_purpose": slot.party_purpose if slot else None,
-        "current_mood": slot.current_mood if slot else None,
-        "preferred_tastes": _merge_unique_list(
-            tags.taste_tags_json if tags else [],
-            slot.preferred_tastes_json if slot else [],
-        ),
-        "disliked_tastes": _merge_unique_list(
-            slot.disliked_tastes_json if slot else [],
-        ),
-        "preferred_aromas": _merge_unique_list(
-            tags.aroma_tags_json if tags else [],
-            slot.preferred_aromas_json if slot else [],
-        ),
-        "disliked_aromas": _merge_unique_list(
-            slot.disliked_aromas_json if slot else [],
-        ),
-        "strength_preference": (
-            slot.strength_preference
-            if slot and slot.strength_preference
-            else _normalize_strength_tag(tags.strength_tag if tags else None)
-        ),
-        "favorite_drinks": slot.favorite_drinks_text if slot else None,
-        "disliked_bases": _merge_unique_list(
-            slot.disliked_bases_json if slot else [],
-        ),
-        "finish_preference": slot.finish_preference if slot else None,
-    }
-
-    effective_completion = _calc_effective_completion(merged_slots)
-
-    return {
-        "guest": guest,
-        "initial_tags": tags,
-        "slot": slot,
-        "vector": vector,
-        "space": space,
-        "merged_slots": merged_slots,
-        "effective_completion": effective_completion,
-    }
-
-
-# ============================================================
-# 2. 후보 칵테일 조회
+# 1. 후보 칵테일 조회
 # ============================================================
 
 def get_candidate_cocktails(
@@ -265,6 +154,26 @@ def _has_disliked_base(merged_slots: dict, recipe_ingredients: list[tuple]) -> b
 
     for _, ingredient in recipe_ingredients:
         if ingredient.ingredient_type == "BASE" and _ingredient_name(ingredient) in disliked_bases:
+            return True
+    return False
+
+
+def _is_unstockable(
+    recipe_ingredients: list[tuple],
+    available_ingredient_ids: Optional[set[int]],
+) -> bool:
+    """필수(비선택) 재료 중 하나라도 재고 부족이면 제조 불가.
+
+    available_ingredient_ids=None (재고 데이터 미세팅) → 필터 비활성화.
+    """
+    if available_ingredient_ids is None:
+        return False
+    if not recipe_ingredients:
+        return True
+    for recipe, ingredient in recipe_ingredients:
+        if recipe.is_optional:
+            continue
+        if ingredient.ingredient_id not in available_ingredient_ids:
             return True
     return False
 
@@ -357,12 +266,16 @@ def recommend_top_k(
     candidates = get_candidate_cocktails(db, exclude_ids=exclude_ids)
 
     all_ri = get_all_recipes_with_ingredients(db)
+    available_ids = get_available_ingredient_ids(db)
 
     results = []
     for cocktail in candidates:
         ri = all_ri.get(cocktail.cocktail_id, [])
 
         if _has_disliked_base(merged_slots, ri):
+            continue
+
+        if _is_unstockable(ri, available_ids):
             continue
 
         score = score_cocktail(cocktail, profile, ri)
@@ -390,24 +303,28 @@ def run_recommendation(
     guest_session_id: str,
     k: int = 3,
     exclude_ids: Optional[list[int]] = None,
+    force: bool = False,          # ← 추가: 강제 진행 플래그
 ) -> dict:
     profile = build_user_profile(db, guest_session_id)
-    space = profile["space"]
+    space   = profile["space"]
 
     if not space:
-        return {
-            "status": "need_space_image",
-            "message": "공간 분석 결과가 없습니다. 이미지를 먼저 업로드해주세요.",
-        }
+        return {"status": "need_space_image",
+                "message": "공간 분석 결과가 없습니다. 이미지를 먼저 업로드해주세요."}
+
+    if not profile["vector"]:
+        return {"status": "need_vector",
+                "message": "선호 벡터가 없습니다. 초기 태그를 먼저 저장해주세요."}
 
     effective_completion = profile["effective_completion"]
-    if effective_completion < 80:
+
+    # force=True이면 80% 미만이어도 진행
+    if effective_completion < 80 and not force:
         return {
             "status": "need_more_info",
             "completion": effective_completion,
             "message": "아직 추천에 필요한 정보가 부족합니다.",
         }
-
     top_k = recommend_top_k(db, guest_session_id, k=k, exclude_ids=exclude_ids)
 
     if not top_k:
@@ -509,11 +426,33 @@ def process_feedback(
         all_feedbacks = list_feedbacks_by_sample_recommendation(db, sample_recommendation_id)
         feedback_ids = [str(row.sample_feedback_id) for row in all_feedbacks]
 
+        # 누적 피드백 델타 합산 → 최종 레시피에 반영 (FR-16)
+        aggregated_deltas = {
+            "sweetness_delta":  sum(float(fb.sweetness_delta  or 0) for fb in all_feedbacks),
+            "sourness_delta":   sum(float(fb.sourness_delta   or 0) for fb in all_feedbacks),
+            "bitterness_delta": sum(float(fb.bitterness_delta or 0) for fb in all_feedbacks),
+            "body_delta":       sum(float(fb.body_delta       or 0) for fb in all_feedbacks),
+            "freshness_delta":  sum(float(fb.freshness_delta  or 0) for fb in all_feedbacks),
+        }
+
         final_snapshot = generate_recipe_snapshot(
             db=db,
             cocktail_id=sample_row.recommended_cocktail_id,
             volume_ml=90,
+            feedback_deltas=aggregated_deltas,
         )
+        is_adjusted = bool(final_snapshot.get("is_adjusted"))
+
+        reason_parts = ["사용자가 시음 후 현재 추천을 최종 선택했습니다."]
+        if is_adjusted:
+            adjusted_names = [
+                item["ingredient_name"] for item in final_snapshot["recipe"]
+                if item.get("adjusted")
+            ]
+            if adjusted_names:
+                reason_parts.append(
+                    f"누적 피드백 반영하여 재료량 조정: {', '.join(adjusted_names)}"
+                )
 
         final_row = create_final_recommendation(
             db=db,
@@ -521,9 +460,9 @@ def process_feedback(
             sample_recommendation_id=sample_recommendation_id,
             final_cocktail_id=sample_row.recommended_cocktail_id,
             used_feedback_ids_json=feedback_ids,
-            is_adjusted_recipe=False,
+            is_adjusted_recipe=is_adjusted,
             final_recipe_snapshot_json=final_snapshot,
-            final_reason_text="사용자가 시음 후 현재 추천을 최종 선택했습니다.",
+            final_reason_text=" ".join(reason_parts),
         )
 
         return {
@@ -533,14 +472,22 @@ def process_feedback(
             "final_cocktail_id": sample_row.recommended_cocktail_id,
         }
 
-    # ADJUST → 벡터 업데이트 후 재추천
+# ADJUST → 벡터 업데이트 후 재추천
     if intent == "ADJUST":
+        all_excluded = list_recommended_cocktail_ids_by_guest(db, guest_session_id)
         rerun = run_recommendation(
             db=db,
             guest_session_id=guest_session_id,
             k=3,
-            exclude_ids=[sample_row.recommended_cocktail_id],
+            exclude_ids=all_excluded,
+            force=True,  # ← 추가
         )
+
+        # 후보 없으면 exclude 해제하고 전체에서 재추천
+        if rerun.get("status") == "no_candidates":
+            rerun = run_recommendation(db, guest_session_id, k=3,
+                                       exclude_ids=None, force=True)
+            rerun["message"] = "새로운 후보가 없어 전체 후보에서 다시 추천합니다."
 
         if rerun.get("status") != "ok":
             return {
@@ -561,12 +508,20 @@ def process_feedback(
         }
 
     # REJECT → 현재 추천 제외 후 새 후보 추천
+    all_excluded = list_recommended_cocktail_ids_by_guest(db, guest_session_id)
     rerun = run_recommendation(
         db=db,
         guest_session_id=guest_session_id,
         k=3,
-        exclude_ids=[sample_row.recommended_cocktail_id],
+        exclude_ids=all_excluded,
+        force=True,  # ← 추가
     )
+
+    # 후보 없으면 exclude 해제하고 전체에서 재추천
+    if rerun.get("status") == "no_candidates":
+        rerun = run_recommendation(db, guest_session_id, k=3,
+                                   exclude_ids=None, force=True)
+        rerun["message"] = "새로운 후보가 없어 전체 후보에서 다시 추천합니다."
 
     if rerun.get("status") != "ok":
         return {
