@@ -1,0 +1,15 @@
+{
+  "tag": "exaone_rec_only",
+  "model": "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct",
+  "timestamp": "20260421_1930",
+  "limit": 100,
+  "note": "eval_recommendation 단독 실행 결과 (feedback/slots 미측정). 임베딩 텍스트 교체 + 큐레이션 CSV 시딩 직후.",
+  "recommendation": {
+    "hit@1": 0.19,
+    "hit@3": 0.26,
+    "cat_hit@3": 0.53,
+    "no_candidate_rate": 0.0,
+    "n": 100,
+    "elapsed_sec": 2420.0
+  }
+}

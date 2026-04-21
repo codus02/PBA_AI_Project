@@ -1,7 +1,7 @@
 """
 preference_agent.py
 역할:
-  - LLM(Qwen3) 단일 호출로 슬롯 추출 + 종료 판단 + 다음 질문 생성
+  - LLM 단일 호출로 슬롯 추출 + 종료 판단 + 다음 질문 생성
   - 피드백 인텐트 분류 및 선호 벡터 조정 (rule-based MVP — 추후 별도 리팩토링)
   - DB → 통합 프로필 빌드
 """
@@ -44,6 +44,30 @@ STRENGTH_VALUES = {"zero", "light", "medium", "strong"}
 TASTE_KEYS = {"sweet", "sour", "bitter", "body", "creamy", "freshness"}
 AROMA_KEYS = {"woody", "minty", "fruity", "citrus", "floral", "coffee", "herbal"}
 INTENSITY_VALUES = {"zero", "low", "medium", "high"}
+
+# LLM이 영어 일반명사로 흘리는 걸 스키마 키로 흡수
+_TASTE_KEY_ALIASES = {
+    "refreshing": "freshness",
+    "fresh": "freshness",
+    "refresh": "freshness",
+    "sweetness": "sweet",
+    "sourness": "sour",
+    "bitterness": "bitter",
+    "bodied": "body",
+    "full_body": "body",
+    "cream": "creamy",
+    "creaminess": "creamy",
+}
+_AROMA_KEY_ALIASES = {
+    "wood": "woody",
+    "mint": "minty",
+    "fruit": "fruity",
+    "citrusy": "citrus",
+    "flower": "floral",
+    "flowery": "floral",
+    "herb": "herbal",
+    "herby": "herbal",
+}
 # zero  = "완전 비선호" → 해당 축이 두드러진 칵테일은 추천에서 HARD-EXCLUDE
 # low   = "별로/싫어" → rerank 에서 감점
 # medium= "보통/적당히"
@@ -86,11 +110,15 @@ USER_STOP_PATTERNS = [
     "귀찮게 질문하지 마",
     "질문 그만",
     "질문그만",
+    # "알아서" 류는 축-단위 위임("바디감은 너가 알아서 해줘")과 충돌한다.
+    # 전체 위임 의미가 분명한 표현만 잡는다.
     "알아서 다 해줘",
     "알아서 다해줘",
-    "알아서 해줘",
-    "너가 알아서",
-    "네가 알아서",
+    "다 알아서 해",
+    "다 알아서 골라",
+    "전부 알아서",
+    "그냥 알아서 골라",
+    "그냥 알아서 해줘",
     "바로 추천해",
     "바로 추천 해",
     "지금 바로 추천",
@@ -146,6 +174,10 @@ def _missing_slots(slots: dict) -> list[str]:
         elif isinstance(v, dict) and not _has_non_pending_value(v):
             # 초기 태그 seed만 있고 강도가 아직 대화로 확정 안 됨
             missing.append(key)
+        elif key in ("taste_profile", "aroma_profile") and isinstance(v, dict):
+            # medium(초기 태그 seed) 만 있고 high/low/zero 로 확정된 값이 하나도 없으면 "미확정"
+            if not any(sub in _CONFIRMED_INTENSITIES for sub in v.values()):
+                missing.append(key)
         elif isinstance(v, str) and not v.strip():
             missing.append(key)
     return missing
@@ -187,7 +219,7 @@ MIN_FILLED_SLOTS_FOR_PROCEED = 4
 MAX_USER_TURNS = 10
 
 # 초기 태그에서 시드된 taste/aroma 강도를 "대화로 확정해야 할" 값으로 표시.
-# merge_slots 에서 Qwen이 high/medium/low 를 넣으면 자연스럽게 덮어써진다.
+# merge_slots 에서 LLM이 high/medium/low 를 넣으면 자연스럽게 덮어써진다.
 INTENSITY_PENDING = "pending"
 
 
@@ -215,14 +247,45 @@ def _count_filled_slots(slots: dict) -> int:
 # "모르겠다"가 잦고 추천 품질에 결정적이지 않아서 completion 분모에서 제외.
 _COMPLETION_OPTIONAL_SLOTS = {"disliked_bases", "favorite_drinks"}
 
-# 대화로 "확정"된 것으로 볼 강도 값. medium 은 초기 태그 시드 placeholder 로 취급하고
-# 대화에서 high/low/zero 로 조정돼야 "확정"으로 인정한다.
-_CONFIRMED_INTENSITIES = {"high", "low", "zero"}
+# 대화로 "확정"된 것으로 볼 강도 값.
+# 초기 태그 시드는 INTENSITY_PENDING("pending") 으로 넣고, 대화에서 high/medium/low/zero
+# 중 하나로 조정되면 "확정"으로 본다. (medium 도 손님이 "적당히"라고 명시한 경우라 확정)
+_CONFIRMED_INTENSITIES = {"high", "medium", "low", "zero"}
+
+
+MIN_RECOMMEND_COMPLETION = 80.0
+
+_DISLIKE_ASK_KEYWORDS = ("싫어하", "빼고 싶", "피하고", "별로다", "별로인", "질색")
+_DISLIKE_REPLY = "방향은 잡힌 것 같은데 마지막으로 하나만요 — 혹시 싫어하거나 빼고 싶은 맛이나 향 있으세요? 없으면 없다고 말씀해주셔도 돼요."
+
+
+def _dislike_check_done(slots: dict, history: list[dict]) -> bool:
+    """비선호 질문이 한 번이라도 이뤄졌는지 추정.
+
+    신호 하나라도 있으면 True:
+      - taste/aroma 에 low/zero 값 존재
+      - disliked_bases 가 빈 리스트라도 key 존재(= 답변 받음) 또는 값 존재
+      - history 의 LLM 발화에 비선호 묻는 키워드 포함
+    """
+    tp = slots.get("taste_profile") or {}
+    ap = slots.get("aroma_profile") or {}
+    if any(v in ("low", "zero") for v in tp.values()):
+        return True
+    if any(v in ("low", "zero") for v in ap.values()):
+        return True
+    if "disliked_bases" in slots:
+        return True
+    for msg in history or []:
+        if msg.get("speaker_role") == "LLM":
+            text = msg.get("utterance_text") or ""
+            if any(k in text for k in _DISLIKE_ASK_KEYWORDS):
+                return True
+    return False
 
 
 def _calc_effective_completion(slots: dict) -> float:
     core = [k for k in SLOT_KEYS if k not in _COMPLETION_OPTIONAL_SLOTS]
-    filled = 0
+    filled = 0.0
     for k in core:
         v = slots.get(k)
         if v is None or (isinstance(v, (list, dict)) and not v):
@@ -230,9 +293,13 @@ def _calc_effective_completion(slots: dict) -> float:
         if isinstance(v, str) and not v.strip():
             continue
         if k in ("taste_profile", "aroma_profile") and isinstance(v, dict):
-            if not any(sub in _CONFIRMED_INTENSITIES for sub in v.values()):
-                continue
-        filled += 1
+            # pending(초기 태그 seed)만 있으면 "채워지지 않은" 것으로 본다.
+            # 대화에서 high/medium/low/zero 로 확정되어야만 completion 에 가산.
+            has_confirmed = any(sub in _CONFIRMED_INTENSITIES for sub in v.values())
+            if has_confirmed:
+                filled += 1.0
+            continue
+        filled += 1.0
     return round(filled / max(len(core), 1) * 100, 2)
 
 
@@ -253,7 +320,7 @@ def should_move_to_recommendation(
     return False, "keep_collecting"
 
 # ============================================================
-# 피드백 인텐트 분류 + 벡터 델타 (Qwen 단일 호출)
+# 피드백 인텐트 분류 + 벡터 델타 (LLM 단일 호출)
 # ============================================================
 
 FEEDBACK_INTENTS = {"ACCEPT", "ADJUST", "REJECT"}
@@ -422,7 +489,7 @@ def analyze_feedback(
     feedback_text: str,
     max_new_tokens: int = 192,
 ) -> dict:
-    """Qwen 단일 호출로 피드백 intent + 벡터 델타 분석.
+    """LLM 단일 호출로 피드백 intent + 벡터 델타 분석.
 
     반환:
       {"intent": "ACCEPT|ADJUST|REJECT",
@@ -431,10 +498,10 @@ def analyze_feedback(
        "raw": "<원문>"}
     """
     try:
-        from app.utils.model_loader import load_qwen3
+        from app.utils.model_loader import load_llm
         import torch
 
-        tokenizer, model = load_qwen3()
+        tokenizer, model = load_llm()
 
         messages = [
             {"role": "system", "content": _FEEDBACK_SYSTEM_PROMPT},
@@ -473,7 +540,7 @@ def analyze_feedback(
             "raw": raw,
         }
     except Exception as e:
-        logger.warning("Qwen analyze_feedback failed: %r", e, exc_info=True)
+        logger.warning("LLM analyze_feedback failed: %r", e, exc_info=True)
         return {
             "intent": "REJECT",
             "deltas": {},
@@ -493,7 +560,7 @@ def update_vector(before_vec: dict[str, float], feedback_text: str) -> dict[str,
 
 
 # ============================================================
-# Qwen 프롬프트 구성
+# LLM 프롬프트 구성
 # ============================================================
 
 _SYSTEM_PROMPT = """
@@ -539,6 +606,11 @@ _SYSTEM_PROMPT = """
 2. 한 발화에 여러 슬롯이 동시에 드러나면 반드시 모두 추출해라.
 3. USER가 말하지 않은 것은 추측하지 마라.
 4. 비선호 베이스 질문에 "없어/없음/상관없어/가리는 거 없어/딱히 없어/다 잘 마셔"라고 답하면 disliked_bases=[]. 절대로 모든 베이스를 나열하지 마라.
+4a. **disliked_bases 는 오직 스피릿 5종(whiskey/gin/rum/vodka/tequila)만 허용.** 우유/크림/커피/주스/시럽/레몬 같은 재료는 **절대** 여기 넣지 마라. 우유·크림류는 taste_profile.creamy 로 간다.
+4b. **극성(polarity)을 절대 뒤집지 마라.** "X 좋아해 / 평소에 X 자주 먹어 / X 취향" → **선호(high 또는 favorite_drinks)**. 이걸 disliked_bases 나 "zero/low" 로 넣으면 치명적 버그다. "X 싫어 / X 질색 / X 빼줘" → 비선호.
+   - "우유 좋아해" / "평소 우유 자주 마셔" → taste_profile.creamy="high" (disliked_bases 아님!)
+   - "커피 좋아" → favorite_drinks=["커피"] (aroma.coffee 아님, 강도 불명확)
+   - "커피향 좋아" → aroma_profile.coffee="high"
 5. 좋아하는 술 질문에 "없어/딱히/생각 안 나"라고 답하면 favorite_drinks=[].
 6. 맛/향에서 싫어함은 같은 key의 low intensity로 표현한다.
 7. "이제 추천해줘", "그만", "바로 추천"처럼 말하면 should_stop=true, stop_reason="user_requested".
@@ -736,6 +808,16 @@ USER: "상큼 달달한게 좋아. 너무 과하진 않게. 우유맛은 싫어"
 → {"extracted_slots":{"taste_profile":{"sweet":"medium","sour":"medium","creamy":"low"}},"should_stop":false,"stop_reason":""}
 # "과하지 않게" → medium. 세 축(sweet, sour, creamy) 모두 언급됐으니 전부 넣는다.
 
+USER: "크리미! 내가 평소에 우유 좋아해"
+→ {"extracted_slots":{"taste_profile":{"creamy":"high"}},"should_stop":false,"stop_reason":""}
+# 주의: "우유 좋아해"는 선호다. disliked_bases 절대 아님. milk 는 스피릿 베이스도 아님.
+
+USER: "우유 들어간 거 좋아"
+→ {"extracted_slots":{"taste_profile":{"creamy":"high"}},"should_stop":false,"stop_reason":""}
+
+USER: "크림같은 느낌 별로야"
+→ {"extracted_slots":{"taste_profile":{"creamy":"low"}},"should_stop":false,"stop_reason":""}
+
 USER: "달콤 쌉싸름한게 좋아. 근데 너무 과하진 않게"
 → {"extracted_slots":{"taste_profile":{"sweet":"medium","bitter":"medium"}},"should_stop":false,"stop_reason":""}
 
@@ -785,7 +867,7 @@ USER: "이제 추천해줘"
 """.strip()
 
 
-def _format_history(history: list[dict], max_turns: int = 6) -> str:
+def _format_history(history: list[dict], max_turns: int = 4) -> str:
     if not history:
         return "(대화 없음)"
     rows = history[-max_turns:]
@@ -826,6 +908,35 @@ def _infer_last_asked_slot(history: list[dict]) -> Optional[str]:
     return None
 
 
+_MOOD_KEYWORDS = {
+    "good": ["기분 좋", "기분좋", "너무 좋", "좋아", "좋네", "좋은데", "신나", "신난", "째진", "째져", "쩐다", "꿀잼", "들떠", "텐션"],
+    "bad": ["기분 별로", "별로야", "꿀꿀", "우울", "다운", "지쳐", "피곤", "쳐져", "안 좋", "안좋"],
+    "soso": ["그냥 그래", "그냥그래", "쏘쏘", "그저 그래", "그저그래", "보통이", "그럭저럭", "무난"],
+}
+_PURPOSE_KEYWORDS = {
+    "celebration": ["생파", "생일", "축하", "돌잔치", "기념일"],
+    "date": ["데이트", "여친", "남친", "썸녀", "썸남", "둘이"],
+    "business": ["회식", "거래처", "직장 동료", "회사 동료", "비즈니스"],
+    "solo": ["혼술", "혼자 마시", "혼자 왔", "나 혼자"],
+    "hangout": ["친구들이랑", "놀러", "모임", "캐주얼"],
+}
+_STRENGTH_KEYWORDS = {
+    "strong": ["독하게", "세게", "쎄게", "강하게", "달리자", "달릴", "술고래", "취하고 싶"],
+    "light": ["약하게", "가볍게", "순한", "살살", "부드럽게", "잘 못 마셔"],
+    "zero": ["무알콜", "논알콜", "알콜 빼", "술 빼"],
+    "medium": ["적당히", "보통으로", "중간으로"],
+}
+
+
+def _backfill_enum(user_msg: str, patterns: dict[str, list[str]]) -> Optional[str]:
+    text = (user_msg or "").lower()
+    for enum_val, kws in patterns.items():
+        for kw in kws:
+            if kw in text:
+                return enum_val
+    return None
+
+
 def _apply_rule_based_slot_guards(
     history: list[dict],
     user_msg: str,
@@ -840,6 +951,20 @@ def _apply_rule_based_slot_guards(
 
     if last_slot == "favorite_drinks" and _contains_any(user_msg, _NO_FAVORITE_PATTERNS):
         fixed["favorite_drinks"] = []
+
+    # 스칼라 enum 백업 — LLM 이 직전 질문 축을 놓쳤을 때 키워드로 재추출.
+    if last_slot == "current_mood" and "current_mood" not in fixed:
+        v = _backfill_enum(user_msg, _MOOD_KEYWORDS)
+        if v:
+            fixed["current_mood"] = v
+    if last_slot == "party_purpose" and "party_purpose" not in fixed:
+        v = _backfill_enum(user_msg, _PURPOSE_KEYWORDS)
+        if v:
+            fixed["party_purpose"] = v
+    if last_slot == "strength_preference" and "strength_preference" not in fixed:
+        v = _backfill_enum(user_msg, _STRENGTH_KEYWORDS)
+        if v:
+            fixed["strength_preference"] = v
 
     return fixed
 
@@ -1117,7 +1242,7 @@ def _summarize_slots_for_prompt(slots: dict) -> str:
     return " / ".join(parts) if parts else "(아직 파악된 선호 없음)"
 
 
-def _generate_followup_qwen(
+def _generate_followup_llm(
     slots: dict,
     user_msg: str,
     target_slot: str,
@@ -1126,10 +1251,10 @@ def _generate_followup_qwen(
     target_pending_subkey: Optional[str] = None,
 ) -> Optional[str]:
     try:
-        from app.utils.model_loader import load_qwen3
+        from app.utils.model_loader import load_llm
         import torch
 
-        tokenizer, model = load_qwen3()
+        tokenizer, model = load_llm()
 
         fam_key = familiarity if familiarity in _FAMILIARITY_TONE else "가끔"
         system = _FOLLOWUP_SYSTEM_PROMPT.format(familiarity_tone=_FAMILIARITY_TONE[fam_key])
@@ -1191,11 +1316,11 @@ def _generate_followup_qwen(
             return None
         return cleaned
     except Exception as e:
-        logger.warning("Qwen followup generation failed: %r", e, exc_info=True)
+        logger.warning("LLM followup generation failed: %r", e, exc_info=True)
         return None
 
 
-def generate_followup_question_with_qwen(
+def generate_followup_question_with_llm(
     history: list[dict],
     slots: dict,
     user_msg: str,
@@ -1234,7 +1359,7 @@ def generate_followup_question_with_qwen(
         return "좋아요. 추천으로 넘어가볼게요."
 
     use_alt = target_slot in alt_slots
-    qwen_out = _generate_followup_qwen(
+    llm_out = _generate_followup_llm(
         slots=slots,
         user_msg=user_msg,
         target_slot=target_slot,
@@ -1242,8 +1367,8 @@ def generate_followup_question_with_qwen(
         use_alt_angle=use_alt,
         target_pending_subkey=target_pending_subkey,
     )
-    if qwen_out:
-        return qwen_out
+    if llm_out:
+        return llm_out
 
     ack = _choose_ack(user_msg, extracted_slots)
     if use_alt and target_slot in _TEMPLATE_QUESTIONS_ALT:
@@ -1257,30 +1382,81 @@ def generate_followup_question_with_qwen(
 # JSON 파서 + 검증
 # ============================================================
 
+def _sanitize_json_text(s: str) -> str:
+    # // 또는 # 주석 제거 (라인 단위)
+    s = re.sub(r"//[^\n]*", "", s)
+    s = re.sub(r"(?m)^\s*#[^\n]*", "", s)
+    # } 또는 ] 바로 뒤에 붙은 stray : 제거  e.g. "{}:"
+    s = re.sub(r"([}\]])\s*:(?=\s*[,\}\]])", r"\1", s)
+    # trailing comma 제거
+    s = re.sub(r",(\s*[}\]])", r"\1", s)
+    # '%' 로 시작하는 주석형 잡음 제거
+    s = re.sub(r"%[^\n,}\]]*", "", s)
+    return s
+
+
+def _regex_field_fallback(text: str) -> dict:
+    """완전 JSON 파싱이 실패해도 주요 필드만이라도 건진다."""
+    out: dict[str, Any] = {}
+    m = re.search(r'"reply"\s*:\s*"((?:[^"\\]|\\.)*)"', text, re.DOTALL)
+    if m:
+        try:
+            out["reply"] = json.loads(f'"{m.group(1)}"')
+        except Exception:
+            out["reply"] = m.group(1)
+    m = re.search(r'"action"\s*:\s*"([A-Z_]+)"', text)
+    if m:
+        out["action"] = m.group(1)
+    m = re.search(r'"user_intent"\s*:\s*"([A-Z_]+)"', text)
+    if m:
+        out["user_intent"] = m.group(1)
+    m = re.search(r'"extracted_slots"\s*:\s*(\{.*?\})', text, re.DOTALL)
+    if m:
+        try:
+            out["extracted_slots"] = json.loads(_sanitize_json_text(m.group(1)))
+        except Exception:
+            pass
+    return out
+
+
 def _extract_json_object(text: str) -> Optional[dict]:
     # 가장 바깥쪽 중괄호 추출 (greedy)
     match = re.search(r"\{.*\}", text, re.DOTALL)
     if not match:
-        return None
+        return _regex_field_fallback(text) or None
+    raw = match.group(0)
     try:
-        obj = json.loads(match.group(0))
+        obj = json.loads(raw)
+        return obj if isinstance(obj, dict) else None
     except json.JSONDecodeError:
-        return None
-    return obj if isinstance(obj, dict) else None
+        pass
+    try:
+        obj = json.loads(_sanitize_json_text(raw))
+        if isinstance(obj, dict):
+            return obj
+    except json.JSONDecodeError:
+        pass
+    fb = _regex_field_fallback(raw)
+    return fb or None
 
 
-def _validate_intensity_dict(raw: Any, allowed_keys: set[str]) -> dict:
+def _validate_intensity_dict(raw: Any, allowed_keys: set[str], aliases: dict[str, str] | None = None) -> dict:
     if not isinstance(raw, dict):
         return {}
     out: dict[str, str] = {}
     for k, v in raw.items():
-        if k not in allowed_keys:
+        if not isinstance(k, str):
+            continue
+        key = k.strip().lower()
+        if aliases and key not in allowed_keys:
+            key = aliases.get(key, key)
+        if key not in allowed_keys:
             continue
         if not isinstance(v, str):
             continue
         vv = v.strip().lower()
         if vv in INTENSITY_VALUES:
-            out[k] = vv
+            out[key] = vv
     return out
 
 
@@ -1320,92 +1496,332 @@ def _validate_free_list(raw: Any) -> list[str]:
 
 
 def validate_extracted_slots(raw: dict) -> dict:
+    """LLM extracted_slots → enum/스키마 검증된 dict. 유효하지 않은 값은 제거하고 warning 로그.
+
+    스키마 위반이 무시되고 사용자 턴이 공회전하는 문제를 드러내기 위해
+    드롭된 값들을 logger.warning 으로 남긴다.
+    """
     if not isinstance(raw, dict):
+        if raw:
+            logger.warning("validate_extracted_slots: non-dict input dropped: %r", raw)
         return {}
     cleaned: dict[str, Any] = {}
+    dropped: list[str] = []
 
-    if "current_mood" in raw:
-        if raw["current_mood"] is None:
-            cleaned["current_mood"] = None
+    def _scalar(key: str, allowed: set[str]) -> None:
+        if key not in raw:
+            return
+        val = raw[key]
+        if val is None:
+            cleaned[key] = None
+            return
+        v = _validate_enum(val, allowed)
+        if v:
+            cleaned[key] = v
         else:
-            v = _validate_enum(raw["current_mood"], CURRENT_MOOD_VALUES)
-            if v:
-                cleaned["current_mood"] = v
+            dropped.append(f"{key}={val!r} (허용값: {sorted(allowed)})")
 
-    if "party_purpose" in raw:
-        if raw["party_purpose"] is None:
-            cleaned["party_purpose"] = None
-        else:
-            v = _validate_enum(raw["party_purpose"], PARTY_PURPOSE_VALUES)
-            if v:
-                cleaned["party_purpose"] = v
+    _scalar("current_mood", CURRENT_MOOD_VALUES)
+    _scalar("party_purpose", PARTY_PURPOSE_VALUES)
+    _scalar("strength_preference", STRENGTH_VALUES)
 
-    if "strength_preference" in raw:
-        if raw["strength_preference"] is None:
-            cleaned["strength_preference"] = None
-        else:
-            v = _validate_enum(raw["strength_preference"], STRENGTH_VALUES)
-            if v:
-                cleaned["strength_preference"] = v
-
-    if "taste_profile" in raw:
-        d = _validate_intensity_dict(raw["taste_profile"], TASTE_KEYS)
+    for profile_key, allowed, aliases in (
+        ("taste_profile", TASTE_KEYS, _TASTE_KEY_ALIASES),
+        ("aroma_profile", AROMA_KEYS, _AROMA_KEY_ALIASES),
+    ):
+        if profile_key not in raw:
+            continue
+        raw_val = raw[profile_key]
+        if not isinstance(raw_val, dict):
+            dropped.append(f"{profile_key}: non-dict {raw_val!r}")
+            continue
+        d = _validate_intensity_dict(raw_val, allowed, aliases)
+        invalid = {k: v for k, v in raw_val.items() if k not in d and aliases.get(str(k).strip().lower(), str(k).strip().lower()) not in d}
+        if invalid:
+            dropped.append(f"{profile_key} invalid entries: {invalid}")
         if d:
-            cleaned["taste_profile"] = d
-
-    if "aroma_profile" in raw:
-        d = _validate_intensity_dict(raw["aroma_profile"], AROMA_KEYS)
-        if d:
-            cleaned["aroma_profile"] = d
+            cleaned[profile_key] = d
 
     if "disliked_bases" in raw:
-        if isinstance(raw["disliked_bases"], list) and len(raw["disliked_bases"]) == 0:
+        rv = raw["disliked_bases"]
+        if isinstance(rv, list) and len(rv) == 0:
             cleaned["disliked_bases"] = []
         else:
-            lst = _validate_list_enum(raw["disliked_bases"], DISLIKED_BASE_VALUES)
+            lst = _validate_list_enum(rv, DISLIKED_BASE_VALUES)
+            invalid = [x for x in (rv if isinstance(rv, list) else []) if not (isinstance(x, str) and x.strip().lower() in DISLIKED_BASE_VALUES)]
+            if invalid:
+                dropped.append(f"disliked_bases invalid: {invalid}")
             if lst:
                 cleaned["disliked_bases"] = lst
 
     if "favorite_drinks" in raw:
-        if isinstance(raw["favorite_drinks"], list) and len(raw["favorite_drinks"]) == 0:
+        rv = raw["favorite_drinks"]
+        if isinstance(rv, list) and len(rv) == 0:
             cleaned["favorite_drinks"] = []
         else:
-            lst = _validate_free_list(raw["favorite_drinks"])
+            lst = _validate_free_list(rv)
             if lst:
                 cleaned["favorite_drinks"] = lst
+
+    if dropped:
+        logger.warning("validate_extracted_slots dropped: %s", " | ".join(dropped))
 
     return cleaned
 
 
 # ============================================================
-# Qwen 단일 호출 — 추출 + 종료 + 다음 질문
+# Pass 1 — 슬롯 추출 전용 LLM 호출
+# ============================================================
+#
+# 기존 `_BARTENDER_SYSTEM_PROMPT` 는 한 번의 generate 로 (추출 + reply + action)
+# 전부 뽑으려다 EXAONE 이 JSON 자체를 놓치는 failure 가 반복됨 (2턴 silent
+# extraction). 역할을 쪼개서 추출은 짧고 결정적인 프롬프트로만 돌린다.
+
+_EXTRACT_SYSTEM_PROMPT = """
+너는 한국어 칵테일 취향 슬롯 추출기다. 사용자 발화에서 명시적으로 말한 정보만 뽑아 JSON 한 객체로만 출력한다.
+
+[출력 스키마 — 이 한 객체만. 설명·공감·질문·마크다운·코드블록·이모지 금지]
+{"extracted_slots": { ... }}
+
+[슬롯 필드]
+- current_mood: "good"|"soso"|"bad"|null
+- party_purpose: "celebration"|"date"|"business"|"solo"|"hangout"|null
+- taste_profile: {"sweet"|"sour"|"bitter"|"body"|"creamy"|"freshness": "zero"|"low"|"medium"|"high"}
+- aroma_profile: {"woody"|"minty"|"fruity"|"citrus"|"floral"|"coffee"|"herbal": "zero"|"low"|"medium"|"high"}
+- strength_preference: "zero"|"light"|"medium"|"strong"|null
+- disliked_bases: ["whiskey"|"gin"|"rum"|"vodka"|"tequila"]
+- favorite_drinks: [자유 문자열]
+
+[원칙]
+1. **사용자가 방금 한 발화에 명시적으로 나타난 축만 넣어라.** 추측·유도 금지. 바텐더가 물었지만 사용자가 답 안 한 축은 절대 넣지 마라.
+2. 한 발화에 축이 여러 개면 모두 넣어라 — 하나도 빠뜨리지 마라.
+3. 사용자가 질문·되묻기만 했거나 "모르겠다/딱히" 로만 답한 경우 {"extracted_slots": {}} 출력.
+4. creamy/크리미/우유/밀키/밀크 → taste_profile.creamy (절대 disliked_bases 아님. creamy 는 base 가 아니라 질감이다).
+5. body/바디감/묵직 → taste_profile.body. aroma_profile 에 넣지 마라 (body 는 향 축이 아니다).
+6. 정정(CORRECTION): 사용자가 "나 그런 말 한 적 없어" 류로 앞 추론을 부정하면 해당 슬롯을 null 로 넣어라. 예: {"current_mood": null}
+7. 선호 극성 유지: "X 좋아해" = 선호(high/medium/low 중 강도로 분리), "X 싫어/별로" = zero. 극성 뒤집지 마라. ※ low/medium/high 전부 "선호" 범주다. 비선호는 오직 zero.
+8. **긍정 확인(CONFIRM) 발화는 새 슬롯 아님.** "맞아/응/좋아/오케/그래/네/그대로/너가 말한대로" 로만 된 발화에는 {"extracted_slots":{}} 를 출력. 이전 봇 질문을 사용자 답으로 착각해 복제하지 마라.
+9. **enum 외 값 절대 금지.** aroma 키는 {woody,minty,fruity,citrus,floral,coffee,herbal} 만. taste 키는 {sweet,sour,bitter,body,creamy,freshness} 만. 강도는 {zero,low,medium,high} 만. "mint"/"strong"/"medium-high" 같은 표현 절대 금지 — 의미가 맞는 허용 값으로 바꿔라.
+10. **⚠️ "강하게" → "high" (절대 "strong" 아님).** "strong" 은 strength_preference(도수) 슬롯 전용 값이다. taste_profile / aroma_profile 의 값으로 "strong" 을 쓰면 안 된다. "쓴맛 강하게" → bitter:"high" (절대 bitter:"strong" 금지).
+11. **봇이 제시한 옵션(강하게/약하게 등)은 사용자 답이 아니다.** 봇이 "강하게 원하세요 약하게 원하세요?" 물어본 뒤 사용자가 답 안 하면 그 축은 추출하지 마라. 이번 발화에 축 키워드가 없으면 그 축은 없는 것이다 — 이전 턴 슬롯을 다시 출력하지 마라.
+12. **부정/부인문**: "X 좋아한다고 (말)한 적 없어", "내가 언제 X 라고 했어?" 는 이전 추론의 철회다 → 해당 축을 null 로 넣어라 (긍정값으로 넣지 마라). 예: "단맛 좋아한다고 안 했는데" → {"taste_profile":{"sweet":null}}
+13. **"분위기/느낌/무드"는 current_mood 가 아니다.** "조용한 분위기 / 편안한 느낌 / 가벼운 무드" 같은 자리·공간 스타일 얘기는 current_mood 에 넣지 마라. current_mood 는 **사용자 본인 기분**을 명시적으로 표현한 경우만 — "기분 좋아/신나/행복", "우울/힘들/피곤/별로" 같은 자기 상태 표현. 애매하면 넣지 말 것.
+
+[강도 매핑] — low/medium/high 는 전부 "선호" 강도. zero 는 배제(비선호).
+- "확/완전/엄청/강하게/세게/짱/듬뿍" → high (강하게 선호)
+- "적당히/중간/보통" → medium (적당히 선호)
+- "살짝/약간/조금/은은하게/옅게/살며시" → low (약하게 선호 — 있으면 좋지만 필수 아님)
+- "별로/덜/안 땡겨/싫어/완전 싫어/질색/알레르기/빼줘" → zero (비선호/배제)
+
+[축 키워드 매핑]
+- taste: 단맛→sweet, 신맛/새콤→sour, 쓴맛/씁쓸→bitter, 바디감/묵직→body, 크리미/부드러움/우유/밀크→creamy, 청량감/상큼/시원함→freshness
+- aroma: 우디/나무→woody, 민트→minty, 과일/프루티/파인애플/망고→fruity, 시트러스/레몬/자몽/라임→citrus, 꽃/플로럴→floral, 커피→coffee, 허브→herbal
+- purpose: 혼자/혼술→solo, 회식/거래처→business, 생일/기념/축하/돌잔치→celebration, 데이트/썸/둘이→date, 친구/모임/놀러→hangout
+- mood: 좋아/신나/설레→good, 별로/우울/힘들/안 좋→bad
+- strength: 무알콜/논알콜→zero, 약하게/가볍게→light, 보통/적당히→medium, 세게/강하게→strong
+
+[예시]
+USER: "단맛 좀 세게 느끼고 싶어. 신맛은 중간 정도. 크리미한 맛은 완전 싫어."
+→ {"extracted_slots":{"taste_profile":{"sweet":"high","sour":"medium","creamy":"zero"}}}
+
+USER: "친구 생일파티야"
+→ {"extracted_slots":{"party_purpose":"celebration"}}
+
+USER: "오늘 혼자 조용히 마실거야. 약간 우울해"
+→ {"extracted_slots":{"party_purpose":"solo","current_mood":"bad"}}
+
+USER: "파인애플향 좋아해. 우유향은 싫고"
+→ {"extracted_slots":{"aroma_profile":{"fruity":"high"},"taste_profile":{"creamy":"zero"}}}
+
+USER: "시트러스 강한 게 좋고 커피향은 완전 싫어"
+→ {"extracted_slots":{"aroma_profile":{"citrus":"high","coffee":"zero"}}}
+
+USER: "민트향 더 좋아하고 허브향은 은은하게 나면 좋겠어"
+→ {"extracted_slots":{"aroma_profile":{"minty":"high","herbal":"low"}}}
+
+USER: "시트러스도 은은하게"
+→ {"extracted_slots":{"aroma_profile":{"citrus":"low"}}}
+
+USER: "맞아" / "응 그렇게 해줘" / "너가 말한 대로 진행해"
+→ {"extracted_slots":{}}
+
+USER: "쓴맛은 강하면 좋겠어"
+→ {"extracted_slots":{"taste_profile":{"bitter":"high"}}}
+(주의: "강" 이 있어도 taste 값은 "strong" 금지. 반드시 "high".)
+
+USER: "단맛 좋아한다고 안 했는데?" (직전에 봇이 단맛 강도를 물음)
+→ {"extracted_slots":{"taste_profile":{"sweet":null}}}
+(부정/부인 → null. 긍정값 절대 금지.)
+
+USER: "내가 언제 신맛 좋다고 했어"
+→ {"extracted_slots":{"taste_profile":{"sour":null}}}
+
+USER: "과일향이랑 민트향은 강하게" (직전 봇 발화에 bitter 언급됨, 사용자는 bitter 언급 없음)
+→ {"extracted_slots":{"aroma_profile":{"fruity":"high","minty":"high"}}}
+(이번 발화에 bitter 키워드가 없으면 bitter 축 절대 포함 금지. 이전 턴 값 재출력 금지.)
+
+USER: "위스키는 싫어"
+→ {"extracted_slots":{"disliked_bases":["whiskey"]}}
+
+USER: "크리미! 평소에 우유 좋아해"
+→ {"extracted_slots":{"taste_profile":{"creamy":"high"}}}
+
+USER: "민트향에 대해선 안 물어보니?"
+→ {"extracted_slots":{}}
+
+USER: "잘 모르겠는데"
+→ {"extracted_slots":{}}
+
+USER: "나 그런 말 한 적 없는데" (직전에 current_mood=good 으로 추론)
+→ {"extracted_slots":{"current_mood":null}}
+
+JSON 한 객체만. 다른 어떤 텍스트도 출력하지 마라.
+""".strip()
+
+
+def _build_extract_user_prompt(history: list[dict], user_msg: str) -> str:
+    """추출 전용 프롬프트 — 최근 맥락 + 방금 발화만."""
+    return (
+        f"[최근 대화]\n{_format_history(history, max_turns=3)}\n\n"
+        f"[사용자의 방금 발화]\n{user_msg}\n\n"
+        f"위 발화에서 명시적으로 나타난 슬롯만 추출. JSON 한 객체만 출력."
+    )
+
+
+def _extract_slots_llm(history: list[dict], user_msg: str) -> tuple[dict, str]:
+    """Pass 1: 슬롯 추출 전용. 반환 = (extracted_slots_raw_dict, raw_text)."""
+    try:
+        from app.utils.model_loader import load_llm
+        import torch
+
+        tokenizer, model = load_llm()
+        messages = [
+            {"role": "system", "content": _EXTRACT_SYSTEM_PROMPT},
+            {"role": "user", "content": _build_extract_user_prompt(history, user_msg)},
+        ]
+        rendered = tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=False,
+            enable_thinking=False,
+        )
+        inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
+        input_len = inputs["input_ids"].shape[-1]
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        with torch.no_grad():
+            out = model.generate(
+                **inputs,
+                max_new_tokens=180,
+                do_sample=False,
+                temperature=1.0,
+                top_p=1.0,
+                repetition_penalty=1.0,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+
+        raw = tokenizer.decode(out[0][input_len:], skip_special_tokens=True).strip()
+        del inputs, out
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        parsed = _extract_json_object(raw) or {}
+        es = parsed.get("extracted_slots")
+        if not isinstance(es, dict):
+            # LLM 이 flat 하게 출력한 경우 (예: {"taste_profile": {...}}) — 전체를 슬롯으로 간주
+            es = parsed if isinstance(parsed, dict) else {}
+            es = {k: v for k, v in es.items() if k != "extracted_slots"}
+        return es, raw
+    except Exception as e:
+        logger.warning("LLM _extract_slots_llm failed: %r", e, exc_info=True)
+        return {}, ""
+
+
+# ============================================================
+# Pass 2 — reply / action 생성 (추출은 Pass 1 결과를 주입받음)
 # ============================================================
 
 _BARTENDER_SYSTEM_PROMPT = """
 너는 경력 10년차 한국인 바텐더다. 바 테이블에서 손님과 가볍게 대화하며 취향을 파악해 오늘의 칵테일을 추천하는 게 일이다.
 목표는 "슬롯 채우기"가 아니라 "자연스러운 티키타카"다. 슬롯은 대화의 부산물일 뿐이다.
 
+[★ 스몰톡 톤 — 이 감도 절대 놓치지 마라 ★]
+- 너는 설문조사원이 아니다. 바 카운터 너머의 바텐더다. 손님이 방금 한 말에 **구체적으로 반응**하고("생일 축하 자리면 공간이 꽉 차는 느낌이겠네요", "숲향 좋아하신다니 그럼 저랑 취향 비슷하세요") 그 반응의 **끝자락에 궁금증처럼** 축 질문을 끼워 넣어라.
+- 형식적인 "네 알겠습니다. 다음 질문은..." 금지. "어느 쪽이세요? A / B / C" 처럼 선다형 반복도 금지(가끔은 괜찮지만 매 턴 반복 금지).
+- 취향을 바로 못 뽑아내도 괜찮다. 우회해라: **평소 음식, 좋아하는 향수, 카페에서 자주 시키는 음료, 여행지, 계절 취향** 같은 일상 질문으로 감각 단어를 역산해라. "숲향 향수" 처럼 손님 본인이 꺼낸 일상 취향은 **꼭 한 번 짚어서** 바(bar)에서 맞는 축으로 연결해라.
+- 한 턴에 질문 1개가 기본. 대신 공감/관찰/가벼운 농담 한 문장을 앞에 둬서 숨을 넣어라. reply 전체 톤은 "친구가 카운터에서 같이 골라주는 느낌".
+
+[★★★ 최우선 원칙 ★★★]
+**슬롯 추출은 외부 파이프라인에서 이미 끝났다.** 이 턴에 반영된 슬롯은 아래 [이번 턴 추출된 슬롯] 섹션으로 주어진다.
+- 너는 **reply / action / user_intent 만** 신경 쓰면 된다. extracted_slots 필드는 참고용으로 빈 {} 로 출력해라 (시스템은 그 값을 사용하지 않는다).
+- reply 에서 손님 발화를 받아줄 때, [이번 턴 추출된 슬롯] 과 **일치하는 표현**을 써라. 거기 없는 축을 reply 에서 "이해했어요" 라고 말하지 마라.
+- [이미 확정된 슬롯] 목록은 이전 턴들에서 누적된 상태다. [이번 턴 추출된 슬롯] 과 합쳐서 손님 취향 전체 그림을 파악해라.
+
+[★★ 칵테일 이름 금지 ★★]
+**action=ASK 단계에서는 칵테일 이름을 절대 언급하지 마라 — 실재하는 이름이든, 네가 지어낸 이름이든 전부 금지.**
+- "마티니 어때요?", "모히토 추천드릴게요", "스윗 임팩트 같은 게 좋을 것 같아요" 전부 금지.
+- 추천 이름을 고르는 건 다음 단계(RAG 리트리버)의 일이다. 너는 지금 취향만 파악한다.
+- action=RECOMMEND 로 전환해서 마무리 멘트("그럼 그 느낌으로 골라와서 보여드릴게요") 를 할 때도 특정 칵테일 이름을 찍지 마라.
+
 [절대 원칙 — 위반 시 치명적]
 0. **출력 언어는 100% 자연스러운 한국어.** reply 에 한자(甜/苦/酸/甘 등), 중국어, 일본어, 영어 단어 절대 금지.
    "약간은甜하고" 같이 한국어+한자 섞는 건 금지. "약간은 달콤하고" 처럼 순 한국어로 써라.
+0a. **축 이름을 직역해서 만들지 마라.** body 는 "몸향" 아니고 "바디감 / 묵직함". creamy 는 "우유향" 아니고 "크리미한 질감 / 부드러움". freshness 는 "신선함" 아니고 "청량감 / 상큼함". body 와 aroma(향)은 서로 다른 축이다 — body 관련 표현에 "향"이라는 단어 붙이지 마라.
+   허용 한국어:
+   - taste: sweet→단맛, sour→신맛, bitter→쓴맛, body→바디감/묵직함, creamy→크리미/부드러움, freshness→청량감/상큼함
+   - aroma: woody→우디향/나무향, minty→민트향, fruity→과일향, citrus→시트러스향, floral→꽃향, coffee→커피향, herbal→허브향
    맛/향 표현은 "달콤/쌉쌀/상큼/청량/묵직/허브/시트러스" 등 한국어 단어만 사용.
 A. 추측 금지: 손님이 실제로 말하지 않은 축은 extracted_slots 에 절대 넣지 마라.
    - "친구 생일파티" → party_purpose=celebration 만 추출. current_mood 는 말 안 했으면 절대 넣지 마라.
    - "데이트" → party_purpose=date 만. mood 는 추출 금지.
    - 즉 party_purpose 로부터 current_mood 를 유도하는 것 = 금지.
+A3. **[이미 확정된 슬롯] 은 손님이 명시적으로 정정한 경우만 덮어써라.** 특히 strength_preference 가 초기 태그에서 확정됐으면 손님이 "도수"라는 단어를 직접 말하지 않는 한 절대 바꾸지 마라. "단맛 약하게" 는 taste.sweet=low 이지 strength_preference=light 가 아니다. "약해 / 센" 이 어느 축에 걸린 건지 앞 맥락으로 판단.
+A4. **null 로 지우는 건 금지 — 단, 손님이 명시적으로 "나 그런 말 한 적 없어" 류 정정(CORRECTION)한 경우만 허용.** 이유 없이 extracted_slots 에 {"current_mood": null} 같은 거 절대 넣지 마라.
+A5. **[강도 미확정] 에 없는 향/맛 축은 손님이 먼저 언급하지 않은 이상 절대 물어보지 마라.** 손님이 태그로 선택하지 않은 축을 "이것도 좋아하세요?" 라고 묻는 건 금지. 태그에 없는 축은 존재하지 않는 셈 쳐라. 묻는 건 **오직 [강도 미확정] 목록에 있는 축뿐**.
+A2. **추출 필수 — 손님이 구체적인 축을 말했으면 반드시 extracted_slots 에 넣어라.**
+   - "혼자" / "혼술" / "혼자 조용히" → party_purpose=solo (반드시).
+   - "회식" / "회사 회식" / "팀 회식" / "동료랑" / "상사랑" / "거래처" → party_purpose=business (반드시). "회식" 단어가 들어가면 무조건 business.
+   - "생일" / "축하" / "돌잔치" / "기념일 축하" → party_purpose=celebration.
+   - "데이트" / "썸" / "둘이" → party_purpose=date.
+   - "친구들이랑 놀" / "모임" / "친구들이랑" / "놀러" → party_purpose=hangout.
+   - "우울" / "별로" / "안 좋아" / "힘들어" → current_mood=bad.
+   - "좋아" / "기분 좋" / "신나" → current_mood=good.
+   - 한 발화에 여러 축이 있으면 **모두** 추출해라. (예: "혼자 우울해" → {party_purpose:"solo", current_mood:"bad"})
+   - 강도 표현 "은은/살짝/약간" → medium, "강하게/확/쎄게" → high, "적당히/보통" → medium, "별로/덜" → low, "싫어/질색" → zero.
+   - 손님이 taste/aroma 축 이름을 말하고 강도 형용사까지 썼으면 taste_profile/aroma_profile 에 **반드시** 반영.
+     예: "단맛은 은은하게, 상큼한건 좀 강했으면" → taste_profile={sweet:"medium", freshness:"high"}
+     예: "파인애플향 좋아해, 우유향은 싫어" → aroma_profile={fruity:"high"}, taste_profile={creamy:"zero"}
+     (참고: "우유향/밀키/크리미" 는 향 카테고리에 없으니 taste_profile.creamy 로 매핑.)
+   - 손님이 "딱히 없어 / 상관없어 / 다 괜찮아" 로 답한 경우에만 extracted_slots={} 허용.
 B. 손님 정정 존중: 손님이 "나 X 라고 말한 적 없어 / 아니야 / 그건 아니고" 라고 하면, 해당 slot 을 반드시 null 로 extracted_slots 에 넣어 지워라. 예: {"current_mood": null}
 C. 반복 금지: [직전에 네가 한 질문] 과 같은 주제·같은 구조·같은 선택지 질문을 다시 하지 마라. 손님이 답 못 하면 **다른 축으로 넘어가거나 바로 RECOMMEND**.
-D. [강도 미확정] 목록에 있는 맛/향 축은 **반드시 강도를 물어 high/low/zero 로 확정해야 한다**. "좋아하세요?" 금지 (이미 선호 확정). 대신 "확 쎄게 / 은은하게 / 적당히 중에 어느 쪽?" 처럼 강도만 물어라. RECOMMEND 로 넘어가기 전에 [강도 미확정] 축이 남아있으면 **우선순위로 그 축을 물어라**. 한 턴에 여러 축 묶어서 물어도 된다 ("단맛은 확/은은, 청량감은 확/은은 중에 어디?"). 손님이 "모르겠다"고 답하면 1회만 우회 질문 후 포기.
-E. [손님 친숙도] 에 따라 대화 방향을 **완전히 다르게** 잡아라:
-   - "처음": 칵테일 용어를 피하고 평범한 감각 단어로 탐색. "평소 음식은 어떤 맛 좋아하세요?" "과일 중에 뭐 좋아해요?" "커피는 어떻게 드세요?" 같이 일상 취향에서 방향 찾아줘라. "취향을 같이 찾아보자"는 톤.
-   - "가끔": "전에 마셔봤던 거 중에 괜찮았던 거 있어요?" "평소 어떤 계열 자주 마셨어요?" 처럼 **경험을 기준으로** 방향 잡아라.
-   - "자주": 평소 선호를 직접적으로 물어라. "평소에 진 계열 선호하세요 아니면 럼 쪽?" "드라이하게 가는 편이에요, 프루티 쪽이에요?" 같이 전문적인 톤.
+C2. 손님이 "없어/괜찮아/없습니다/딱히/다 좋아" 류로 답했으면 **같은 축을 다시 묻는 것은 절대 금지**. 즉시 [부족한 슬롯] 목록의 다른 축으로 넘어가거나, 부족한 슬롯이 없으면 RECOMMEND 로 가라. "다른 수정사항 있으세요?" 같은 오픈 질문을 두 번 반복하지 마라.
+D. **[완성도]와 [강도 미확정]/[부족한 슬롯]을 이번 턴 질문의 1순위 기준으로 삼아라.**
+   - [완성도] < 80% 이면 action=ASK **고정**이고, 질문은 반드시 [부족한 슬롯] 또는 [강도 미확정] 중 하나를 타깃팅해야 한다. 엉뚱한 축(이미 high 로 확정된 걸 또 물음)이나 open 잡담으로 턴 낭비 금지.
+   - [강도 미확정] 목록에 있는 축은 "좋아하세요?" 금지 (선호는 이미 확정). **강도만** 물어라 ("확 쎄게 / 은은하게 / 적당히 중에?"). 한 턴에 2~3개 축을 묶어서 물어도 됨.
+   - [이번 턴 추출된 슬롯] 에 이미 high/medium/low/zero 로 확정된 축은 **절대 다시 강도 질문하지 마라**. 예: 이번 턴에 fruity=high 가 뽑혔으면 "과일향 강도는요?" 다시 묻지 마라 — 이미 확정.
+   - RECOMMEND 로 넘어갈 조건은 (a) [강도 미확정] 비어있음 AND (b) [부족한 슬롯] 비어있음 AND (c) 비선호 축 1회 확인 완료(G2). 이 세 개 다 충족돼야 action=RECOMMEND.
+   - 손님이 "모르겠다"고 답하면 1회만 우회 질문(규칙 F) 후 포기하고 다음 축으로.
+E. [손님 친숙도] 에 따라 대화 방향을 **완전히 다르게** 잡아라 — 이건 최우선 분기다:
+   - **"처음" (novice)**: 손님은 칵테일 용어(드라이/프루티/베이스/스피릿) 잘 모른다. 칵테일 용어 금지, 일상 감각 단어만 써라. 질문은 **거의 다 일상 취향 우회**로 간다.
+     스크립트 예: "평소에 커피는 달달한 걸로 드세요 아니면 블랙이세요?", "아이스크림 고르면 어떤 맛 손이 가요?", "향수는 어떤 계열 쓰세요?", "여행 가면 바다 쪽이 좋으세요 숲 쪽이 좋으세요?", "평소 음식은 매콤한 거 달달한 거 담백한 거 중에?"
+     톤: "제가 같이 찾아드릴게요", "편하게 말씀하시면 제가 맞춰드릴게요". 살짝 가이드해주는 선배 느낌.
+   - **"가끔" (occasional)**: 칵테일 몇 개는 알고 있다. **과거 경험**을 축으로 풀어라.
+     스크립트 예: "저번에 드신 것 중에 괜찮았던 거 기억나세요?", "모히토나 마가리타 같은 거 드셔보셨어요? 어떠셨어요?", "진토닉류가 편하세요 아니면 사워 계열이 더 맞으세요?", "달달했던 게 좋았어요 쌉싸름한 게 좋았어요?"
+     톤: 친구가 같이 고르는 느낌. 용어는 적당히 (진토닉, 사워 정도는 OK).
+   - **"자주" (regular)**: 용어 자유롭게 써도 된다. 베이스·스타일·스피릿 바로 물어도 OK.
+     스크립트 예: "평소 베이스 뭐 많이 드세요? 진? 럼? 위스키?", "드라이한 쪽이세요 프루티 쪽이세요?", "스터드 & 스트레인 스타일 좋아하세요?", "비터 많이 들어간 클래식 계열 어떠세요?"
+     톤: 바텐더끼리 얘기하듯. 전문 용어 거리낌 없이.
+   ※ 친숙도별 톤과 질문 방식이 섞이면 안 된다. 처음인 손님한테 "드라이/프루티/스피릿/스터드" 단어 절대 금지. 자주인 손님한테 "음식은 매콤한 거 좋아하세요?" 같은 초짜 우회 질문은 지루하다.
 F. 손님이 "잘 모르겠다/몰라/딱히" 라고 답하면 같은 축을 다시 묻지 말고 **우회 질문**으로 유도해라:
    - 맛 관련 모르겠다 → "평소 음식은 어떤 맛을 좋아하세요? 매콤한 거? 담백한 거?"
    - 향 관련 모르겠다 → "향수는 어떤 계열 쓰세요?" "좋아하는 과일 있어요?"
    - 도수 관련 모르겠다 → "평소 술 자리에서 몇 잔 정도 드세요?"
    우회 질문으로도 답 못 하면 그 축은 포기하고 RECOMMEND 로 넘어가라.
 G. taste_profile/aroma_profile 강도는 대화 중 계속 업데이트되어야 한다. 초기 medium 을 대화 답변에 따라 high/low/zero 로 확정하거나, 새로운 축을 손님이 언급하면 추가해라.
+G2. **비선호 맛/향 확인 (대화 중 1회 필수 — 빼먹으면 버그)** — RECOMMEND 로 가기 전에 **반드시** "싫어하거나 빼고 싶은 맛이나 향 있어요?" 류 질문을 한 번 해라. 아직 안 물어봤으면 다음 질문에 묶어서라도 해라. 손님이 언급한 싫은 축은 taste_profile/aroma_profile 에 `zero`(질색) 또는 `low`(별로) 로 넣어라. 예: "쓴맛은 별로" → taste_profile.bitter=low. "커피향 완전 싫어" → aroma_profile.coffee=zero. "없다/괜찮다"고 답하면 더 묻지 마라 (그 시점에 G2 충족).
 H. **손님 발화 분류 (user_intent)** — 답하기 전에 먼저 손님이 방금 한 말이 어떤 종류인지 판단해라:
    - "SLOT": 취향/선호를 담은 답변 (예: "달달한 거 좋아", "도수는 약한 거로"). → 평소대로 추출 + 다음 질문.
    - "QUESTION": 손님이 너한테 되물음 (예: "칵테일이 따뜻하다는 게 뭐야?", "그게 무슨 맛이야?"). → reply 는 **먼저 그 질문에 1~2문장으로 직접 답하고** 그 다음에 원래 하려던 축 질문을 다시 이어라. extracted_slots 는 대부분 {}.
@@ -1418,7 +1834,7 @@ H. **손님 발화 분류 (user_intent)** — 답하기 전에 먼저 손님이 
 [행동 원칙]
 1. 손님이 질문·반문하면 먼저 한 문장으로 진짜 내용을 담아 답한 뒤 질문해라. 회피 금지.
 2. 손님의 구체 단어("친구들", "생일파티", "레몬에이드")를 꼭 한 번 짚어서 받아쳐라.
-3. action=ASK 일 때 reply 는 (공감/답변 1~2문장) + (질문 1개). 동일 질문 재탕 금지.
+3. action=ASK 일 때 reply 구조 = **(손님 발화에 구체적 반응 1~2문장) + (질문 1개, 자연스럽게 끼워넣기)**. 반응 문장이 "좋으시네요!", "이해했습니다!" 같은 공허한 맞장구면 안 됨 — 손님이 말한 **구체 단어/상황**을 하나 짚어 되돌려줘라. 선다형("A/B/C 중에?")은 한 턴 건너 한 번 정도만. 그 외엔 자연스러운 open 질문 섞어라. "다음 질문은" / "추가로 여쭤볼게요" 같은 설문조사 접속사 금지.
 4. action 선택:
    - ASK: 추천하기에 정보가 너무 얇고(자리·도수·맛방향 중 0~1 개) 다음 질문이 변별력 있을 때
    - RECOMMEND: 아래 중 하나
@@ -1430,11 +1846,12 @@ H. **손님 발화 분류 (user_intent)** — 답하기 전에 먼저 손님이 
 
 [출력 — JSON 한 덩어리만. 설명·마크다운·코드블록·이모지 금지]
 {
+  "extracted_slots": {},
   "user_intent": "SLOT" | "QUESTION" | "UNKNOWN" | "CORRECTION" | "STOP" | "OTHER",
-  "reply": "손님한테 보여줄 2~3문장 친근한 존댓말 한국어",
   "action": "ASK" | "RECOMMEND",
-  "extracted_slots": { ... 이번 턴에 손님이 명시적으로 말한 축만. 변화 없으면 {} ... }
+  "reply": "손님한테 보여줄 2~3문장 친근한 존댓말 한국어"
 }
+※ extracted_slots 필드는 항상 {} 로 비워서 출력해라. 추출은 이미 외부에서 끝났고 네 값은 무시된다. reply / action / user_intent 만 의미 있다.
 
 [extracted_slots 스키마]
 - current_mood: "good"|"soso"|"bad"|null(지우기)
@@ -1453,27 +1870,7 @@ H. **손님 발화 분류 (user_intent)** — 답하기 전에 먼저 손님이 
 - "완전 싫어/질색/알레르기" → zero
 - "모르겠다/몰라/딱히/그냥 그래" → 해당 키 넣지 마라 (mood 포함)
 
-[예시]
-USER: "친구 생일파티야"
-→ {"user_intent":"SLOT","reply":"오 친구 생일 축하 자리군요. 축하 자리니까 좀 화사한 쪽이 좋을 것 같은데, 단맛이랑 청량감 둘 다 medium 으로 잡혀있는데 어느 쪽이 더 확 느껴졌으면 좋겠어요?","action":"ASK","extracted_slots":{"party_purpose":"celebration"}}
-
-USER: "칵테일이 따뜻하다는 게 뭔 소리야?"
-→ {"user_intent":"QUESTION","reply":"아 말이 좀 어려웠죠. 따뜻하다는 건 데워서 마시는 게 아니라 향이 포근한 쪽, 우디나 바닐라 같은 느낌을 말한 거예요. 우디향 좋아하신다고 하셨으니 그 강도는 확 쎄게 가져갈까요 은은하게 둘까요?","action":"ASK","extracted_slots":{}}
-
-USER: "나 기분 좋다는 말 안 했는데"
-상태: current_mood=good 으로 잘못 찍혀있음
-→ {"user_intent":"CORRECTION","reply":"아 제가 앞서서 넘겨짚었네요, 죄송해요. 오늘 기분은 어떠세요?","action":"ASK","extracted_slots":{"current_mood":null}}
-
-USER: "잘 모르겠는데"
-→ {"user_intent":"UNKNOWN","reply":"그럼 이렇게 여쭤볼게요. 평소 음식은 어떤 맛 좋아하세요? 매콤한 거, 담백한 거, 아니면 단짠?","action":"ASK","extracted_slots":{}}
-
-USER: "시트러스 강한게 좋고 커피향은 완전 싫어"
-→ {"user_intent":"SLOT","reply":"상큼한 거 좋아하시고 커피향은 질색이시군요. 이해했어요. 단맛 강도는 확 단 쪽이에요 은은한 쪽이에요?","action":"ASK","extracted_slots":{"aroma_profile":{"citrus":"high","coffee":"zero"}}}
-
-USER: "알아서 골라줘"
-→ {"user_intent":"STOP","reply":"네 지금까지 들은 느낌으로 그 방향에 맞춰 골라와서 보여드릴게요.","action":"RECOMMEND","extracted_slots":{}}
-
-반드시 위 JSON 스키마 한 덩어리만 출력.
+반드시 위 JSON 스키마 한 덩어리만 출력. extracted_slots 는 항상 {} — 절대 값 채우지 마라.
 """.strip()
 
 
@@ -1498,17 +1895,53 @@ def _locked_slots_description(slots: dict) -> str:
 
 
 def _pending_intensity_description(slots: dict) -> str:
-    """초기 태그 medium 으로 시드만 된 축 — 강도만 물어봐야 함 (선호 여부는 이미 확정)."""
+    """초기 태그 pending 시드 축 — 강도만 물어봐야 함 (선호 여부는 이미 확정)."""
     items: list[str] = []
     taste = slots.get("taste_profile") or {}
-    pending_taste = [k for k, v in taste.items() if v == "medium"]
+    pending_taste = [k for k, v in taste.items() if v == INTENSITY_PENDING]
     if pending_taste:
-        items.append("맛: " + ", ".join(pending_taste) + " (선호는 확정, 강도만 확/은은 조정)")
+        items.append("맛: " + ", ".join(pending_taste) + " (선호는 확정, 강도만 확/은은/적당 조정)")
     aroma = slots.get("aroma_profile") or {}
-    pending_aroma = [k for k, v in aroma.items() if v == "medium"]
+    pending_aroma = [k for k, v in aroma.items() if v == INTENSITY_PENDING]
     if pending_aroma:
-        items.append("향: " + ", ".join(pending_aroma) + " (선호는 확정, 강도만 확/은은 조정)")
+        items.append("향: " + ", ".join(pending_aroma) + " (선호는 확정, 강도만 확/은은/적당 조정)")
     return "\n".join(f"- {x}" for x in items) if items else "(없음)"
+
+
+_MISSING_SLOT_LABEL = {
+    "party_purpose": "자리/상황",
+    "current_mood": "기분",
+    "strength_preference": "도수",
+    "taste_profile": "맛 방향 + 강도",
+    "aroma_profile": "향 방향 + 강도",
+}
+
+
+def _missing_slots_description(slots: dict) -> str:
+    miss = _missing_slots(slots)
+    if not miss:
+        return "(없음 — 충분함)"
+    return ", ".join(f"{_MISSING_SLOT_LABEL.get(k, k)}({k})" for k in miss)
+
+
+def _format_extracted_this_turn(extracted: dict) -> str:
+    """Pass 1 에서 뽑힌 이번 턴 슬롯을 bartender prompt 에 주입할 형태로 요약."""
+    if not extracted:
+        return "(이번 턴엔 새로 추출된 축 없음)"
+    lines: list[str] = []
+    for k in ("current_mood", "party_purpose", "strength_preference"):
+        if k in extracted:
+            lines.append(f"- {k} = {extracted[k]!r}")
+    for k in ("taste_profile", "aroma_profile"):
+        d = extracted.get(k)
+        if isinstance(d, dict) and d:
+            parts = ", ".join(f"{sk}={sv}" for sk, sv in d.items())
+            lines.append(f"- {k}: {parts}")
+    if extracted.get("disliked_bases"):
+        lines.append(f"- disliked_bases = {extracted['disliked_bases']}")
+    if extracted.get("favorite_drinks"):
+        lines.append(f"- favorite_drinks = {extracted['favorite_drinks']}")
+    return "\n".join(lines) if lines else "(이번 턴엔 새로 추출된 축 없음)"
 
 
 def _build_bartender_user_prompt(
@@ -1517,20 +1950,29 @@ def _build_bartender_user_prompt(
     user_msg: str,
     familiarity: Optional[str],
     remaining_turns: int,
+    extracted_this_turn: Optional[dict] = None,
 ) -> str:
     last_q = _last_llm_question(history)
-    locked = _locked_slots_description(slots)
-    pending = _pending_intensity_description(slots)
+    # 이번 턴 추출을 반영한 preview 상태로 pending/missing/completion 계산 — 한 턴 지연 방지.
+    slots_preview = merge_slots(slots, extracted_this_turn or {})
+    locked = _locked_slots_description(slots_preview)
+    pending = _pending_intensity_description(slots_preview)
+    missing = _missing_slots_description(slots_preview)
+    completion = _calc_effective_completion(slots_preview)
+    this_turn = _format_extracted_this_turn(extracted_this_turn or {})
     return (
         f"[손님 친숙도] {familiarity or '알 수 없음'}\n"
-        f"[남은 대화 턴] {remaining_turns} (총 {MAX_USER_TURNS})\n\n"
+        f"[남은 대화 턴] {remaining_turns} (총 {MAX_USER_TURNS})\n"
+        f"[완성도] {completion}% (권장 추천 임계치 {MIN_RECOMMEND_COMPLETION}%)\n\n"
         f"[지금까지 파악한 취향]\n{_summarize_slots_for_prompt(slots)}\n\n"
-        f"[이미 확정된 슬롯 — 절대 다시 묻지 마라]\n{locked}\n\n"
-        f"[강도 미확정 (초기 태그 medium → 대화로 high/low 조정 필요)]\n{pending}\n\n"
+        f"[이번 턴 추출된 슬롯 — 이미 확정됨. reply 에서 이 내용을 짚어줘라]\n{this_turn}\n\n"
+        f"[이미 확정된 슬롯 — 절대 다시 묻지 마라, 덮어쓰기 금지]\n{locked}\n\n"
+        f"[강도 미확정 — 이 축들만 물어라. 여기 없는 축은 묻지 마라]\n{pending}\n\n"
+        f"[부족한 슬롯 — 이 중 하나를 우선 물어라]\n{missing}\n\n"
         f"[직전에 네가 한 질문]\n{last_q or '(없음 — 첫 턴)'}\n\n"
         f"[최근 대화]\n{_format_history(history)}\n\n"
         f"[손님의 방금 발화]\n{user_msg}\n\n"
-        f"위 상황에서 바텐더로서 판단해라. JSON 한 덩어리만 출력."
+        f"위 상황에서 바텐더로서 판단해라. extracted_slots 는 {{}} 로 비우고 reply/action/user_intent 만 채워라. JSON 한 덩어리만 출력."
     )
 
 
@@ -1538,7 +1980,7 @@ def analyze_user_turn(
     history: list[dict],
     slots: dict,
     user_msg: str,
-    max_new_tokens: int = 420,
+    max_new_tokens: int = 280,
     generate_next_question: bool = True,
     skip_slots: Optional[set[str]] = None,  # legacy, 무시됨
     alt_slots: Optional[set[str]] = None,  # legacy, 무시됨
@@ -1546,16 +1988,24 @@ def analyze_user_turn(
     user_turn_count: int = 0,
 ) -> dict:
     try:
-        from app.utils.model_loader import load_qwen3
+        from app.utils.model_loader import load_llm
         import torch
 
-        tokenizer, model = load_qwen3()
+        # ─── Pass 1 : 슬롯 추출 전용 LLM 호출 ───────────────────────
+        extracted_raw, extract_raw_text = _extract_slots_llm(history, user_msg)
+        extracted = validate_extracted_slots(extracted_raw)
+        extracted = _apply_rule_based_slot_guards(history, user_msg, extracted)
+        extracted = _drop_unchanged_slots(extracted, slots)
+
+        # ─── Pass 2 : reply/action 생성 (추출 결과 주입) ─────────────
+        tokenizer, model = load_llm()
 
         remaining = max(MAX_USER_TURNS - user_turn_count, 0)
         messages = [
             {"role": "system", "content": _BARTENDER_SYSTEM_PROMPT},
             {"role": "user", "content": _build_bartender_user_prompt(
                 history, slots, user_msg, familiarity, remaining,
+                extracted_this_turn=extracted,
             )},
         ]
         rendered = tokenizer.apply_chat_template(
@@ -1567,34 +2017,61 @@ def analyze_user_turn(
         inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
         input_len = inputs["input_ids"].shape[-1]
 
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         with torch.no_grad():
             out = model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 do_sample=True,
-                temperature=0.7,
+                temperature=0.3,
                 top_p=0.9,
-                repetition_penalty=1.1,
+                repetition_penalty=1.05,
                 pad_token_id=tokenizer.eos_token_id,
             )
 
         raw = tokenizer.decode(out[0][input_len:], skip_special_tokens=True).strip()
+        del inputs, out
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         parsed = _extract_json_object(raw) or {}
 
-        extracted_raw = parsed.get("extracted_slots") or {}
-        extracted = validate_extracted_slots(extracted_raw)
-        extracted = _apply_rule_based_slot_guards(history, user_msg, extracted)
-        extracted = _drop_unchanged_slots(extracted, slots)
+        # Pass 2 는 이제 추출 담당이 아니다 — bartender 가 뽑은 extracted_slots 는 무시.
+        # 단, reply/action/user_intent 를 extracted_slots 안에 중첩 출력한 legacy 포맷은 un-nest.
+        es = parsed.get("extracted_slots")
+        if isinstance(es, dict):
+            for top_key in ("reply", "action", "user_intent"):
+                if top_key in es and top_key not in parsed:
+                    parsed[top_key] = es.pop(top_key)
 
         action = str(parsed.get("action") or "ASK").upper()
         if action not in ("ASK", "RECOMMEND"):
             action = "ASK"
 
         user_intent = str(parsed.get("user_intent") or "").upper()
+
+        # RECOMMEND 게이트: 완성도가 임계치 미만이면 유저가 명시적으로 멈춘 게 아닌 한 ASK 강등
+        if action == "RECOMMEND" and not _explicit_user_stop(user_msg):
+            merged_preview = merge_slots(slots, extracted)
+            if _calc_effective_completion(merged_preview) < MIN_RECOMMEND_COMPLETION:
+                action = "ASK"
+                user_intent = user_intent or "SLOT"
+
+        # 비선호 질문 게이트: RECOMMEND 가기 전에 1회 "싫어하는 맛/향" 확인 필수.
+        # 이미 체크된 신호가 하나라도 있으면 통과.
+        if action == "RECOMMEND" and not _explicit_user_stop(user_msg):
+            merged_preview = merge_slots(slots, extracted)
+            if not _dislike_check_done(merged_preview, history):
+                action = "ASK"
+                user_intent = user_intent or "SLOT"
+                parsed["_force_dislike_ask"] = True
         if user_intent not in ("SLOT", "QUESTION", "UNKNOWN", "CORRECTION", "STOP", "OTHER"):
             user_intent = "OTHER"
 
         reply = str(parsed.get("reply") or "").strip()
+        if parsed.get("_force_dislike_ask"):
+            reply = _DISLIKE_REPLY
         if not reply and generate_next_question:
             reply = "네 알겠습니다. 조금만 더 여쭤볼게요."
 
@@ -1607,18 +2084,20 @@ def analyze_user_turn(
 
         return {
             "extracted_slots": extracted,
+            "extracted_raw": extracted_raw,
             "should_stop": should_stop,
             "stop_reason": stop_reason,
             "next_question": reply,
             "reply": reply,
             "action": action,
             "user_intent": user_intent,
-            "source": "qwen",
+            "source": "llm",
             "raw": raw,
+            "extract_raw": extract_raw_text,
         }
 
     except Exception as e:
-        logger.warning("Qwen analyze_user_turn failed: %r", e, exc_info=True)
+        logger.warning("LLM analyze_user_turn failed: %r", e, exc_info=True)
         return {
             "extracted_slots": {},
             "should_stop": False,
@@ -1632,7 +2111,7 @@ def analyze_user_turn(
         }
 
 def generate_opening_question() -> str:
-    """대화 첫 질문 — 정해진 오프너. (Qwen 호출 비용 아끼려고 고정)"""
+    """대화 첫 질문 — 정해진 오프너. (LLM 호출 비용 아끼려고 고정)"""
     return (
         "안녕하세요! 당신만의 맞춤 바텐더입니다. "
         "취향을 몇 가지 여쭤보고 딱 맞는 칵테일 골라드릴게요. "
@@ -1723,12 +2202,13 @@ def _seed_slots_from_initial_tags(tag_row) -> dict:
         seeded["strength_preference"] = strength_map[tag_row.strength_tag]
 
     # 초기 태그는 손님이 체크한 선호 "축"일 뿐, 강도는 대화로 조정한다.
-    # 따라서 medium 으로 시드하고 LLM 이 대화에서 high/low 로 덮어쓰게 둔다.
+    # 따라서 INTENSITY_PENDING 으로 시드해서 "seed-only" 와 "대화로 확정된 medium" 을
+    # 명확히 구분한다. LLM 은 대화에서 high/medium/low/zero 중 하나로 덮어쓴다.
     taste_profile: dict[str, str] = {}
     for tag in getattr(tag_row, "taste_tags_json", None) or []:
         mapped = taste_map.get(tag)
         if mapped:
-            taste_profile[mapped] = "medium"
+            taste_profile[mapped] = INTENSITY_PENDING
     if taste_profile:
         seeded["taste_profile"] = taste_profile
 
@@ -1736,7 +2216,7 @@ def _seed_slots_from_initial_tags(tag_row) -> dict:
     for tag in getattr(tag_row, "aroma_tags_json", None) or []:
         mapped = aroma_map.get(tag)
         if mapped:
-            aroma_profile[mapped] = "medium"
+            aroma_profile[mapped] = INTENSITY_PENDING
     if aroma_profile:
         seeded["aroma_profile"] = aroma_profile
 

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import os
 from typing import Iterable, Literal, Tuple
 
 import torch
 from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-from app.utils.config import QWEN3_EMBED_MODEL, QWEN3_MODEL
+from app.utils.config import QWEN3_EMBED_MODEL, LLM_MODEL
 
 _CACHE: dict[str, Tuple] = {}
+
+_DEFAULT_QUANT = os.getenv("LLM_QUANT", "4bit").lower()
 
 
 def _bnb_4bit_config() -> BitsAndBytesConfig:
@@ -19,23 +22,35 @@ def _bnb_4bit_config() -> BitsAndBytesConfig:
     )
 
 
-def load_qwen3(quantization: Literal["4bit", "fp16"] = "4bit"):
-    cache_key = f"{QWEN3_MODEL}:{quantization}"
+def _bnb_8bit_config() -> BitsAndBytesConfig:
+    return BitsAndBytesConfig(load_in_8bit=True)
+
+
+def load_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
+    quant = (quantization or _DEFAULT_QUANT).lower()
+    cache_key = f"{LLM_MODEL}:{quant}"
     if cache_key in _CACHE:
         return _CACHE[cache_key]
 
-    tokenizer = AutoTokenizer.from_pretrained(QWEN3_MODEL, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL, trust_remote_code=True)
 
-    if quantization == "4bit":
+    if quant == "4bit":
         model = AutoModelForCausalLM.from_pretrained(
-            QWEN3_MODEL,
+            LLM_MODEL,
             quantization_config=_bnb_4bit_config(),
+            device_map="auto",
+            trust_remote_code=True,
+        )
+    elif quant == "8bit":
+        model = AutoModelForCausalLM.from_pretrained(
+            LLM_MODEL,
+            quantization_config=_bnb_8bit_config(),
             device_map="auto",
             trust_remote_code=True,
         )
     else:
         model = AutoModelForCausalLM.from_pretrained(
-            QWEN3_MODEL,
+            LLM_MODEL,
             torch_dtype=torch.float16,
             device_map="auto",
             trust_remote_code=True,

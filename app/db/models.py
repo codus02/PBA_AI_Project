@@ -252,9 +252,11 @@ class Cocktail(Base):
     creamy_level = Column(DECIMAL(3, 1), nullable=True)
     spicy_level = Column(DECIMAL(3, 1), nullable=True)
     nutty_level = Column(DECIMAL(3, 1), nullable=True)
+    alcohol_score = Column(DECIMAL(3, 1), nullable=True)  # 칵테일 자체 도수 (0~5 스케일)
 
     mood_tag = Column(String(50), nullable=True)
     description = Column(Text, nullable=False)
+    embedding_text = Column(Text, nullable=True)
     embedding = Column(Vector(1024), nullable=True)  # Qwen3-Embedding (pgvector)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
@@ -268,6 +270,7 @@ class Cocktail(Base):
         CheckConstraint("creamy_level BETWEEN 0 AND 5", name="chk_cocktails_creamy_level"),
         CheckConstraint("spicy_level BETWEEN 0 AND 5", name="chk_cocktails_spicy_level"),
         CheckConstraint("nutty_level BETWEEN 0 AND 5", name="chk_cocktails_nutty_level"),
+        CheckConstraint("alcohol_score BETWEEN 0 AND 5", name="chk_cocktails_alcohol_score"),
     )
 
 

@@ -1,4 +1,4 @@
-"""Qwen 전체 플로우 메모리-only 시뮬레이터.
+"""LLM 전체 플로우 메모리-only 시뮬레이터.
 
 초기 태그는 DB InitialTagResponse 스키마와 동일 (familiarity / strength / tastes / aromas).
 party_purpose, current_mood 는 초기 태그에 없으므로 대화 루프에서 채운다.
@@ -8,7 +8,7 @@ party_purpose, current_mood 는 초기 태그에 없으므로 대화 루프에�
   2) 슬롯 추출 대화 루프 (analyze_user_turn / should_move_to_recommendation)
      - 사용자가 "몰라/모르겠/딱히" → 해당 슬롯 1회 alt 각도로 재질문, 그래도 모르면 skip
      - disliked_bases는 사용자가 먼저 말하지 않으면 절대 묻지 않음
-  3) 1차 RAG+Qwen 추천 top3
+  3) 1차 RAG+LLM 추천 top3
   4) 사용자가 하나 고르고 피드백
   5) analyze_feedback → intent+deltas → 벡터 갱신 → 재추천 (이전 제외)
   6) ACCEPT / 최대 3 라운드 종료
@@ -37,11 +37,12 @@ from app.agents.preference_agent import (
 from app.agents.orchestration_agent import (
     synthesize_query,
     retrieve_candidates,
-    rerank_with_qwen,
+    rerank_with_llm,
     score_cocktail,
     _has_disliked_base,
     _is_unstockable,
     _has_zero_taste_conflict,
+    _build_reason_parts,
 )
 from app.db.database import SessionLocal
 from app.db.crud import get_all_recipes_with_ingredients, get_available_ingredient_ids
@@ -220,6 +221,8 @@ def dialogue_loop(initial_slots: dict, familiarity: str | None = None) -> dict:
 
         comp = _calc_effective_completion(slots)
         print(f"  source={result['source']}  intent={result.get('user_intent','?')}  action={result['action']}  completion={comp}%  turn={turn}/{MAX_USER_TURNS}")
+        print(f"  llm_emitted: {json.dumps(result.get('extracted_raw', {}), ensure_ascii=False)}")
+        print(f"  kept_after_diff: {json.dumps(extracted, ensure_ascii=False)}")
         print(f"  slots: {json.dumps(slots, ensure_ascii=False)}")
 
         reply = result["reply"]
@@ -275,7 +278,7 @@ def recommend_once(
         return []
 
     survivor_cocktails = [c for c, _ in survivors]
-    reranked = rerank_with_qwen(profile, survivor_cocktails, k=3)
+    reranked = rerank_with_llm(profile, survivor_cocktails, k=3)
 
     results: list[dict] = []
     if reranked:
@@ -289,21 +292,23 @@ def recommend_once(
                 "name_kr": c.name_kr,
                 "category": c.category,
                 "reason": item.get("reason", ""),
-                "source": "rag_qwen",
+                "source": "rag_llm",
             })
 
     if not results:
         scored = []
         for c, _d in survivors:
             ri = all_ri.get(c.cocktail_id, [])
-            scored.append((c, score_cocktail(c, profile, ri)))
+            scored.append((c, score_cocktail(c, profile, ri), ri))
         scored.sort(key=lambda x: x[1], reverse=True)
-        for c, s in scored[:3]:
+        for c, s, ri in scored[:3]:
+            reason_parts = _build_reason_parts(c, profile, ri)
             results.append({
                 "cocktail_id": c.cocktail_id,
                 "name_kr": c.name_kr,
                 "category": c.category,
-                "reason": f"score={s:.2f}",
+                "reason": " · ".join(reason_parts),
+                "score": s,
                 "source": "rag_fallback",
             })
 
@@ -427,7 +432,7 @@ def print_final_recommendation(db, picked: dict) -> None:
 
 
 def main() -> None:
-    print("=== Qwen 전체 플로우 시뮬레이터 (메모리 only) ===")
+    print("=== LLM 전체 플로우 시뮬레이터 (메모리 only) ===")
     tag_row = ask_initial_tags()
     seeded = _seed_slots_from_initial_tags(tag_row)
     print(f"\n초기 태그 seed 결과: {json.dumps(seeded, ensure_ascii=False)}")

@@ -16,11 +16,12 @@ from app.db.crud import get_all_recipes_with_ingredients, get_available_ingredie
 from app.agents.orchestration_agent import (
     synthesize_query,
     retrieve_candidates,
-    rerank_with_qwen,
+    rerank_with_llm,
     score_cocktail,
     _has_disliked_base,
     _is_unstockable,
 )
+from scripts._eval_save import save_eval_result
 
 RAG_RETRIEVE_N = 20
 CSV_PATH = Path("data/eval/recommendation_eval_v2_500.csv")
@@ -54,7 +55,7 @@ def _list_to_profile(preferred, disliked) -> dict[str, str]:
             profile[str(tag)] = "high"
     for tag in disliked or []:
         if tag:
-            profile[str(tag)] = "low"
+            profile[str(tag)] = "zero"
     return profile
 
 
@@ -110,7 +111,7 @@ def _llm_top3(
         return []
 
     survivor_cocktails = [c for c, _ in survivors]
-    reranked = rerank_with_qwen(profile, survivor_cocktails, k=3)
+    reranked = rerank_with_llm(profile, survivor_cocktails, k=3)
 
     if reranked:
         id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
@@ -122,7 +123,7 @@ def _llm_top3(
             top3.append({
                 "name_kr": c.name_kr,
                 "category": c.category,
-                "source": "rag_qwen",
+                "source": "rag_llm",
             })
         if top3:
             return top3[:3]
@@ -196,12 +197,18 @@ def eval_recommendation(limit: int | None = None):
     elapsed = time.perf_counter() - t0
     denom = max(total, 1)
 
-    print(f"\n[Qwen 추천 적합도 평가] 총 {total}건")
-    print(f"  Hit@1  (top1 정답 포함): {hit_k1}/{total} = {hit_k1/denom*100:.1f}%")
-    print(f"  Hit@3  (top3 정답 포함): {hit_k3}/{total} = {hit_k3/denom*100:.1f}%")
-    print(f"  카테고리 Hit@3:           {cat_hit}/{total} = {cat_hit/denom*100:.1f}%")
-    print(f"  후보 없음:                {no_candidate}/{total} = {no_candidate/denom*100:.1f}%")
-    print(f"  소요 시간:                {elapsed:.1f}s ({elapsed/denom:.2f}s/case)")
+    lines: list[str] = []
+
+    def _log(msg: str = ""):
+        print(msg)
+        lines.append(msg)
+
+    _log(f"\n[LLM 추천 적합도 평가] 총 {total}건")
+    _log(f"  Hit@1  (top1 정답 포함): {hit_k1}/{total} = {hit_k1/denom*100:.1f}%")
+    _log(f"  Hit@3  (top3 정답 포함): {hit_k3}/{total} = {hit_k3/denom*100:.1f}%")
+    _log(f"  카테고리 Hit@3:           {cat_hit}/{total} = {cat_hit/denom*100:.1f}%")
+    _log(f"  후보 없음:                {no_candidate}/{total} = {no_candidate/denom*100:.1f}%")
+    _log(f"  소요 시간:                {elapsed:.1f}s ({elapsed/denom:.2f}s/case)")
 
     return {
         "hit@1": hit_k1 / denom,
@@ -210,6 +217,7 @@ def eval_recommendation(limit: int | None = None):
         "no_candidate_rate": no_candidate / denom,
         "n": total,
         "elapsed_sec": elapsed,
+        "_summary_lines": lines,
     }
 
 
@@ -218,5 +226,22 @@ if __name__ == "__main__":
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--tag", type=str, default=None,
+                    help="저장 라벨. 지정 시 eval_results/quantitative/rec_{tag}_{stamp}.{json,txt} 저장.")
+    ap.add_argument("--model", type=str, default=None,
+                    help="결과 메타에 기록할 모델명 (미지정 시 env LLM_MODEL)")
     args = ap.parse_args()
-    eval_recommendation(limit=args.limit)
+
+    result = eval_recommendation(limit=args.limit)
+    if args.tag:
+        summary_lines = result.pop("_summary_lines", [])
+        json_path, txt_path = save_eval_result(
+            kind="rec",
+            tag=args.tag,
+            limit=args.limit,
+            payload=result,
+            summary_lines=summary_lines,
+            model=args.model,
+        )
+        print(f"\n[saved] {json_path}")
+        print(f"[saved] {txt_path}")

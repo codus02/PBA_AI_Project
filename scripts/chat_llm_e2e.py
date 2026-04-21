@@ -1,4 +1,4 @@
-"""Qwen 슬롯 추출 + RAG 추천 end-to-end 인터랙티브 테스트."""
+"""LLM 슬롯 추출 + RAG 추천 end-to-end 인터랙티브 테스트."""
 from __future__ import annotations
 
 import json
@@ -18,7 +18,7 @@ from app.agents.preference_agent import (
 from app.agents.orchestration_agent import (
     synthesize_query,
     retrieve_candidates,
-    rerank_with_qwen,
+    rerank_with_llm,
     score_cocktail,
     _has_disliked_base,
     _is_unstockable,
@@ -77,11 +77,11 @@ def run_recommendation(slots: dict) -> None:
             return
 
         survivor_cocktails = [c for c, _ in survivors]
-        reranked = rerank_with_qwen(profile, survivor_cocktails, k=3)
+        reranked = rerank_with_llm(profile, survivor_cocktails, k=3)
 
         if reranked:
             id_to_c = {c.cocktail_id: c for c in survivor_cocktails}
-            print("\n=== Qwen rerank TOP 3 ===")
+            print("\n=== LLM rerank TOP 3 ===")
             for i, item in enumerate(reranked[:3], 1):
                 c = id_to_c.get(item["cocktail_id"])
                 if c is None:

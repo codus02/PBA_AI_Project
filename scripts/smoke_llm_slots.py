@@ -1,7 +1,7 @@
-"""Qwen3 단일 호출 스모크 테스트.
+"""LLM 단일 호출 스모크 테스트.
 
-실행: python -m scripts.smoke_qwen_slots
-요구: GPU + Qwen3-8B 모델 캐시 (bnb 4bit)
+실행: python -m scripts.smoke_llm_slots
+요구: GPU + LLM 모델 캐시 (bnb 4bit)
 """
 from __future__ import annotations
 
