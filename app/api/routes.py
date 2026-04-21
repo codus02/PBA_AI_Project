@@ -239,19 +239,9 @@ def feedback_endpoint(
     if not guest:
         raise HTTPException(status_code=404, detail="guest_session_id not found")
 
-    # USER 피드백을 dialogue turn에도 남김
-    create_dialogue_turn(
-        db=db,
-        guest_session_id=gid,
-        speaker_role="USER",
-        utterance_text=req.feedback_text,
-        extracted_slots_json=None,
-    )
-
     current_round = (guest.feedback_round or 0) + 1
-    update_feedback_round(db, gid, current_round)
 
-    # 4회차 요청: 추가 피드백 받지 않고 현재 sample을 강제 확정
+    # 4회차부터는 추가 피드백을 받지 않고 현재 sample을 강제 확정한다.
     if current_round > 3:
         try:
             result = finalize_sample(
@@ -264,6 +254,16 @@ def feedback_endpoint(
             raise HTTPException(status_code=400, detail=str(e))
         return result
 
+    # 허용된 1~3회차 피드백만 저장/반영
+    create_dialogue_turn(
+        db=db,
+        guest_session_id=gid,
+        speaker_role="USER",
+        utterance_text=req.feedback_text,
+        extracted_slots_json=None,
+    )
+    update_feedback_round(db, gid, current_round)
+
     try:
         result = process_feedback(
             db=db,
@@ -273,20 +273,6 @@ def feedback_endpoint(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-    # 3회차인데 ACCEPT 아니면 강제 확정 (이 시점의 sample 기준)
-    if current_round == 3 and result.get("status") != "accepted":
-        forced_sample_id = result.get("sample_recommendation_id") or req.sample_recommendation_id
-        try:
-            result = finalize_sample(
-                db=db,
-                guest_session_id=gid,
-                sample_recommendation_id=forced_sample_id,
-                forced=True,
-            )
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-        return result
 
     # 재추천된 경우 "어떠세요?" LLM 턴 추가
     if result.get("status") == "re_recommended":

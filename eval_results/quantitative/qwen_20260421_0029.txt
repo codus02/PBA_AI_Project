@@ -1,0 +1,16 @@
+============================================================
+ 최종 요약 — tag=qwen  model=Qwen/Qwen3-8B  20260421_0029
+============================================================
+  피드백 분류 정확도        : 97.3%
+  슬롯 scalar enum 평균     : 21.7%
+    └ current_mood          : 1.7%
+    └ party_purpose         : 30.8%
+    └ strength_preference   : 32.8%
+  taste_profile KV F1       : 23.0
+  aroma_profile KV F1       : 21.6
+  disliked_bases F1         : 62.8
+  favorite_drinks 검출률    : 58.0%
+  추천 Hit@1                : 17.6%
+  추천 Hit@3                : 22.2%
+  카테고리 Hit@3            : 53.0%
+  후보 없음 비율            : 0.0%

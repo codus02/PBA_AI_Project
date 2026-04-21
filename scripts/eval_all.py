@@ -1,4 +1,5 @@
 # scripts/eval_all.py
+#룰베이스 평가 코드 
 import sys
 sys.path.insert(0, ".")
 

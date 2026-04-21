@@ -11,7 +11,7 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 
 QWEN3_MODEL = os.getenv("QWEN3_MODEL", "Qwen/Qwen3-8B")
 QWEN2_VL_MODEL = os.getenv("QWEN2_VL_MODEL", "Qwen/Qwen2-VL-7B-Instruct")
-QWEN3_EMBED_MODEL = os.getenv("QWEN3_EMBED_MODEL", "Qwen/Qwen3-Embedding")
+QWEN3_EMBED_MODEL = os.getenv("QWEN3_EMBED_MODEL", "Qwen/Qwen3-Embedding-0.6B")
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/tmp/b2_uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
