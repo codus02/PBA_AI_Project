@@ -4,9 +4,10 @@ import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePartyStore, useGuest } from '@/lib/store/partyStore';
-import type { GuestPreferences } from '@/lib/types';
+import { getInitialRecommendation } from '@/lib/mock/recommendations';
+import type { FollowUpAnswer } from '@/lib/types';
 import { now } from '@/lib/utils';
-import TasteForm from '@/components/onboarding/TasteForm';
+import FollowUpQuestions from '@/components/onboarding/FollowUpQuestions';
 import StepIndicator from '@/components/ui/StepIndicator';
 
 const STEPS = [
@@ -14,7 +15,7 @@ const STEPS = [
   { label: '추가질문', icon: '💬' },
 ];
 
-export default function OnboardingPage({
+export default function OnboardingChatPage({
   params,
 }: {
   params: Promise<{ id: string; guestId: string }>;
@@ -37,22 +38,39 @@ export default function OnboardingPage({
     );
   }
 
-  const handleTasteSubmit = (prefs: GuestPreferences) => {
-    store.setPreferences(id, guestId, prefs);
-    store.addConversationEntry(id, guestId, {
-      timestamp: now(),
-      type: 'preference_input',
-      content: `취향 입력 완료: 경험 ${prefs.experience}, 도수 ${prefs.alcoholTolerance}, 맛 [${prefs.tasteTags.join(', ')}], 향 [${prefs.aromaTags.join(', ')}]`,
+  const handleFollowUpSubmit = (answers: FollowUpAnswer[]) => {
+    store.setFollowUpAnswers(id, guestId, answers);
+    answers.forEach((a) => {
+      store.addConversationEntry(id, guestId, {
+        timestamp: now(),
+        type: 'followup_a',
+        content: `${a.question} → ${a.answer}`,
+      });
     });
-    router.push(`/party/${id}/guest/${guestId}/onboarding/chat`);
+
+    const prefs = store.getGuest(id, guestId)?.preferences;
+    if (prefs) {
+      const recommendation = getInitialRecommendation(prefs);
+      store.setTastingRecommendation(id, guestId, recommendation);
+      store.addRecommendationEntry(id, guestId, {
+        timestamp: now(),
+        stage: 'tasting',
+        cocktailId: recommendation.id,
+        cocktailName: recommendation.name,
+      });
+    }
+    router.push(`/party/${id}/guest/${guestId}/tasting`);
   };
 
   return (
     <main className="min-h-screen px-4 py-8 max-w-lg mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <Link href={`/party/${id}`} className="text-xs text-zinc-500 hover:text-zinc-300">
-            ← 파티로
+          <Link
+            href={`/party/${id}/guest/${guestId}/onboarding`}
+            className="text-xs text-zinc-500 hover:text-zinc-300"
+          >
+            ← 취향 입력으로
           </Link>
           <h1 className="text-xl font-bold text-zinc-100 mt-1">
             {guest.name}님의 취향 입력
@@ -61,10 +79,10 @@ export default function OnboardingPage({
       </div>
 
       <div className="flex justify-center mb-8">
-        <StepIndicator steps={STEPS} current={0} />
+        <StepIndicator steps={STEPS} current={1} />
       </div>
 
-      <TasteForm onSubmit={handleTasteSubmit} />
+      <FollowUpQuestions onSubmit={handleFollowUpSubmit} />
     </main>
   );
 }

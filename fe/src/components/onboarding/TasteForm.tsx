@@ -1,10 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import type { GuestPreferences, AromaType } from '@/lib/types';
+import type { GuestPreferences, TasteTag, AromaTag } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import Card, { CardHeader, CardTitle, CardBody } from '@/components/ui/Card';
-import SliderInput from '@/components/ui/SliderInput';
 import { cn } from '@/lib/utils';
 
 interface TasteFormProps {
@@ -12,129 +11,91 @@ interface TasteFormProps {
 }
 
 type FormState = {
-  sweetness: number | null;
-  sourness: number | null;
-  bitterness: number | null;
-  spiciness: number | null;
-  aromas: AromaType[];
-  alcoholTolerance: GuestPreferences['alcoholTolerance'] | null;
-  intensity: GuestPreferences['intensity'] | null;
   experience: GuestPreferences['experience'] | null;
+  alcoholTolerance: GuestPreferences['alcoholTolerance'] | null;
+  tasteTags: TasteTag[];
+  aromaTags: AromaTag[];
 };
 
-const AROMAS: { id: AromaType; label: string; emoji: string }[] = [
-  { id: 'citrus', label: '시트러스', emoji: '🍋' },
-  { id: 'floral', label: '꽃향기', emoji: '🌸' },
-  { id: 'woody', label: '우디', emoji: '🪵' },
-  { id: 'herbal', label: '허브', emoji: '🌿' },
-  { id: 'fruity', label: '과일', emoji: '🍓' },
-  { id: 'spicy', label: '스파이시', emoji: '🌶️' },
-  { id: 'smoky', label: '스모키', emoji: '🔥' },
-  { id: 'sweet', label: '달콤', emoji: '🍯' },
+const TASTE_TAGS: { id: TasteTag; label: string }[] = [
+  { id: 'sweet', label: '단맛' },
+  { id: 'sour', label: '신맛' },
+  { id: 'bitter', label: '쓴맛' },
+  { id: 'refreshing', label: '청량함' },
+  { id: 'body', label: '바디감' },
+  { id: 'creamy', label: '크리미함' },
+];
+
+const AROMA_TAGS: { id: AromaTag; label: string }[] = [
+  { id: 'fruity', label: '과일향' },
+  { id: 'herbal', label: '허브향' },
+  { id: 'mint', label: '민트향' },
+  { id: 'citrus', label: '시트러스향' },
+  { id: 'woody', label: '우디향' },
+  { id: 'coffee', label: '커피향' },
+  { id: 'floral', label: '꽃향' },
 ];
 
 export default function TasteForm({ onSubmit }: TasteFormProps) {
   const [prefs, setPrefs] = useState<FormState>({
-    sweetness: null,
-    sourness: null,
-    bitterness: null,
-    spiciness: null,
-    aromas: [],
-    alcoholTolerance: null,
-    intensity: null,
     experience: null,
+    alcoholTolerance: null,
+    tasteTags: [],
+    aromaTags: [],
   });
 
-  const toggleAroma = (aroma: AromaType) => {
-    setPrefs((p) => ({
-      ...p,
-      aromas: p.aromas.includes(aroma)
-        ? p.aromas.filter((a) => a !== aroma)
-        : [...p.aromas, aroma],
-    }));
-  };
+  const toggleTag = <T extends string>(arr: T[], val: T): T[] =>
+    arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
 
-  const isComplete =
-    prefs.sweetness !== null &&
-    prefs.sourness !== null &&
-    prefs.bitterness !== null &&
-    prefs.spiciness !== null &&
-    prefs.alcoholTolerance !== null &&
-    prefs.intensity !== null &&
-    prefs.experience !== null;
+  const isComplete = prefs.experience !== null && prefs.alcoholTolerance !== null;
 
   const handleSubmit = () => {
     if (!isComplete) return;
     onSubmit({
-      sweetness: prefs.sweetness!,
-      sourness: prefs.sourness!,
-      bitterness: prefs.bitterness!,
-      spiciness: prefs.spiciness!,
-      aromas: prefs.aromas,
-      alcoholTolerance: prefs.alcoholTolerance!,
-      intensity: prefs.intensity!,
       experience: prefs.experience!,
+      alcoholTolerance: prefs.alcoholTolerance!,
+      tasteTags: prefs.tasteTags,
+      aromaTags: prefs.aromaTags,
     });
   };
+
+  const tagButtonClass = (selected: boolean) =>
+    cn(
+      'px-4 py-2 rounded-full text-sm font-medium transition-all border',
+      selected
+        ? 'bg-amber-400/20 border-amber-400/50 text-amber-300'
+        : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'
+    );
+
+  const choiceButtonClass = (selected: boolean) =>
+    cn(
+      'h-10 flex-1 rounded-xl text-sm font-medium transition-all border',
+      selected
+        ? 'bg-amber-400/20 border-amber-400/50 text-amber-300'
+        : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'
+    );
 
   return (
     <div className="flex flex-col gap-5">
       <Card>
         <CardHeader>
-          <CardTitle>맛 선호도</CardTitle>
-        </CardHeader>
-        <CardBody className="flex flex-col gap-4">
-          <SliderInput
-            label="단맛"
-            value={prefs.sweetness}
-            onChange={(v) => setPrefs((p) => ({ ...p, sweetness: v }))}
-            leftLabel="싫어요"
-            rightLabel="좋아요"
-          />
-          <SliderInput
-            label="신맛"
-            value={prefs.sourness}
-            onChange={(v) => setPrefs((p) => ({ ...p, sourness: v }))}
-            leftLabel="싫어요"
-            rightLabel="좋아요"
-          />
-          <SliderInput
-            label="쓴맛"
-            value={prefs.bitterness}
-            onChange={(v) => setPrefs((p) => ({ ...p, bitterness: v }))}
-            leftLabel="싫어요"
-            rightLabel="좋아요"
-          />
-          <SliderInput
-            label="매운맛"
-            value={prefs.spiciness}
-            onChange={(v) => setPrefs((p) => ({ ...p, spiciness: v }))}
-            leftLabel="싫어요"
-            rightLabel="좋아요"
-          />
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>향 선호도 <span className="text-sm text-zinc-500 font-normal">(복수 선택)</span></CardTitle>
+          <CardTitle>친숙도</CardTitle>
         </CardHeader>
         <CardBody>
-          <div className="grid grid-cols-4 gap-2">
-            {AROMAS.map((a) => (
+          <p className="text-sm text-zinc-400 mb-3">칵테일을 자주 드셔보셨나요?</p>
+          <div className="flex gap-2">
+            {([
+              { value: 'beginner', label: '처음' },
+              { value: 'casual', label: '가끔' },
+              { value: 'experienced', label: '자주' },
+            ] as const).map(({ value, label }) => (
               <button
-                key={a.id}
+                key={value}
                 type="button"
-                onClick={() => toggleAroma(a.id)}
-                className={cn(
-                  'flex flex-col items-center gap-1 p-2 rounded-xl text-xs transition-all border',
-                  prefs.aromas.includes(a.id)
-                    ? 'bg-amber-400/20 border-amber-400/50 text-amber-300'
-                    : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'
-                )}
+                onClick={() => setPrefs((p) => ({ ...p, experience: value }))}
+                className={choiceButtonClass(prefs.experience === value)}
               >
-                <span className="text-xl">{a.emoji}</span>
-                <span>{a.label}</span>
+                {label}
               </button>
             ))}
           </div>
@@ -143,79 +104,75 @@ export default function TasteForm({ onSubmit }: TasteFormProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle>알코올 & 강도</CardTitle>
+          <CardTitle>선호 도수</CardTitle>
         </CardHeader>
-        <CardBody className="flex flex-col gap-4">
-          <div>
-            <p className="text-sm font-medium text-zinc-300 mb-2">알코올 내성</p>
-            <div className="grid grid-cols-4 gap-2">
-              {(['none', 'low', 'medium', 'high'] as const).map((v) => {
-                const labels = { none: '없음', low: '약하게', medium: '보통', high: '강하게' };
-                return (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setPrefs((p) => ({ ...p, alcoholTolerance: v }))}
-                    className={cn(
-                      'h-9 rounded-xl text-sm font-medium transition-all border',
-                      prefs.alcoholTolerance === v
-                        ? 'bg-amber-400/20 border-amber-400/50 text-amber-300'
-                        : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'
-                    )}
-                  >
-                    {labels[v]}
-                  </button>
-                );
-              })}
-            </div>
+        <CardBody>
+          <div className="flex gap-2">
+            {([
+              { value: 'none', label: '무알콜' },
+              { value: 'low', label: '약함' },
+              { value: 'medium', label: '중간' },
+              { value: 'high', label: '강함' },
+            ] as const).map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setPrefs((p) => ({ ...p, alcoholTolerance: value }))}
+                className={choiceButtonClass(prefs.alcoholTolerance === value)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
+        </CardBody>
+      </Card>
 
-          <div>
-            <p className="text-sm font-medium text-zinc-300 mb-2">원하는 강도감</p>
-            <div className="grid grid-cols-3 gap-2">
-              {(['light', 'medium', 'strong'] as const).map((v) => {
-                const labels = { light: '가볍게', medium: '보통', strong: '강하게' };
-                return (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setPrefs((p) => ({ ...p, intensity: v }))}
-                    className={cn(
-                      'h-9 rounded-xl text-sm font-medium transition-all border',
-                      prefs.intensity === v
-                        ? 'bg-amber-400/20 border-amber-400/50 text-amber-300'
-                        : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'
-                    )}
-                  >
-                    {labels[v]}
-                  </button>
-                );
-              })}
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            선호 맛 태그{' '}
+            <span className="text-sm text-zinc-500 font-normal">(여러 개 가능)</span>
+          </CardTitle>
+        </CardHeader>
+        <CardBody>
+          <div className="flex flex-wrap gap-2">
+            {TASTE_TAGS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() =>
+                  setPrefs((p) => ({ ...p, tasteTags: toggleTag(p.tasteTags, t.id) }))
+                }
+                className={tagButtonClass(prefs.tasteTags.includes(t.id))}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
+        </CardBody>
+      </Card>
 
-          <div>
-            <p className="text-sm font-medium text-zinc-300 mb-2">칵테일 경험</p>
-            <div className="grid grid-cols-3 gap-2">
-              {(['beginner', 'casual', 'experienced'] as const).map((v) => {
-                const labels = { beginner: '거의 없음', casual: '가끔', experienced: '자주' };
-                return (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setPrefs((p) => ({ ...p, experience: v }))}
-                    className={cn(
-                      'h-9 rounded-xl text-sm font-medium transition-all border',
-                      prefs.experience === v
-                        ? 'bg-amber-400/20 border-amber-400/50 text-amber-300'
-                        : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'
-                    )}
-                  >
-                    {labels[v]}
-                  </button>
-                );
-              })}
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            선호 향 태그{' '}
+            <span className="text-sm text-zinc-500 font-normal">(여러 개 가능)</span>
+          </CardTitle>
+        </CardHeader>
+        <CardBody>
+          <div className="flex flex-wrap gap-2">
+            {AROMA_TAGS.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() =>
+                  setPrefs((p) => ({ ...p, aromaTags: toggleTag(p.aromaTags, a.id) }))
+                }
+                className={tagButtonClass(prefs.aromaTags.includes(a.id))}
+              >
+                {a.label}
+              </button>
+            ))}
           </div>
         </CardBody>
       </Card>

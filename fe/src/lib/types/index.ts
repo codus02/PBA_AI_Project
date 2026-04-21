@@ -42,25 +42,15 @@ export interface Guest {
 // Preferences
 // ─────────────────────────────────────────
 export interface GuestPreferences {
-  sweetness: number;         // 1–5
-  sourness: number;
-  bitterness: number;
-  spiciness: number;
-  aromas: AromaType[];
-  alcoholTolerance: 'none' | 'low' | 'medium' | 'high';
-  intensity: 'light' | 'medium' | 'strong';
   experience: 'beginner' | 'casual' | 'experienced';
+  alcoholTolerance: 'none' | 'low' | 'medium' | 'high';
+  tasteTags: TasteTag[];
+  aromaTags: AromaTag[];
 }
 
-export type AromaType =
-  | 'citrus'
-  | 'floral'
-  | 'woody'
-  | 'herbal'
-  | 'fruity'
-  | 'spicy'
-  | 'smoky'
-  | 'sweet';
+export type TasteTag = 'sweet' | 'sour' | 'bitter' | 'refreshing' | 'body' | 'creamy';
+
+export type AromaTag = 'fruity' | 'herbal' | 'mint' | 'citrus' | 'woody' | 'coffee' | 'floral';
 
 // ─────────────────────────────────────────
 // Space Analysis

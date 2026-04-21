@@ -16,28 +16,28 @@ export function getInitialRecommendation(
     return MOCK_COCKTAILS.find((c) => c.id === 'virgin-mojito')!;
   }
 
-  // 쓴맛 강하고 경험자 → Old Fashioned
-  if (preferences.bitterness >= 4 && preferences.experience === 'experienced') {
+  // 쓴맛 선호 + 경험자 → Old Fashioned
+  if (preferences.tasteTags.includes('bitter') && preferences.experience === 'experienced') {
     return MOCK_COCKTAILS.find((c) => c.id === 'old-fashioned')!;
   }
 
-  // 단맛 강하고 꽃향기 선호 → Hugo Spritz
-  if (preferences.sweetness >= 4 && preferences.aromas.includes('floral')) {
+  // 단맛 + 꽃향 선호 → Hugo Spritz
+  if (preferences.tasteTags.includes('sweet') && preferences.aromaTags.includes('floral')) {
     return MOCK_COCKTAILS.find((c) => c.id === 'hugo-spritz')!;
   }
 
-  // 신맛 강하고 강도 강함 → Margarita
-  if (preferences.sourness >= 4 && preferences.intensity === 'strong') {
+  // 신맛 + 강한 도수 → Margarita
+  if (preferences.tasteTags.includes('sour') && preferences.alcoholTolerance === 'high') {
     return MOCK_COCKTAILS.find((c) => c.id === 'margarita')!;
   }
 
   // 커피향 선호 → Espresso Martini
-  if (preferences.aromas.includes('smoky') || preferences.bitterness >= 3) {
+  if (preferences.aromaTags.includes('coffee') || preferences.tasteTags.includes('bitter')) {
     return MOCK_COCKTAILS.find((c) => c.id === 'espresso-martini')!;
   }
 
-  // 초보자 가벼운 → Aperol Spritz
-  if (preferences.experience === 'beginner' || preferences.intensity === 'light') {
+  // 초보자 or 무알콜/약함 → Aperol Spritz
+  if (preferences.experience === 'beginner' || preferences.alcoholTolerance === 'low') {
     return MOCK_COCKTAILS.find((c) => c.id === 'aperol-spritz')!;
   }
 
