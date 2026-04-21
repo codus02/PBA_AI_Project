@@ -1,0 +1,571 @@
+{
+  "tag": "qwen",
+  "model": "Qwen/Qwen3-8B",
+  "timestamp": "20260421_0014",
+  "metrics": {
+    "n_turns": 16,
+    "korean_only_rate": 68.8,
+    "json_parse_rate": 100.0,
+    "intent_match_rate": 93.8,
+    "extract_match_rate": 93.8,
+    "repeat_rate": 0.0,
+    "avg_recommend_turn": 3.0,
+    "scenarios_reached_recommend": "3/5"
+  },
+  "runs": [
+    {
+      "id": "first_celebration_sweet",
+      "turns": [
+        {
+          "turn": 1,
+          "user": "친구 생일파티야",
+          "reply": "오 친구 생일 축하 자리군요. 축하 자리니까 좀 화사한 쪽이 좋을 것 같아요. 당도는 중간이지만, 좀 더 확실히 느껴질 정도로 단맛을 강조할까요, 아니면 은은하게 유지할까요?",
+          "action": "ASK",
+          "user_intent": "SLOT",
+          "extracted": {
+            "party_purpose": "celebration"
+          },
+          "slots_after": {
+            "strength_preference": "medium",
+            "taste_profile": {
+              "sweet": "medium",
+              "freshness": "medium"
+            },
+            "aroma_profile": {
+              "fruity": "medium"
+            },
+            "party_purpose": "celebration"
+          },
+          "source": "qwen",
+          "korean_only": true,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.0,
+          "gold_intent": "SLOT",
+          "gold_extract": {
+            "party_purpose": "celebration"
+          }
+        },
+        {
+          "turn": 2,
+          "user": "칵테일이 따뜻하다는게 뭔 소리야?",
+          "reply": "아 말이 좀 어려웠죠. 따뜻하다는 건 데워서 마시는 게 아니라 향이 포근한 쪽, 우디나 바닐라 같은 느낌을 말한 거예요. 그래서 지금까지 말씀하신 fruity 향은 중간인데, 좀 더 확실히 느껴질 정도로 풍부하게 하시겠어요, 아니면 은은하게 유지할까요?",
+          "action": "ASK",
+          "user_intent": "QUESTION",
+          "extracted": {},
+          "slots_after": {
+            "strength_preference": "medium",
+            "taste_profile": {
+              "sweet": "medium",
+              "freshness": "medium"
+            },
+            "aroma_profile": {
+              "fruity": "medium"
+            },
+            "party_purpose": "celebration"
+          },
+          "source": "qwen",
+          "korean_only": false,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.163,
+          "gold_intent": "QUESTION",
+          "gold_extract": {}
+        },
+        {
+          "turn": 3,
+          "user": "단맛은 확 달달한 게 좋아",
+          "reply": "아 깊은 단맛을 좋아하시는군요. 그렇다면 향은 지금까지 말씀하신 fruity 향이 중간이었는데, 좀 더 확실히 느껴질 정도로 풍부하게 하시겠어요, 아니면 은은하게 유지할까요?",
+          "action": "ASK",
+          "user_intent": "SLOT",
+          "extracted": {
+            "taste_profile": {
+              "sweet": "high"
+            }
+          },
+          "slots_after": {
+            "strength_preference": "medium",
+            "taste_profile": {
+              "sweet": "high",
+              "freshness": "medium"
+            },
+            "aroma_profile": {
+              "fruity": "medium"
+            },
+            "party_purpose": "celebration"
+          },
+          "source": "qwen",
+          "korean_only": false,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.41,
+          "gold_intent": "SLOT",
+          "gold_extract": {
+            "taste_profile": {
+              "sweet": "high"
+            }
+          }
+        },
+        {
+          "turn": 4,
+          "user": "알아서 골라줘",
+          "reply": "네 지금까지 들은 느낌으로 그 방향에 맞춰 골라와서 보여드릴게요.",
+          "action": "RECOMMEND",
+          "user_intent": "STOP",
+          "extracted": {},
+          "slots_after": {
+            "strength_preference": "medium",
+            "taste_profile": {
+              "sweet": "high",
+              "freshness": "medium"
+            },
+            "aroma_profile": {
+              "fruity": "medium"
+            },
+            "party_purpose": "celebration"
+          },
+          "source": "qwen",
+          "korean_only": true,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.034,
+          "gold_intent": "STOP",
+          "gold_extract": null
+        }
+      ],
+      "recommend_turn": 4,
+      "final_slots": {
+        "strength_preference": "medium",
+        "taste_profile": {
+          "sweet": "high",
+          "freshness": "medium"
+        },
+        "aroma_profile": {
+          "fruity": "medium"
+        },
+        "party_purpose": "celebration"
+      }
+    },
+    {
+      "id": "first_unknown_fallback",
+      "turns": [
+        {
+          "turn": 1,
+          "user": "혼자 집에서 마시려고",
+          "reply": "네 알겠습니다. 조금만 더 여쭤볼게요.",
+          "action": "ASK",
+          "user_intent": "OTHER",
+          "extracted": {},
+          "slots_after": {
+            "strength_preference": "light",
+            "taste_profile": {
+              "sour": "medium"
+            },
+            "aroma_profile": {
+              "citrus": "medium"
+            }
+          },
+          "source": "qwen",
+          "korean_only": true,
+          "intent_match": false,
+          "extract_match": false,
+          "repeat_sim": 0.0,
+          "gold_intent": "SLOT",
+          "gold_extract": {
+            "party_purpose": "solo"
+          }
+        },
+        {
+          "turn": 2,
+          "user": "잘 모르겠는데",
+          "reply": "그럼 이렇게 여쭤볼게요. 평소 음식은 어떤 맛을 좋아하세요? 매콤한 거, 담백한 거, 아니면 단짠?",
+          "action": "ASK",
+          "user_intent": "UNKNOWN",
+          "extracted": {},
+          "slots_after": {
+            "strength_preference": "light",
+            "taste_profile": {
+              "sour": "medium"
+            },
+            "aroma_profile": {
+              "citrus": "medium"
+            }
+          },
+          "source": "qwen",
+          "korean_only": true,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.059,
+          "gold_intent": "UNKNOWN",
+          "gold_extract": null
+        },
+        {
+          "turn": 3,
+          "user": "평소엔 레몬에이드 자주 마셔",
+          "reply": "레몬에이드 자주 마시시는군요. 상큼하면서도 간편한 음료 같아요. 우리 today의 칵테일도 그런 느낌으로 만들어볼게요. 레몬에이드처럼 상큼하게 만들까요, 아니면 조금 더 청량감 있게?",
+          "action": "ASK",
+          "user_intent": "SLOT",
+          "extracted": {
+            "favorite_drinks": [
+              "레몬에이드"
+            ]
+          },
+          "slots_after": {
+            "strength_preference": "light",
+            "taste_profile": {
+              "sour": "medium"
+            },
+            "aroma_profile": {
+              "citrus": "medium"
+            },
+            "favorite_drinks": [
+              "레몬에이드"
+            ]
+          },
+          "source": "qwen",
+          "korean_only": false,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.03,
+          "gold_intent": "SLOT",
+          "gold_extract": null
+        }
+      ],
+      "recommend_turn": null,
+      "final_slots": {
+        "strength_preference": "light",
+        "taste_profile": {
+          "sour": "medium"
+        },
+        "aroma_profile": {
+          "citrus": "medium"
+        },
+        "favorite_drinks": [
+          "레몬에이드"
+        ]
+      }
+    },
+    {
+      "id": "regular_direct",
+      "turns": [
+        {
+          "turn": 1,
+          "user": "오늘 거래처 미팅 끝나고 한잔",
+          "reply": "거래처 미팅 끝나신 거군요. 그런 자리에는 좀 차분하면서도 깊은 향이 오래 기억될 수 있는 쪽이 좋겠어요. 지금까지 말씀하신 바에선 단맛은 확 쎄게 / 은은하게 중에, 그리고 향엔 woody가 medium이었는데, 어느 쪽이 더 강하게 느껴지고 싶으세요?",
+          "action": "ASK",
+          "user_intent": "SLOT",
+          "extracted": {
+            "party_purpose": "business"
+          },
+          "slots_after": {
+            "strength_preference": "strong",
+            "taste_profile": {
+              "bitter": "medium"
+            },
+            "aroma_profile": {
+              "woody": "medium"
+            },
+            "party_purpose": "business"
+          },
+          "source": "qwen",
+          "korean_only": false,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.0,
+          "gold_intent": "SLOT",
+          "gold_extract": {
+            "party_purpose": "business"
+          }
+        },
+        {
+          "turn": 2,
+          "user": "진 베이스로 드라이하게",
+          "reply": "진 베이스로 드라이하게 드실 거예요? 진 쪽이면 향이 좀 무거울 수도 있으니, woody 향은 확 쎄게 둬야 할까요, 아니면 조금은은하게 둬도 괜찮으시나요?",
+          "action": "ASK",
+          "user_intent": "SLOT",
+          "extracted": {
+            "disliked_bases": [
+              "whiskey"
+            ]
+          },
+          "slots_after": {
+            "strength_preference": "strong",
+            "taste_profile": {
+              "bitter": "medium"
+            },
+            "aroma_profile": {
+              "woody": "medium"
+            },
+            "party_purpose": "business",
+            "disliked_bases": [
+              "whiskey"
+            ]
+          },
+          "source": "qwen",
+          "korean_only": false,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.08,
+          "gold_intent": "SLOT",
+          "gold_extract": null
+        },
+        {
+          "turn": 3,
+          "user": "추천해줘",
+          "reply": "네 지금까지 들은 느낌으로 그 방향에 맞춰 골라와서 보여드릴게요.",
+          "action": "RECOMMEND",
+          "user_intent": "STOP",
+          "extracted": {},
+          "slots_after": {
+            "strength_preference": "strong",
+            "taste_profile": {
+              "bitter": "medium"
+            },
+            "aroma_profile": {
+              "woody": "medium"
+            },
+            "party_purpose": "business",
+            "disliked_bases": [
+              "whiskey"
+            ]
+          },
+          "source": "qwen",
+          "korean_only": true,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.0,
+          "gold_intent": "STOP",
+          "gold_extract": null
+        }
+      ],
+      "recommend_turn": 3,
+      "final_slots": {
+        "strength_preference": "strong",
+        "taste_profile": {
+          "bitter": "medium"
+        },
+        "aroma_profile": {
+          "woody": "medium"
+        },
+        "party_purpose": "business",
+        "disliked_bases": [
+          "whiskey"
+        ]
+      }
+    },
+    {
+      "id": "correction_mood",
+      "turns": [
+        {
+          "turn": 1,
+          "user": "그냥 하루 마무리로 한 잔",
+          "reply": "하루 마무리를 위해 따뜻하면서도 여운 있는 쪽이 좋을 것 같아요. 당도는 확 쎄게 드실까요, 은은하게?",
+          "action": "ASK",
+          "user_intent": "SLOT",
+          "extracted": {
+            "current_mood": "good",
+            "party_purpose": "solo"
+          },
+          "slots_after": {
+            "strength_preference": "medium",
+            "taste_profile": {
+              "sweet": "medium"
+            },
+            "aroma_profile": {
+              "floral": "medium"
+            },
+            "current_mood": "good",
+            "party_purpose": "solo"
+          },
+          "source": "qwen",
+          "korean_only": true,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.0,
+          "gold_intent": "SLOT",
+          "gold_extract": null
+        },
+        {
+          "turn": 2,
+          "user": "나 기분 좋다는 말 안 했는데",
+          "reply": "아 제가 앞서서 넘겨짚었네요, 죄송해요. 오늘 기분은 어떠세요?",
+          "action": "ASK",
+          "user_intent": "CORRECTION",
+          "extracted": {
+            "current_mood": null
+          },
+          "slots_after": {
+            "strength_preference": "medium",
+            "taste_profile": {
+              "sweet": "medium"
+            },
+            "aroma_profile": {
+              "floral": "medium"
+            },
+            "party_purpose": "solo"
+          },
+          "source": "qwen",
+          "korean_only": true,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.0,
+          "gold_intent": "CORRECTION",
+          "gold_extract": {
+            "current_mood": null
+          }
+        },
+        {
+          "turn": 3,
+          "user": "피곤해서 부드러운 게 땡겨",
+          "reply": "피곤해서 부드러운 게 땡기셨다니, 그렇다면 향이 차분하고 부드러운 쪽이 좋겠네요. 꽃향은 확 쎄게 드실까요, 은은하게?",
+          "action": "ASK",
+          "user_intent": "SLOT",
+          "extracted": {
+            "aroma_profile": {
+              "floral": "high"
+            }
+          },
+          "slots_after": {
+            "strength_preference": "medium",
+            "taste_profile": {
+              "sweet": "medium"
+            },
+            "aroma_profile": {
+              "floral": "high"
+            },
+            "party_purpose": "solo"
+          },
+          "source": "qwen",
+          "korean_only": true,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.0,
+          "gold_intent": "SLOT",
+          "gold_extract": null
+        }
+      ],
+      "recommend_turn": null,
+      "final_slots": {
+        "strength_preference": "medium",
+        "taste_profile": {
+          "sweet": "medium"
+        },
+        "aroma_profile": {
+          "floral": "high"
+        },
+        "party_purpose": "solo"
+      }
+    },
+    {
+      "id": "intensity_pending",
+      "turns": [
+        {
+          "turn": 1,
+          "user": "친구들이랑 집들이",
+          "reply": "오 집들이 자리군요. 친구들과 함께 하시는 거니까 기분 좋은 자리일 거예요. 단맛과 새콤함은 중간 중간으로, 민트와 우디 향은 조금 더 강하게 느껴졌으면 좋겠어요. 어느 쪽이 더 확 쎄게 드실 수 있겠어요?",
+          "action": "ASK",
+          "user_intent": "SLOT",
+          "extracted": {
+            "party_purpose": "hangout"
+          },
+          "slots_after": {
+            "strength_preference": "medium",
+            "taste_profile": {
+              "sweet": "medium",
+              "sour": "medium"
+            },
+            "aroma_profile": {
+              "minty": "medium",
+              "woody": "medium"
+            },
+            "party_purpose": "hangout"
+          },
+          "source": "qwen",
+          "korean_only": true,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.0,
+          "gold_intent": "SLOT",
+          "gold_extract": null
+        },
+        {
+          "turn": 2,
+          "user": "신맛은 은은하게, 단맛은 확 가는 게 좋아",
+          "reply": "아 그렇다면 단맛은 확 쎄게, 신맛은 살짝 은은하게 드실 수 있을 것 같아요. 민트와 우디 향은 중간 중간으로 유지할게요. 그럼 이런 느낌으로 준비해서 보여드릴게요.",
+          "action": "RECOMMEND",
+          "user_intent": "SLOT",
+          "extracted": {
+            "taste_profile": {
+              "sweet": "high",
+              "sour": "low"
+            }
+          },
+          "slots_after": {
+            "strength_preference": "medium",
+            "taste_profile": {
+              "sweet": "high",
+              "sour": "low"
+            },
+            "aroma_profile": {
+              "minty": "medium",
+              "woody": "medium"
+            },
+            "party_purpose": "hangout"
+          },
+          "source": "qwen",
+          "korean_only": true,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.2,
+          "gold_intent": "SLOT",
+          "gold_extract": {
+            "taste_profile": {
+              "sour": "low",
+              "sweet": "high"
+            }
+          }
+        },
+        {
+          "turn": 3,
+          "user": "이제 추천해줘",
+          "reply": "네 지금까지 들은 느낌으로 그 방향에 맞춰 골라와서 보여드릴게요.",
+          "action": "RECOMMEND",
+          "user_intent": "STOP",
+          "extracted": {},
+          "slots_after": {
+            "strength_preference": "medium",
+            "taste_profile": {
+              "sweet": "high",
+              "sour": "low"
+            },
+            "aroma_profile": {
+              "minty": "medium",
+              "woody": "medium"
+            },
+            "party_purpose": "hangout"
+          },
+          "source": "qwen",
+          "korean_only": true,
+          "intent_match": true,
+          "extract_match": true,
+          "repeat_sim": 0.065,
+          "gold_intent": "STOP",
+          "gold_extract": null
+        }
+      ],
+      "recommend_turn": 2,
+      "final_slots": {
+        "strength_preference": "medium",
+        "taste_profile": {
+          "sweet": "high",
+          "sour": "low"
+        },
+        "aroma_profile": {
+          "minty": "medium",
+          "woody": "medium"
+        },
+        "party_purpose": "hangout"
+      }
+    }
+  ]
+}

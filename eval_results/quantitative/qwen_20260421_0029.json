@@ -1,0 +1,29 @@
+{
+  "tag": "qwen",
+  "model": "Qwen/Qwen3-8B",
+  "timestamp": "20260421_0029",
+  "limit": null,
+  "feedback_acc_pct": 97.25738396624473,
+  "slots": {
+    "n": 500,
+    "elapsed_sec": 6891.174910263158,
+    "scalar_avg": 21.744805431246107,
+    "scalar_per_slot": {
+      "current_mood": 1.694915254237288,
+      "party_purpose": 30.76923076923077,
+      "strength_preference": 32.77027027027027
+    },
+    "taste_kv_f1": 23.00587741393787,
+    "aroma_kv_f1": 21.63355408388521,
+    "bases_f1": 62.77777777777778,
+    "favs_detected_pct": 58.04597701149425
+  },
+  "recommendation": {
+    "hit@1": 0.176,
+    "hit@3": 0.222,
+    "cat_hit@3": 0.53,
+    "no_candidate_rate": 0.0,
+    "n": 500,
+    "elapsed_sec": 17890.858490756247
+  }
+}

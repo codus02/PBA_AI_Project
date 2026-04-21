@@ -1,0 +1,12 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]Loading weights:   0%|          | 1/399 [00:00<01:22,  4.83it/s]Loading weights:   1%|          | 2/399 [00:00<01:21,  4.84it/s]Loading weights:   2%|▏         | 6/399 [00:00<00:26, 14.76it/s]Loading weights:   7%|▋         | 26/399 [00:00<00:05, 65.09it/s]Loading weights:  10%|▉         | 39/399 [00:00<00:04, 79.47it/s]Loading weights:  15%|█▍        | 59/399 [00:00<00:03, 108.60it/s]Loading weights:  18%|█▊        | 72/399 [00:00<00:02, 109.06it/s]Loading weights:  23%|██▎       | 92/399 [00:01<00:02, 128.29it/s]Loading weights:  27%|██▋       | 106/399 [00:01<00:02, 125.86it/s]Loading weights:  31%|███▏      | 125/399 [00:01<00:01, 137.81it/s]Loading weights:  35%|███▌      | 140/399 [00:01<00:01, 136.50it/s]Loading weights:  40%|███▉      | 158/399 [00:01<00:01, 143.80it/s]Loading weights:  43%|████▎     | 173/399 [00:01<00:01, 140.26it/s]Loading weights:  48%|████▊     | 191/399 [00:01<00:01, 144.52it/s]Loading weights:  52%|█████▏    | 206/399 [00:01<00:01, 133.24it/s]Loading weights:  55%|█████▌    | 221/399 [00:02<00:01, 136.23it/s]Loading weights:  59%|█████▉    | 235/399 [00:02<00:01, 136.07it/s]Loading weights:  62%|██████▏   | 249/399 [00:02<00:01, 129.42it/s]Loading weights:  67%|██████▋   | 266/399 [00:02<00:00, 140.30it/s]Loading weights:  70%|███████   | 281/399 [00:02<00:00, 128.58it/s]Loading weights:  75%|███████▌  | 301/399 [00:02<00:00, 140.82it/s]Loading weights:  79%|███████▉  | 316/399 [00:02<00:00, 137.09it/s]Loading weights:  84%|████████▎ | 334/399 [00:02<00:00, 143.05it/s]Loading weights:  87%|████████▋ | 349/399 [00:02<00:00, 137.35it/s]Loading weights:  92%|█████████▏| 367/399 [00:03<00:00, 142.44it/s]Loading weights:  96%|█████████▌| 382/399 [00:03<00:00, 137.62it/s]Loading weights: 100%|██████████| 399/399 [00:03<00:00, 121.08it/s]
+The following generation flags are not valid and may be ignored: ['temperature', 'top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+
+============================================================
+FEEDBACK EVAL — 20 cases (42.6s, 2.13s/case)
+============================================================
+  ACCEPT: 20/20 = 100.0%
+
+[전체 intent 정확도] 20/20 = 100.0%
+
+오답 샘플 (최대 10개):

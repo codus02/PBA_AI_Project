@@ -102,12 +102,14 @@ class PRF:
 # 평가 루프
 # ============================================================
 
-def run_eval(limit: int | None = None, verbose: bool = False):
+def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | None = None):
     df = pd.read_csv(CSV_PATH)
     if limit:
         df = df.head(limit)
 
-    enum_acc = {k: Accum() for k in ["current_mood", "party_purpose", "strength_preference", "finish_preference"]}
+    failures: list[dict] = []
+
+    enum_acc = {k: Accum() for k in ["current_mood", "party_purpose", "strength_preference"]}
 
     taste_key_prf = PRF()
     taste_kv_prf = PRF()
@@ -119,24 +121,28 @@ def run_eval(limit: int | None = None, verbose: bool = False):
     t0 = time.perf_counter()
     n = len(df)
     for i, row in enumerate(df.itertuples(index=False), 1):
-        result = analyze_user_turn(history=[], slots={}, user_msg=row.user_text)
+        result = analyze_user_turn(history=[], slots={}, user_msg=row.user_text, generate_next_question=False,)
         pred = result["extracted_slots"]
+
+        mismatches: list[str] = []
 
         # scalar enums
         for csv_key, slot_key in [
             ("gold_current_mood", "current_mood"),
             ("gold_party_purpose", "party_purpose"),
             ("gold_strength_preference", "strength_preference"),
-            ("gold_finish_preference", "finish_preference"),
         ]:
             g = _s(getattr(row, csv_key))
             if g is None:
                 continue  # gold 비어 있으면 평가 대상 아님
             p = pred.get(slot_key)
-            enum_acc[slot_key].add(p == g)
+            ok = (p == g)
+            enum_acc[slot_key].add(ok)
+            if not ok:
+                mismatches.append(f"{slot_key}: gold={g!r} pred={p!r}")
 
         # taste_profile
-        g_taste = _parse_json_dict(row.gold_taste_profile)
+        g_taste = _parse_json_dict(row.gold_taste_profile_json)
         p_taste = pred.get("taste_profile") or {}
         if g_taste or p_taste:
             taste_key_prf.add(set(p_taste.keys()), set(g_taste.keys()))
@@ -144,9 +150,11 @@ def run_eval(limit: int | None = None, verbose: bool = False):
                 {(k, v) for k, v in p_taste.items()},
                 {(k, v) for k, v in g_taste.items()},
             )
+            if {(k, v) for k, v in p_taste.items()} != {(k, v) for k, v in g_taste.items()}:
+                mismatches.append(f"taste: gold={g_taste} pred={p_taste}")
 
         # aroma_profile
-        g_aroma = _parse_json_dict(row.gold_aroma_profile)
+        g_aroma = _parse_json_dict(row.gold_aroma_profile_json)
         p_aroma = pred.get("aroma_profile") or {}
         if g_aroma or p_aroma:
             aroma_key_prf.add(set(p_aroma.keys()), set(g_aroma.keys()))
@@ -154,22 +162,37 @@ def run_eval(limit: int | None = None, verbose: bool = False):
                 {(k, v) for k, v in p_aroma.items()},
                 {(k, v) for k, v in g_aroma.items()},
             )
+            if {(k, v) for k, v in p_aroma.items()} != {(k, v) for k, v in g_aroma.items()}:
+                mismatches.append(f"aroma: gold={g_aroma} pred={p_aroma}")
 
         # disliked_bases
-        g_bases = set(_parse_json_list(row.gold_disliked_bases))
+        g_bases = set(_parse_json_list(row.gold_disliked_bases_json))
         p_bases = set(pred.get("disliked_bases") or [])
         if g_bases or p_bases:
             bases_prf.add(p_bases, g_bases)
+            if p_bases != g_bases:
+                mismatches.append(f"bases: gold={sorted(g_bases)} pred={sorted(p_bases)}")
 
         # favorite_drinks: binary presence
-        g_favs = _parse_json_list(row.gold_favorite_drinks)
+        g_favs = _parse_json_list(row.gold_favorite_drinks_json)
         # gold_favorite_drinks is sometimes free string, not JSON — handle both
         if not g_favs:
-            raw = _s(row.gold_favorite_drinks)
+            raw = _s(row.gold_favorite_drinks_json)
             g_favs = [raw] if raw else []
         if g_favs:
             p_favs = pred.get("favorite_drinks") or []
-            favs_bin.add(bool(p_favs))
+            ok = bool(p_favs)
+            favs_bin.add(ok)
+            if not ok:
+                mismatches.append(f"favs: gold={g_favs} pred={p_favs}")
+
+        if mismatches:
+            failures.append({
+                "case_id": getattr(row, "case_id", i),
+                "user_text": row.user_text,
+                "mismatches": " | ".join(mismatches),
+                "pred_json": json.dumps(pred, ensure_ascii=False),
+            })
 
         if verbose and i <= 10:
             print(f"[{i}/{n}] user={row.user_text[:60]}...")
@@ -179,6 +202,12 @@ def run_eval(limit: int | None = None, verbose: bool = False):
             print(f"  progress {i}/{n}  elapsed={dt:.1f}s")
 
     total_time = time.perf_counter() - t0
+
+    if dump_path and failures:
+        out = Path(dump_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame(failures).to_csv(out, index=False)
+        print(f"\n[dump] {len(failures)} failure cases → {out}")
 
     print("\n" + "=" * 60)
     print(f"SLOT EXTRACTION EVAL — {n} cases ({total_time:.1f}s, {total_time/max(n,1):.2f}s/case)")
@@ -205,10 +234,29 @@ def run_eval(limit: int | None = None, verbose: bool = False):
     print(f"  favorite_drinks detected : {favs_bin.correct:4d}/{favs_bin.total:4d} = {favs_bin.pct():5.1f}%")
     print()
 
+    _, _, taste_kv_f1 = taste_kv_prf.f1()
+    _, _, aroma_kv_f1 = aroma_kv_prf.f1()
+    _, _, bases_f1 = bases_prf.f1()
+    scalar_pcts = [acc.pct() for acc in enum_acc.values() if acc.total]
+    scalar_avg = sum(scalar_pcts) / len(scalar_pcts) if scalar_pcts else 0.0
+
+    return {
+        "n": n,
+        "elapsed_sec": total_time,
+        "scalar_avg": scalar_avg,
+        "scalar_per_slot": {k: acc.pct() for k, acc in enum_acc.items()},
+        "taste_kv_f1": taste_kv_f1,
+        "aroma_kv_f1": aroma_kv_f1,
+        "bases_f1": bases_f1,
+        "favs_detected_pct": favs_bin.pct(),
+    }
+
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None, help="처음 N건만 평가")
     ap.add_argument("-v", "--verbose", action="store_true")
+    ap.add_argument("--dump", nargs="?", const="data/eval/slot_failures.csv", default=None,
+                    help="실패 케이스를 CSV로 저장 (경로 생략 시 data/eval/slot_failures.csv)")
     args = ap.parse_args()
-    run_eval(limit=args.limit, verbose=args.verbose)
+    run_eval(limit=args.limit, verbose=args.verbose, dump_path=args.dump)

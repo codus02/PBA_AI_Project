@@ -1,0 +1,45 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]Loading weights:   0%|          | 1/399 [00:00<01:22,  4.80it/s]Loading weights:   1%|          | 2/399 [00:00<01:22,  4.83it/s]Loading weights:   2%|▏         | 6/399 [00:00<00:26, 14.69it/s]Loading weights:   7%|▋         | 26/399 [00:00<00:05, 64.85it/s]Loading weights:  10%|▉         | 39/399 [00:00<00:04, 79.20it/s]Loading weights:  15%|█▍        | 59/399 [00:00<00:03, 107.88it/s]Loading weights:  18%|█▊        | 72/399 [00:00<00:03, 108.21it/s]Loading weights:  23%|██▎       | 92/399 [00:01<00:02, 127.79it/s]Loading weights:  27%|██▋       | 106/399 [00:01<00:02, 126.06it/s]Loading weights:  31%|███▏      | 125/399 [00:01<00:01, 138.43it/s]Loading weights:  35%|███▌      | 140/399 [00:01<00:01, 135.54it/s]Loading weights:  40%|███▉      | 158/399 [00:01<00:01, 141.54it/s]Loading weights:  43%|████▎     | 173/399 [00:01<00:01, 137.77it/s]Loading weights:  48%|████▊     | 191/399 [00:01<00:01, 143.32it/s]Loading weights:  52%|█████▏    | 206/399 [00:01<00:01, 139.44it/s]Loading weights:  56%|█████▌    | 224/399 [00:02<00:01, 145.31it/s]Loading weights:  60%|█████▉    | 239/399 [00:02<00:01, 141.29it/s]Loading weights:  64%|██████▍   | 257/399 [00:02<00:00, 146.16it/s]Loading weights:  68%|██████▊   | 272/399 [00:02<00:00, 141.23it/s]Loading weights:  73%|███████▎  | 290/399 [00:02<00:00, 145.66it/s]Loading weights:  76%|███████▋  | 305/399 [00:02<00:00, 140.49it/s]Loading weights:  81%|████████  | 323/399 [00:02<00:00, 146.73it/s]Loading weights:  85%|████████▍ | 338/399 [00:02<00:00, 142.73it/s]Loading weights:  89%|████████▉ | 356/399 [00:02<00:00, 146.71it/s]Loading weights:  93%|█████████▎| 371/399 [00:03<00:00, 142.01it/s]Loading weights:  97%|█████████▋| 389/399 [00:03<00:00, 146.73it/s]Loading weights: 100%|██████████| 399/399 [00:03<00:00, 123.53it/s]
+The following generation flags are not valid and may be ignored: ['temperature', 'top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+[1/20] user=나무 결 같은 뉘앙스가 은근히 있으면 좋겠고 적당히 취기 도는 정도면 좋겠고 향에서 민트 계열이 살아 있어도...
+  pred: {"current_mood": "good", "party_purpose": "hangout", "strength_preference": "medium", "taste_profile": {"sour": "low"}, "aroma_profile": {"woody": "high"}}
+[2/20] user=부담 없이 마실 수 있으면 좋겠고 포근한 느낌이면 좋겠고 너무 디저트처럼 가는 건 아니었으면 좋겠고 마시고 ...
+  pred: {"party_purpose": "date", "strength_preference": "medium", "taste_profile": {"sweet": "low", "sour": "medium", "bitter": "low", "body": "medium", "creamy": "low", "freshness": "medium"}, "aroma_profile": {"citrus": "medium"}, "favorite_drinks": []}
+[3/20] user=부담 없이 마실 수 있음 좋고 입에 설탕 남는 느낌은 싫고 평소에는 미셔너리즈 다운폴 좋아하는 편이고 마무리...
+  pred: {"party_purpose": "hangout", "strength_preference": "light", "taste_profile": {"sweet": "low"}, "aroma_profile": {"floral": "medium"}, "favorite_drinks": ["미셔너리즈 다운폴"]}
+[4/20] user=우유 같은 뉘앙스는 별로고 쌉싸름한 존재감이 좀 있어도 되고 조금 트인 이미지면 좋겠고 오늘 분위기 꽤 중요...
+  pred: {"strength_preference": "medium", "taste_profile": {"creamy": "low"}, "aroma_profile": {"fruity": "high"}, "disliked_bases": ["whiskey"]}
+[5/20] user=오늘 여럿이서 얘기하면서 마실 건데 상큼하게 치고 들어오는 느낌이면 좋겠고 진 베이스는 말고 평소에는 돈스 ...
+  pred: {"party_purpose": "hangout", "strength_preference": "strong", "taste_profile": {"freshness": "high"}, "disliked_bases": ["vodka"], "favorite_drinks": ["돈스 스페셜 다이키리"]}
+[6/20] user=마신 뒤 입안 정리가 잘 되는 쪽이면 좋겠고 첫맛이 산뜻하게 열리면 좋겠고 헤밍웨이 스페셜 같은 스타일은 자...
+  pred: {"current_mood": "good", "party_purpose": "celebration", "taste_profile": {"sour": "high"}}
+[7/20] user=향에서 묵직한 나무 쪽이 느껴져도 괜찮고 끝이 어느 정도 남는 쪽이면 좋겠고 적당히 취기 도는 정도면 좋겠고...
+  pred: {"strength_preference": "medium", "taste_profile": {"body": "medium"}, "aroma_profile": {"woody": "high"}, "disliked_bases": ["rum"]}
+[8/20] user=끝에 여운이 좀 있었으면 좋겠고, 시원한 허브 향이 느껴지면 좋겠고, 적당히 존재감은 있었으면 좋겠고, 적당...
+  pred: {"party_purpose": "date", "strength_preference": "light", "taste_profile": {"freshness": "medium", "sour": "medium"}, "aroma_profile": {"herbal": "medium"}}
+[9/20] user=가볍게 들어가는 쪽이면 좋겠고 시원하기만 한 건 아니었으면 좋겠고 오늘 친구들이랑 만나는데 커피향이 살짝 도...
+  pred: {"party_purpose": "hangout", "strength_preference": "light", "aroma_profile": {"coffee": "medium"}}
+[10/20] user=낮에도 어색하지 않을 느낌이면 좋겠고 서퍼링 바스타드 같은 스타일은 자주 마셔봤고 그냥 별일 없이 편하게 마...
+  pred: {"party_purpose": "hangout", "strength_preference": "medium", "taste_profile": {"sweet": "low"}, "aroma_profile": {"minty": "medium"}}
+
+============================================================
+SLOT EXTRACTION EVAL — 20 cases (191.9s, 9.59s/case)
+============================================================
+
+[Scalar enums — exact match]
+  current_mood          :    0/   1 =   0.0%
+  party_purpose         :   13/  17 =  76.5%
+  strength_preference   :    9/  11 =  81.8%
+
+[Intensity dicts]
+  taste_profile KEY presence      : P= 46.2  R= 56.2  F1= 50.7  (tp=18 fp=21 fn=14)
+  taste_profile KEY+VALUE exact   : P= 35.9  R= 43.8  F1= 39.4  (tp=14 fp=25 fn=18)
+  aroma_profile KEY presence      : P= 88.9  R= 66.7  F1= 76.2  (tp=16 fp=2 fn=8)
+  aroma_profile KEY+VALUE exact   : P= 61.1  R= 45.8  F1= 52.4  (tp=11 fp=7 fn=13)
+
+[List enum]
+  disliked_bases                  : P= 80.0  R= 57.1  F1= 66.7  (tp=4 fp=1 fn=3)
+
+[Favorite drinks — binary presence]
+  favorite_drinks detected :    2/   6 =  33.3%
+

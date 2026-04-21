@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import logging
+import re
 from typing import Optional
 from sqlalchemy.orm import Session
 
@@ -16,11 +19,13 @@ from app.db.crud import (
     list_recommended_cocktail_ids_by_guest,
 )
 from app.agents.preference_agent import (
-    classify_intent,
-    update_vector,
+    analyze_feedback,
     build_user_profile,
 )
 from app.agents.output_agent import generate_recipe_snapshot
+from app.utils.model_loader import embed_texts
+
+logger = logging.getLogger(__name__)
 
 # ============================================================
 # 매핑 테이블
@@ -48,6 +53,7 @@ AROMA_TO_INGREDIENT = {
 }
 
 STRENGTH_RANGE = {
+    "zero": (0.0, 0.0),
     "light": (0.0, 2.0),
     "medium": (1.5, 3.5),
     "strong": (3.0, 5.0),
@@ -83,6 +89,23 @@ def _vector_row_to_dict(vector_row) -> dict[str, float]:
         "alcohol_score": float(vector_row.alcohol_score),
     }
 
+def _get_cocktail_strength_value(cocktail: Cocktail) -> Optional[float]:
+    """칵테일 자체의 도수/강도 점수(0~5 스케일) 추출.
+
+    모델 스키마가 프로젝트마다 다를 수 있어서 후보 컬럼을 순서대로 확인한다.
+    0~5 범위를 벗어나는 값(예: raw ABV 18, 40 등)은 현재 score 체계와 다르므로 사용하지 않는다.
+    """
+    for attr in ("alcohol_score", "strength_score", "strength_level", "alcohol_level"):
+        raw = getattr(cocktail, attr, None)
+        if raw is None:
+            continue
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if 0.0 <= value <= 5.0:
+            return value
+    return None
 
 def _build_reason_parts(
     cocktail: Cocktail,
@@ -123,12 +146,11 @@ def _build_reason_parts(
             reasons.append(f"공간 무드와 어울림: {cocktail.mood_tag}")
 
     strength_pref = merged.get("strength_preference")
-    if strength_pref:
-        reasons.append(f"도수 선호 반영: {strength_pref}")
-
-    finish_pref = merged.get("finish_preference")
-    if finish_pref:
-        reasons.append(f"끝맛 선호 반영: {finish_pref}")
+    cocktail_strength = _get_cocktail_strength_value(cocktail)
+    if strength_pref in STRENGTH_RANGE and cocktail_strength is not None:
+        low, high = STRENGTH_RANGE[strength_pref]
+        if low <= cocktail_strength <= high:
+            reasons.append(f"도수 선호 반영: {strength_pref}")
 
     if merged.get("favorite_drinks"):
         reasons.append(f"선호 음료 참고: {', '.join(merged['favorite_drinks'][:3])}")
@@ -137,6 +159,293 @@ def _build_reason_parts(
         reasons.append("기본 취향 점수 기반 추천")
 
     return reasons
+
+
+# ============================================================
+# RAG: 쿼리 합성 + pgvector 검색 + Qwen 리랭크
+# ============================================================
+
+_RAG_TASTE_KR = {
+    "sweet": "단맛", "sour": "신맛", "bitter": "쓴맛",
+    "body": "바디감", "creamy": "크리미", "freshness": "청량감",
+}
+_RAG_AROMA_KR = {
+    "minty": "민트", "fruity": "과일 향", "citrus": "시트러스",
+    "herbal": "허브", "coffee": "커피", "woody": "우디", "floral": "플로럴",
+}
+_RAG_INTENSITY_KR = {
+    "high": "강하게 선호",
+    "medium": "적당히 선호",
+    "low": "약하게 비선호",
+    "zero": "완전 비선호(제외)",
+}
+
+# 칵테일의 해당 축 level >= 이 임계값이면 "두드러진다"고 본다.
+_ZERO_EXCLUDE_THRESHOLD = 3.5
+
+# taste 축 → Cocktail 컬럼명 매핑
+_TASTE_LEVEL_COL = {
+    "sweet": "sweet_level",
+    "sour": "sour_level",
+    "bitter": "bitter_level",
+    "body": "body_level",
+    "creamy": "creamy_level",
+    "freshness": "freshness_level",
+}
+# 향 축은 Cocktail 컬럼이 없어 재료 기반 판단 → 일단 description/레시피 감각노트 스캔으로 근사.
+# 현재 구조에서 aroma zero 는 rerank LLM 단계에서 강하게 감점 처리하게 둔다.
+_RAG_STRENGTH_KR = {"zero": "논알콜(무알콜)", "light": "가벼운 도수", "medium": "중간 도수", "strong": "강한 도수"}
+
+
+def _rag_collect_profile(profile_dict: dict, label_map: dict[str, str]) -> list[str]:
+    out = []
+    for tag, intensity in (profile_dict or {}).items():
+        if intensity == "pending":
+            # 강도 미확정은 RAG 쿼리에 넣지 않는다 (대화로 확정되면 반영).
+            continue
+        label = label_map.get(tag, tag)
+        lvl = _RAG_INTENSITY_KR.get(intensity, intensity)
+        out.append(f"{label} {lvl}")
+    return out
+
+
+def synthesize_query(profile: dict) -> str:
+    """build_user_profile 결과 → 자연어 쿼리 한 덩어리."""
+    merged = profile.get("merged_slots") or {}
+    space = profile.get("space")
+    parts: list[str] = []
+
+    purpose = merged.get("party_purpose")
+    mood = merged.get("current_mood")
+    if purpose or mood:
+        ctx = ", ".join([v for v in [purpose, mood] if v])
+        parts.append(f"상황/무드: {ctx}")
+
+    taste_bits = _rag_collect_profile(merged.get("taste_profile") or {}, _RAG_TASTE_KR)
+    if taste_bits:
+        parts.append(f"맛 선호: {', '.join(taste_bits)}")
+
+    aroma_bits = _rag_collect_profile(merged.get("aroma_profile") or {}, _RAG_AROMA_KR)
+    if aroma_bits:
+        parts.append(f"향 선호: {', '.join(aroma_bits)}")
+
+    strength = merged.get("strength_preference")
+    if strength:
+        parts.append(f"도수: {_RAG_STRENGTH_KR.get(strength, strength)}")
+
+    disliked_bases = merged.get("disliked_bases") or []
+    if disliked_bases:
+        parts.append(f"베이스 회피: {', '.join(disliked_bases)}")
+
+    favs = merged.get("favorite_drinks") or []
+    if favs:
+        parts.append(f"유사 선호 음료: {', '.join(favs[:3])}")
+
+    if space and getattr(space, "mood_tags_json", None):
+        top_moods = sorted(space.mood_tags_json.items(), key=lambda x: x[1], reverse=True)[:3]
+        mood_str = ", ".join(k for k, _ in top_moods if k)
+        if mood_str:
+            parts.append(f"공간 무드: {mood_str}")
+
+    return "\n".join(parts) if parts else "일반적인 칵테일 추천"
+
+
+def retrieve_candidates(
+    db: Session,
+    query_text: str,
+    top_k: int = 20,
+    exclude_ids: Optional[list[int]] = None,
+    strength_preference: Optional[str] = None,
+) -> list[tuple[Cocktail, float]]:
+    """쿼리 텍스트 임베딩 → cocktails.embedding 코사인 거리로 top_k.
+
+    strength_preference="zero"면 논알콜만, 그 외(또는 None)이면 알콜만 반환.
+    """
+    vec = embed_texts(
+        [query_text],
+        batch_size=1,
+        max_length=512,
+        instruction="주어진 사용자 선호 설명에 가장 잘 맞는 칵테일을 찾는다",
+    )[0].tolist()
+
+    distance = Cocktail.embedding.cosine_distance(vec).label("distance")
+    q = (
+        db.query(Cocktail, distance)
+        .filter(Cocktail.is_active.is_(True))
+        .filter(Cocktail.embedding.isnot(None))
+    )
+    if strength_preference == "zero":
+        q = q.filter(Cocktail.is_non_alcoholic.is_(True))
+    else:
+        q = q.filter(Cocktail.is_non_alcoholic.is_not(True))
+    if exclude_ids:
+        q = q.filter(Cocktail.cocktail_id.notin_(exclude_ids))
+
+    rows = q.order_by(distance.asc()).limit(top_k).all()
+    return [(c, float(d)) for c, d in rows]
+
+
+_RERANK_SYSTEM_PROMPT = """
+너는 칵테일 추천 시스템의 리랭커다.
+사용자 선호 프로파일과 후보 칵테일 목록이 주어진다.
+후보 중 사용자에게 가장 잘 맞는 칵테일을 최대 K개 선택하고, 각 선택에 대해 한 줄 한국어 이유를 써라.
+반드시 JSON 객체 하나만 출력. 설명·마크다운·코드블록 금지.
+
+★판단 기준 (우선순위 순):
+1) 맛 프로파일 일치
+   - "zero"가 붙은 축은 해당 축이 두드러진 칵테일을 **절대 포함하지 마라**(이미 하드필터되지만 ranked에도 넣지 말 것).
+   - "low"가 붙은 축은 해당 축이 "강한" 칵테일을 반드시 배제하거나 강하게 감점하라.
+     예: creamy=low이면 creamy_level이 높은 칵테일(아이리시 커피·포르토 플립 등)을 top에 넣지 마라.
+   - "high"는 해당 축이 3.5 이상, "medium"은 2~3.5, "low"는 2 이하가 바람직.
+   - 향 축도 동일: aroma_profile 에 zero 가 있으면 해당 향 계열(description·카테고리 기반) 칵테일은 배제.
+2) 향 프로파일 일치 — 향 키는 서로 다른 개념이니 혼동하지 마라.
+   - fruity(열대/베리/복숭아/사과 등 과일) ≠ citrus(레몬/라임/자몽 등 시트러스)
+   - herbal(허브/약초) ≠ minty(민트 특유 청량)
+   - woody(오크/스모키) ≠ coffee(커피/로스팅)
+   fruity=high를 요구했으면 레몬·라임 중심 "시트러스 사워"류보다는 "과일계/티키/트로피컬"계를 우선하라.
+3) 도수 선호 — strength_preference=strong이면 alcohol_score 3.5 이상(스피릿포워드·강한 칵테일) 우선.
+   strong 요구에 medium 도수(알콜 2~3)를 top에 넣지 마라.
+4) 공간 무드와의 조화.
+5) favorite_drinks와 계열/베이스/향이 유사하면 가점.
+
+절대 기준:
+- disliked_bases는 이미 필터된 상태라 고려할 필요 없음.
+- reason에 거짓을 쓰지 마라. 후보 데이터에 없는 속성(예: 사용자가 low라 했는데 "크리미한 질감이 적당")을 근거로 들지 마라. 실제 후보의 taste/카테고리/description에 근거한 이유만 써라.
+
+출력 형식:
+{
+  "ranked": [
+    {"cocktail_id": <int>, "reason": "<한국어 2~3문장>"},
+    ...
+  ]
+}
+ranked는 사용자 적합도 내림차순. 최대 K개.
+
+[reason 작성 규칙 — 중요]
+- 2~3문장, 80~180자 한국어. 단답형("~해서 적합합니다") 금지.
+- 반드시 다음 3요소를 모두 녹여라:
+  (1) 이 칵테일이 어떤 맛/향/도수 캐릭터인지 짧은 묘사 (예: "라임의 산미와 진의 허브향이 깔끔하게 맞물리는 드라이한 스타일")
+  (2) 도수·강도 느낌 — "가볍게 마시기 좋음 / 중간 정도 바디 / 스피릿포워드로 묵직함" 같은 표현을 넣어라.
+  (3) 사용자의 선호(맛/향/도수/분위기) 중 어느 부분과 맞는지 연결.
+- 후보 description 에 있는 풍미·질감 단어를 적극 활용하되, 없는 속성은 지어내지 마라.
+- "사용자의 선호에 부합합니다" 같은 상투어로 문장 끝내지 마라. 실제 칵테일 캐릭터를 설명하는 톤으로 써라.
+""".strip()
+
+
+def _format_profile_for_rerank(profile: dict) -> str:
+    merged = profile.get("merged_slots") or {}
+    lines = [
+        f"party_purpose: {merged.get('party_purpose')}",
+        f"current_mood: {merged.get('current_mood')}",
+        f"taste_profile: {json.dumps(merged.get('taste_profile') or {}, ensure_ascii=False)}",
+        f"aroma_profile: {json.dumps(merged.get('aroma_profile') or {}, ensure_ascii=False)}",
+        f"strength_preference: {merged.get('strength_preference')}",
+        f"favorite_drinks: {merged.get('favorite_drinks') or []}",
+    ]
+    space = profile.get("space")
+    if space and getattr(space, "mood_tags_json", None):
+        top_moods = sorted(space.mood_tags_json.items(), key=lambda x: x[1], reverse=True)[:3]
+        lines.append(f"space_mood_top: {[k for k, _ in top_moods]}")
+    return "\n".join(lines)
+
+
+def _format_candidates_for_rerank(candidates: list[Cocktail]) -> str:
+    rows = []
+    for c in candidates:
+        taste = []
+        for label, col in [("sweet", "sweet_level"), ("sour", "sour_level"),
+                           ("bitter", "bitter_level"), ("body", "body_level"),
+                           ("freshness", "freshness_level"), ("creamy", "creamy_level")]:
+            v = getattr(c, col, None)
+            if v is not None:
+                taste.append(f"{label}={float(v):.1f}")
+        desc = (c.description or "").replace("\n", " ")[:260]
+        rows.append(
+            f"- id={c.cocktail_id} | {c.name_kr} | {c.category} | "
+            f"mood={c.mood_tag or '-'} | {', '.join(taste)}\n"
+            f"    desc: {desc}"
+        )
+    return "\n".join(rows)
+
+
+def _extract_json_object(text: str) -> Optional[dict]:
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if not m:
+        return None
+    try:
+        obj = json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return None
+    return obj if isinstance(obj, dict) else None
+
+
+def rerank_with_qwen(
+    profile: dict,
+    candidates: list[Cocktail],
+    k: int = 3,
+    max_new_tokens: int = 512,
+) -> Optional[list[dict]]:
+    """Qwen3-8B로 후보 리랭킹. 실패 시 None → 호출측 fallback."""
+    if not candidates:
+        return []
+    try:
+        from app.utils.model_loader import load_qwen3
+        import torch
+
+        tokenizer, model = load_qwen3()
+        user_content = (
+            f"사용자 프로파일:\n{_format_profile_for_rerank(profile)}\n\n"
+            f"후보 칵테일 (N={len(candidates)}):\n{_format_candidates_for_rerank(candidates)}\n\n"
+            f"위 후보 중에서 사용자에게 가장 잘 맞는 상위 {k}개를 ranked로 JSON 반환해라."
+        )
+        messages = [
+            {"role": "system", "content": _RERANK_SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+        ]
+        rendered = tokenizer.apply_chat_template(
+            messages, add_generation_prompt=True, tokenize=False, enable_thinking=False
+        )
+        inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
+        input_len = inputs["input_ids"].shape[-1]
+
+        with torch.no_grad():
+            out = model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                repetition_penalty=1.05,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+        raw = tokenizer.decode(out[0][input_len:], skip_special_tokens=True).strip()
+        parsed = _extract_json_object(raw) or {}
+
+        ranked_raw = parsed.get("ranked") or []
+        if not isinstance(ranked_raw, list):
+            return None
+
+        valid_ids = {c.cocktail_id for c in candidates}
+        out_rows: list[dict] = []
+        seen: set[int] = set()
+        for item in ranked_raw:
+            if not isinstance(item, dict):
+                continue
+            try:
+                cid = int(item.get("cocktail_id"))
+            except (TypeError, ValueError):
+                continue
+            if cid not in valid_ids or cid in seen:
+                continue
+            reason = str(item.get("reason") or "").strip() or "취향 적합도 기반 추천"
+            out_rows.append({"cocktail_id": cid, "reason": reason})
+            seen.add(cid)
+            if len(out_rows) >= k:
+                break
+
+        return out_rows or None
+
+    except Exception as e:
+        logger.warning("Qwen rerank failed: %r", e, exc_info=True)
+        return None
 
 
 # ============================================================
@@ -173,6 +482,23 @@ def _ingredient_matches_base(ingredient_name: str, base_en: str) -> bool:
     name = ingredient_name.lower()
     for kw in _BASE_EN_TO_KR_NAMES.get(base_en, ()):
         if kw.lower() in name:
+            return True
+    return False
+
+
+def _has_zero_taste_conflict(merged_slots: dict, cocktail) -> bool:
+    """taste_profile 에 zero 로 마킹된 축이 칵테일에서 두드러지면 배제."""
+    taste = (merged_slots or {}).get("taste_profile") or {}
+    for axis, level in taste.items():
+        if level != "zero":
+            continue
+        col = _TASTE_LEVEL_COL.get(axis)
+        if not col:
+            continue
+        val = getattr(cocktail, col, None)
+        if val is None:
+            continue
+        if float(val) >= _ZERO_EXCLUDE_THRESHOLD:
             return True
     return False
 
@@ -286,10 +612,12 @@ def score_cocktail(
         score += mood_prob * 15
 
     # 7. 도수 선호 보너스
+# 7. 도수 선호 보너스
     strength_pref = merged.get("strength_preference")
-    if strength_pref in STRENGTH_RANGE:
+    cocktail_strength = _get_cocktail_strength_value(cocktail)
+    if strength_pref in STRENGTH_RANGE and cocktail_strength is not None:
         low, high = STRENGTH_RANGE[strength_pref]
-        if low <= float(vector.alcohol_score) <= high:
+        if low <= cocktail_strength <= high:
             score += 10
 
     return round(score, 2)
@@ -299,41 +627,86 @@ def score_cocktail(
 # 5. Top-K 추천
 # ============================================================
 
+RAG_RETRIEVE_N = 20
+
+
 def recommend_top_k(
     db: Session,
     guest_session_id: str,
     k: int = 3,
     exclude_ids: Optional[list[int]] = None,
 ) -> list[dict]:
+    """RAG 파이프라인: 임베딩 검색 → 하드 필터 → Qwen 리랭크.
+
+    LLM 리랭크 실패 시 score_cocktail 기반으로 fallback.
+    """
     profile = build_user_profile(db, guest_session_id)
     merged_slots = profile["merged_slots"]
-    candidates = get_candidate_cocktails(db, exclude_ids=exclude_ids)
 
     all_ri = get_all_recipes_with_ingredients(db)
     available_ids = get_available_ingredient_ids(db)
 
-    results = []
-    for cocktail in candidates:
-        ri = all_ri.get(cocktail.cocktail_id, [])
+    # 1) 임베딩 검색으로 상위 N개
+    query_text = synthesize_query(profile)
+    retrieved = retrieve_candidates(
+        db, query_text, top_k=RAG_RETRIEVE_N, exclude_ids=exclude_ids,
+        strength_preference=merged_slots.get("strength_preference"),
+    )
 
+    # 2) 하드 필터 (비선호 베이스 / 재고 / 맛 축 zero)
+    survivors: list[tuple[Cocktail, float]] = []
+    for cocktail, dist in retrieved:
+        ri = all_ri.get(cocktail.cocktail_id, [])
         if _has_disliked_base(merged_slots, ri):
             continue
-
         if _is_unstockable(ri, available_ids):
             continue
+        if _has_zero_taste_conflict(merged_slots, cocktail):
+            continue
+        survivors.append((cocktail, dist))
 
-        score = score_cocktail(cocktail, profile, ri)
-        reason_parts = _build_reason_parts(cocktail, profile, ri)
+    if not survivors:
+        return []
 
-        results.append(
-            {
-                "cocktail_id": cocktail.cocktail_id,
-                "name_kr": cocktail.name_kr,
+    survivor_cocktails = [c for c, _ in survivors]
+    dist_map = {c.cocktail_id: d for c, d in survivors}
+
+    # 3) Qwen 리랭크 (실패 시 score_cocktail fallback)
+    reranked = rerank_with_qwen(profile, survivor_cocktails, k=k)
+
+    if reranked:
+        id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
+        results = []
+        for item in reranked:
+            c = id_to_cocktail.get(item["cocktail_id"])
+            if c is None:
+                continue
+            ri = all_ri.get(c.cocktail_id, [])
+            score = score_cocktail(c, profile, ri)
+            results.append({
+                "cocktail_id": c.cocktail_id,
+                "name_kr": c.name_kr,
                 "score": score,
-                "reason_parts": reason_parts,
-            }
-        )
+                "retrieval_distance": dist_map.get(c.cocktail_id),
+                "reason_parts": [item["reason"]],
+                "source": "rag_qwen",
+            })
+        if results:
+            return results[:k]
 
+    # Fallback: score_cocktail로 재정렬
+    results = []
+    for c, dist in survivors:
+        ri = all_ri.get(c.cocktail_id, [])
+        score = score_cocktail(c, profile, ri)
+        results.append({
+            "cocktail_id": c.cocktail_id,
+            "name_kr": c.name_kr,
+            "score": score,
+            "retrieval_distance": dist,
+            "reason_parts": _build_reason_parts(c, profile, ri),
+            "source": "rag_fallback",
+        })
     results.sort(key=lambda x: x["score"], reverse=True)
     return results[:k]
 
@@ -412,6 +785,8 @@ def finalize_sample(
     sample_row = get_sample_recommendation(db, sample_recommendation_id)
     if not sample_row:
         raise ValueError("sample recommendation not found")
+    if str(sample_row.guest_session_id) != str(guest_session_id):
+        raise ValueError("sample recommendation does not belong to this guest")
 
     all_feedbacks = list_feedbacks_by_sample_recommendation(db, sample_recommendation_id)
     feedback_ids = [str(row.sample_feedback_id) for row in all_feedbacks]
@@ -488,14 +863,12 @@ def process_feedback(
     if not vector_row:
         raise ValueError("preference vector not found")
 
-    intent = classify_intent(feedback_text)
-
     before_vec = _vector_row_to_dict(vector_row)
-    updated_vec = dict(before_vec)
+    fb = analyze_feedback(before_vec, feedback_text)
+    intent = fb["intent"]
+    updated_vec = fb["updated_vec"]
 
-    if intent == "ADJUST":
-        updated_vec = update_vector(before_vec, feedback_text)
-
+    if intent == "ADJUST" and fb["deltas"]:
         update_preference_vector(
             db=db,
             guest_session_id=guest_session_id,
@@ -538,19 +911,28 @@ def process_feedback(
 
 # ADJUST → 벡터 업데이트 후 재추천
     if intent == "ADJUST":
-        all_excluded = list_recommended_cocktail_ids_by_guest(db, guest_session_id)
+        # ADJUST는 "현재 방향은 맞지만 조금 수정"의 의미이므로,
+        # 현재 샘플 칵테일은 제외하지 않고 과거 다른 추천들만 배제한다.
+        current_cocktail_id = sample_row.recommended_cocktail_id
+        historical_ids = list_recommended_cocktail_ids_by_guest(db, guest_session_id)
+        adjusted_excluded = [cid for cid in historical_ids if cid != current_cocktail_id]
+
         rerun = run_recommendation(
             db=db,
             guest_session_id=guest_session_id,
             k=3,
-            exclude_ids=all_excluded,
-            force=True,  # ← 추가
+            exclude_ids=adjusted_excluded or None,
+            force=True,
         )
 
-        # 후보 없으면 exclude 해제하고 전체에서 재추천
         if rerun.get("status") == "no_candidates":
-            rerun = run_recommendation(db, guest_session_id, k=3,
-                                       exclude_ids=None, force=True)
+            rerun = run_recommendation(
+                db=db,
+                guest_session_id=guest_session_id,
+                k=3,
+                exclude_ids=None,
+                force=True,
+            )
             rerun["message"] = "새로운 후보가 없어 전체 후보에서 다시 추천합니다."
 
         if rerun.get("status") != "ok":

@@ -1,0 +1,69 @@
+[대화 품질 평가] tag=qwen  model=Qwen/Qwen3-8B  20260421_0028
+
+[지표]
+  n_turns                      : 16
+  korean_only_rate             : 68.8
+  json_parse_rate              : 100.0
+  intent_match_rate            : 93.8
+  extract_match_rate           : 93.8
+  repeat_rate                  : 0.0
+  avg_recommend_turn           : 3.33
+  scenarios_reached_recommend  : 3/5
+
+=== first_celebration_sweet  (recommend_turn=4) ===
+  T1 SLOT(gold=SLOT) action=ASK
+    유저: 친구 생일파티야
+    reply: 오 친구 생일 축하 자리군요. 축하 자리니까 좀 화사한 쪽이 좋을 것 같아요. 단맛과 청량감은 중간 중간으로 잡혀 있는데, 어느 쪽이 더 확 느껴졌으면 좋겠어요?
+  T2 QUESTION(gold=QUESTION) action=ASK
+    유저: 칵테일이 따뜻하다는게 뭔 소리야?
+    reply: 아 말이 좀 어려웠죠. 따뜻하다는 건 데워서 마시는 게 아니라 향이 포근한 쪽, 우디나 바닐라 같은 느낌을 말한 거예요. 그래서 현재 향은 과일 중심인데, 조금 더 따뜻한 우디 향을 섞어보는 건 어때요?
+  T3 SLOT(gold=SLOT) action=ASK
+    유저: 단맛은 확 달달한 게 좋아
+    reply: 아 그렇다면 단맛은 확 달달한 게 좋아하시나봐요. 그럼 향에서는 과일 중심이지만, 조금 더 따뜻한 우디 향을 섞어보는 게 어때요?
+  T4 STOP(gold=STOP) action=RECOMMEND
+    유저: 알아서 골라줘
+    reply: 네 지금까지 들은 느낌으로 그 방향에 맞춰 골라와서 보여드릴게요.
+
+=== first_unknown_fallback  (recommend_turn=None) ===
+  T1 OTHER(gold=SLOT) action=ASK  [intent✗, extract✗]
+    유저: 혼자 집에서 마시려고
+    reply: 네 알겠습니다. 조금만 더 여쭤볼게요.
+  T2 UNKNOWN(gold=UNKNOWN) action=ASK
+    유저: 잘 모르겠는데
+    reply: 그럼 이렇게 여쭤볼게요. 평소 음식은 어떤 맛을 좋아하세요? 매콤한 거, 담백한 거, 아니면 단짠?
+  T3 SLOT(gold=SLOT) action=ASK  [非한국어]
+    유저: 평소엔 레몬에이드 자주 마셔
+    reply: 레몬에이드 자주 마시시는군요. 상큼하고 산っぱい 맛을 좋아하시는 건가봐요. 그럼 이쪽은 레몬향이 강하게 느껴져야 할까요, 아니면 은은하게?
+
+=== regular_direct  (recommend_turn=3) ===
+  T1 SLOT(gold=SLOT) action=ASK  [非한국어]
+    유저: 오늘 거래처 미팅 끝나고 한잔
+    reply: 거래처 미팅 끝나고 한잔이군요. 그런 자리에는 조금 깊은 향이 들어가는 것이 어울릴 것 같아요. 지금까지 말씀하신 'Woody' 향은 확 쎄게 드세요, 아니면 은은하게 둘 중에 어떤 편이에요?
+  T2 SLOT(gold=SLOT) action=ASK  [非한국어]
+    유저: 진 베이스로 드라이하게
+    reply: 진 베이스로 드라이하게 드시는군요. 진은 강烈한 향이 나지만, 드라이하게 마시시면 깊은 맛이 살짝 밀어내듯 느껴져요. 그럼 이 향이 드라이하게 가는 편이에요, 아니면 살짝 캐릭터가 살아있는 편이更好할까요?
+  T3 STOP(gold=STOP) action=RECOMMEND
+    유저: 추천해줘
+    reply: 네 지금까지 들은 느낌으로 그 방향에 맞춰 골라와서 보여드릴게요.
+
+=== correction_mood  (recommend_turn=None) ===
+  T1 SLOT(gold=SLOT) action=ASK
+    유저: 그냥 하루 마무리로 한 잔
+    reply: 하루 마무리로 한 잔이라면, 조금은 편안하면서도 여운이 오래 남는 쪽이 좋을 것 같아요. 당도는 확 쎄게 하면 은은하게 중에 어느 쪽이 더 마음에 드는 건가요?
+  T2 CORRECTION(gold=CORRECTION) action=ASK
+    유저: 나 기분 좋다는 말 안 했는데
+    reply: 아 제가 앞서서 넘겨짚었네요, 죄송해요. 오늘 기분은 어떠세요?
+  T3 SLOT(gold=SLOT) action=ASK
+    유저: 피곤해서 부드러운 게 땡겨
+    reply: 아 피곤해서 부드러운 게 땡긴다는 말씀이시면, 오늘은 좀 차분하고 부드럽게 마무리를 하시길 권해드려요. 당도는 확 쎄게 하면 은은하게 중에 어느 쪽이 더 마음에 드는 건가요?
+
+=== intensity_pending  (recommend_turn=3) ===
+  T1 SLOT(gold=SLOT) action=ASK  [非한국어]
+    유저: 친구들이랑 집들이
+    reply: 친구들 집들이 자리군요. 그런 자리엔 조금 더 상큼하고 즐거운 느낌이 어울릴 것 같아요. 지금까지 말씀하신 minty와 woody 향은 확 쎄게 드세요, 아니면 은은하게 둘 중에 어느 쪽이 더 맞는 건가요?
+  T2 SLOT(gold=SLOT) action=ASK  [非한국어]
+    유저: 신맛은 은은하게, 단맛은 확 가는 게 좋아
+    reply: 단맛은 확 강하게, 신맛은 은은하게 선호하시는군요. minty와 woody 향도 비슷하게 유지할까요, 아니면 어느 한쪽을 더 강조하실 건가요?
+  T3 STOP(gold=STOP) action=RECOMMEND
+    유저: 이제 추천해줘
+    reply: 네 지금까지 들은 느낌으로 그 방향에 맞춰 골라와서 보여드릴게요.

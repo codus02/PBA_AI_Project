@@ -336,26 +336,27 @@ def _ensure_preference_vector(
 
 def calculate_slot_completion(slots: PreferenceSlot) -> Decimal:
     """
-    슬롯 완료도 계산:
-    아래 7개 중 채워진 개수 / 7 * 100
+    슬롯 완료도 계산: 7개 중 채워진 개수 / 7 * 100.
+    disliked_bases / favorite_drinks 의 빈 리스트는 "없음"이라는 명시적 답변으로 보고 채운 것으로 카운트.
     """
+    # (value, allow_empty)
     fields = [
-        slots.party_purpose,
-        slots.current_mood,
-        slots.taste_profile_json,
-        slots.aroma_profile_json,
-        slots.strength_preference,
-        slots.disliked_bases_json,
-        slots.favorite_drinks_json,
+        (slots.party_purpose, False),
+        (slots.current_mood, False),
+        (slots.taste_profile_json, False),
+        (slots.aroma_profile_json, False),
+        (slots.strength_preference, False),
+        (slots.disliked_bases_json, True),
+        (slots.favorite_drinks_json, True),
     ]
 
     filled_count = 0
-    for value in fields:
+    for value, allow_empty in fields:
         if value is None:
             continue
-        if isinstance(value, list) and len(value) == 0:
-            continue
-        if isinstance(value, dict) and len(value) == 0:
+        if isinstance(value, (list, dict)) and len(value) == 0:
+            if allow_empty:
+                filled_count += 1
             continue
         if isinstance(value, str) and value.strip() == "":
             continue
