@@ -1,0 +1,21 @@
+{
+  "kind": "slots",
+  "tag": "qwen_final_n500",
+  "model": "Qwen/Qwen3-8B",
+  "timestamp": "20260422_0949",
+  "limit": 500,
+  "n": 500,
+  "elapsed_sec": 8081.564756116364,
+  "scalar_avg": 69.92592592592592,
+  "scalar_per_slot": {
+    "current_mood": 59.111111111111114,
+    "party_purpose": 75.1111111111111,
+    "strength_preference": 75.55555555555556
+  },
+  "taste_key_f1": 80.94905792044662,
+  "taste_kv_f1": 69.08583391486393,
+  "aroma_key_f1": 97.31499672560577,
+  "aroma_kv_f1": 65.09495743287492,
+  "bases_f1": 75.22935779816514,
+  "favs_detected_pct": 23.0
+}

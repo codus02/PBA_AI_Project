@@ -1,0 +1,149 @@
+{
+  "tag": "qwen_final_n500",
+  "model": "Qwen/Qwen3-8B",
+  "timestamp": "20260422_0717",
+  "limit": 500,
+  "feedback": {
+    "accuracy_pct": 97.25738396624473,
+    "correct": 461,
+    "total": 474,
+    "elapsed_sec": 1022.8493027049117,
+    "per_class": {
+      "ACCEPT": {
+        "correct": 100,
+        "total": 100
+      },
+      "ADJUST": {
+        "correct": 274,
+        "total": 274
+      },
+      "REJECT": {
+        "correct": 87,
+        "total": 100
+      }
+    },
+    "per_class_pct": {
+      "ACCEPT": 100.0,
+      "ADJUST": 100.0,
+      "REJECT": 87.0
+    },
+    "adjust_total": 274,
+    "adjust_with_deltas": 274,
+    "adjust_delta_rate_pct": 100.0,
+    "error_samples": [
+      {
+        "text": "방금 보여준 건 이쪽보다는 다른 스타일이 더 맞을 것 같아서 다른 방향으로 다시 가고 싶어",
+        "expected": "REJECT",
+        "got": "ADJUST",
+        "deltas": {
+          "herbal_score": -0.5,
+          "citrus_score": 0.5
+        }
+      },
+      {
+        "text": "방금 보여준 건 원하던 방향에서 조금 벗어나 있어서 다른 선택지를 다시 보여줘",
+        "expected": "REJECT",
+        "got": "ADJUST",
+        "deltas": {
+          "body_score": -0.5,
+          "citrus_score": -0.5
+        }
+      },
+      {
+        "text": "지금 나온 후보는 원하던 방향에서 조금 벗어나 있어서 새로 골라줬으면 좋겠어",
+        "expected": "REJECT",
+        "got": "ADJUST",
+        "deltas": {
+          "body_score": 0.5
+        }
+      },
+      {
+        "text": "지금 나온 후보는 원하던 방향에서 조금 벗어나 있어서 처음부터 다른 쪽으로 다시 가고 싶어",
+        "expected": "REJECT",
+        "got": "ADJUST",
+        "deltas": {
+          "body_score": 0.5,
+          "citrus_score": -0.5
+        }
+      },
+      {
+        "text": "이번 추천은 전체적으로 애매하게 느껴져서 다른 방향으로 다시 가고 싶어",
+        "expected": "REJECT",
+        "got": "ADJUST",
+        "deltas": {
+          "freshness_score": 0.5,
+          "body_score": 0.5
+        }
+      },
+      {
+        "text": "지금 추천은 조금 끌리지 않아서 다른 방향으로 다시 가고 싶어",
+        "expected": "REJECT",
+        "got": "ADJUST",
+        "deltas": {
+          "sweetness_score": -0.5,
+          "citrus_score": -0.5
+        }
+      },
+      {
+        "text": "지금 결과는 이쪽보다는 다른 스타일이 더 맞을 것 같아서 다른 방향으로 다시 가고 싶어",
+        "expected": "REJECT",
+        "got": "ADJUST",
+        "deltas": {
+          "freshness_score": 0.5,
+          "body_score": -0.5
+        }
+      },
+      {
+        "text": "방금 보여준 건 원하던 방향에서 조금 벗어나 있어서 처음부터 다른 쪽으로 다시 가고 싶어",
+        "expected": "REJECT",
+        "got": "ADJUST",
+        "deltas": {
+          "body_score": -0.5,
+          "citrus_score": 0.5
+        }
+      },
+      {
+        "text": "이건 이쪽보다는 다른 스타일이 더 맞을 것 같아서 다른 걸로 보고 싶어",
+        "expected": "REJECT",
+        "got": "ADJUST",
+        "deltas": {
+          "body_score": 0.5,
+          "citrus_score": 0.5
+        }
+      },
+      {
+        "text": "이 추천안은 지금 기분이랑 안 맞을 것 같아서 다른 방향으로 다시 가고 싶어",
+        "expected": "REJECT",
+        "got": "ADJUST",
+        "deltas": {
+          "freshness_score": 0.5,
+          "body_score": -0.5
+        }
+      }
+    ]
+  },
+  "slots": {
+    "n": 500,
+    "elapsed_sec": 8081.564756116364,
+    "scalar_avg": 69.92592592592592,
+    "scalar_per_slot": {
+      "current_mood": 59.111111111111114,
+      "party_purpose": 75.1111111111111,
+      "strength_preference": 75.55555555555556
+    },
+    "taste_key_f1": 80.94905792044662,
+    "taste_kv_f1": 69.08583391486393,
+    "aroma_key_f1": 97.31499672560577,
+    "aroma_kv_f1": 65.09495743287492,
+    "bases_f1": 75.22935779816514,
+    "favs_detected_pct": 23.0
+  },
+  "recommendation": {
+    "hit@1": 0.158,
+    "hit@3": 0.216,
+    "cat_hit@3": 0.546,
+    "no_candidate_rate": 0.0,
+    "n": 500,
+    "elapsed_sec": 17818.702377111185
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "kind": "rec",
+  "tag": "qwen_final_n500",
+  "model": "Qwen/Qwen3-8B",
+  "timestamp": "20260422_1446",
+  "limit": 500,
+  "hit@1": 0.158,
+  "hit@3": 0.216,
+  "cat_hit@3": 0.546,
+  "no_candidate_rate": 0.0,
+  "n": 500,
+  "elapsed_sec": 17818.702377111185
+}
