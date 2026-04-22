@@ -1,11 +1,11 @@
-"""대화 품질 자동 평가 — 모델(Qwen/EXAONE 등) 간 비교용.
+"""대화 품질 자동 평가 — 모델(Qwen/EXAONE 등) 간 비교용 (LLM-agnostic).
 
 스크립트된 시나리오의 고정 유저 발화를 analyze_user_turn 에 순차 주입하여
 매 턴 reply/extracted_slots/action/user_intent 를 기록하고 자동 지표를 계산한다.
 
 자동 지표:
 - korean_only_rate : reply 에 한자/영어/일본어 섞이지 않은 비율
-- json_parse_rate  : source=qwen (정상 JSON 파싱) 비율
+- json_parse_rate  : source=llm (정상 JSON 파싱) 비율
 - intent_match     : user_intent 가 시나리오 gold 와 일치한 비율
 - extract_match    : extracted_slots 가 gold 와 일치한 턴 비율 (subset 매칭)
 - repeat_rate      : 이번 reply 의 질문이 직전 LLM 질문과 유사한 비율
@@ -28,10 +28,10 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-# 모델 바꿀 때는 import 전에 env 덮어써야 QWEN3_MODEL 이 읽힘
+# 모델 바꿀 때는 import 전에 env 덮어써야 LLM_MODEL 이 읽힘
 def _maybe_override_model(model_id: str | None) -> None:
     if model_id:
-        os.environ["QWEN3_MODEL"] = model_id
+        os.environ["LLM_MODEL"] = model_id
 
 
 SCENARIOS: list[dict] = [
@@ -252,7 +252,7 @@ def aggregate(runs: list[dict]) -> dict:
     all_turns = [t for r in runs for t in r["turns"]]
     n = max(len(all_turns), 1)
     ko = sum(1 for t in all_turns if t["korean_only"])
-    js = sum(1 for t in all_turns if t["source"] == "qwen")
+    js = sum(1 for t in all_turns if t["source"] == "llm")
     im = sum(1 for t in all_turns if t["intent_match"])
     em = sum(1 for t in all_turns if t["extract_match"])
     rp = sum(1 for t in all_turns if t["repeat_sim"] >= 0.6)
@@ -272,7 +272,7 @@ def aggregate(runs: list[dict]) -> dict:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tag", required=True, help="결과 파일 접미사 (예: qwen, exaone)")
-    ap.add_argument("--model", default=None, help="HF model id (생략 시 env QWEN3_MODEL 사용)")
+    ap.add_argument("--model", default=None, help="HF model id (생략 시 env LLM_MODEL 사용)")
     ap.add_argument("--out-dir", default="eval_results/conversation")
     args = ap.parse_args()
 
@@ -281,7 +281,7 @@ def main():
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"[대화 품질 평가] model={os.getenv('QWEN3_MODEL')}  tag={args.tag}")
+    print(f"[대화 품질 평가] model={os.getenv('LLM_MODEL')}  tag={args.tag}")
     print(f"시나리오 {len(SCENARIOS)}개")
 
     runs: list[dict] = []
@@ -293,7 +293,7 @@ def main():
     stamp = datetime.now().strftime("%Y%m%d_%H%M")
     out = {
         "tag": args.tag,
-        "model": os.getenv("QWEN3_MODEL"),
+        "model": os.getenv("LLM_MODEL"),
         "timestamp": stamp,
         "metrics": metrics,
         "runs": runs,

@@ -1,4 +1,4 @@
-"""Qwen 전체 플로우 메모리-only 시뮬레이터.
+"""LLM 전체 플로우 메모리-only 시뮬레이터.
 
 초기 태그는 DB InitialTagResponse 스키마와 동일 (familiarity / strength / tastes / aromas).
 party_purpose, current_mood 는 초기 태그에 없으므로 대화 루프에서 채운다.
@@ -8,7 +8,7 @@ party_purpose, current_mood 는 초기 태그에 없으므로 대화 루프에�
   2) 슬롯 추출 대화 루프 (analyze_user_turn / should_move_to_recommendation)
      - 사용자가 "몰라/모르겠/딱히" → 해당 슬롯 1회 alt 각도로 재질문, 그래도 모르면 skip
      - disliked_bases는 사용자가 먼저 말하지 않으면 절대 묻지 않음
-  3) 1차 RAG+Qwen 추천 top3
+  3) 1차 RAG+LLM 추천 top3
   4) 사용자가 하나 고르고 피드백
   5) analyze_feedback → intent+deltas → 벡터 갱신 → 재추천 (이전 제외)
   6) ACCEPT / 최대 3 라운드 종료
@@ -37,11 +37,12 @@ from app.agents.preference_agent import (
 from app.agents.orchestration_agent import (
     synthesize_query,
     retrieve_candidates,
-    rerank_with_qwen,
+    rerank_with_llm,
     score_cocktail,
     _has_disliked_base,
     _is_unstockable,
     _has_zero_taste_conflict,
+    _build_reason_parts,
 )
 from app.db.database import SessionLocal
 from app.db.crud import get_all_recipes_with_ingredients, get_available_ingredient_ids
@@ -220,11 +221,9 @@ def dialogue_loop(initial_slots: dict, familiarity: str | None = None) -> dict:
 
         comp = _calc_effective_completion(slots)
         print(f"  source={result['source']}  intent={result.get('user_intent','?')}  action={result['action']}  completion={comp}%  turn={turn}/{MAX_USER_TURNS}")
+        print(f"  llm_emitted: {json.dumps(result.get('extracted_raw', {}), ensure_ascii=False)}")
+        print(f"  kept_after_diff: {json.dumps(extracted, ensure_ascii=False)}")
         print(f"  slots: {json.dumps(slots, ensure_ascii=False)}")
-
-        reply = result["reply"]
-        print(f"\nLLM: {reply}")
-        history.append({"speaker_role": "LLM", "utterance_text": reply})
 
         proceed, reason = should_move_to_recommendation(
             merged_slots=slots,
@@ -236,6 +235,9 @@ def dialogue_loop(initial_slots: dict, familiarity: str | None = None) -> dict:
         if proceed:
             print(f"\n[TERMINATE] {reason}")
             break
+        reply = result["reply"]
+        print(f"\nLLM: {reply}")
+        history.append({"speaker_role": "LLM", "utterance_text": reply})
         last_asked_slot = _find_asked_slot(reply)
     else:
         print("\n[TERMINATE] turn_limit")
@@ -275,7 +277,7 @@ def recommend_once(
         return []
 
     survivor_cocktails = [c for c, _ in survivors]
-    reranked = rerank_with_qwen(profile, survivor_cocktails, k=3)
+    reranked = rerank_with_llm(profile, survivor_cocktails, k=3, recipe_ingredients=all_ri)
 
     results: list[dict] = []
     if reranked:
@@ -289,21 +291,23 @@ def recommend_once(
                 "name_kr": c.name_kr,
                 "category": c.category,
                 "reason": item.get("reason", ""),
-                "source": "rag_qwen",
+                "source": "rag_llm",
             })
 
     if not results:
         scored = []
         for c, _d in survivors:
             ri = all_ri.get(c.cocktail_id, [])
-            scored.append((c, score_cocktail(c, profile, ri)))
+            scored.append((c, score_cocktail(c, profile, ri), ri))
         scored.sort(key=lambda x: x[1], reverse=True)
-        for c, s in scored[:3]:
+        for c, s, ri in scored[:3]:
+            reason_parts = _build_reason_parts(c, profile, ri)
             results.append({
                 "cocktail_id": c.cocktail_id,
                 "name_kr": c.name_kr,
                 "category": c.category,
-                "reason": f"score={s:.2f}",
+                "reason": " · ".join(reason_parts),
+                "score": s,
                 "source": "rag_fallback",
             })
 
@@ -410,7 +414,52 @@ def _describe_adjustments(deltas: dict) -> str:
     return ", ".join(parts)
 
 
-def print_final_recommendation(db, picked: dict) -> None:
+def _compute_net_deltas(initial_vec: dict, final_vec: dict, threshold: float = 0.1) -> dict:
+    out: dict[str, float] = {}
+    for k in initial_vec:
+        d = float(final_vec.get(k, 0.0)) - float(initial_vec.get(k, 0.0))
+        if abs(d) >= threshold:
+            out[k] = d
+    return out
+
+
+def _describe_net_adjustments(net_deltas: dict) -> str:
+    if not net_deltas:
+        return ""
+    parts = []
+    for k, v in net_deltas.items():
+        name = _AXIS_KO.get(k, k)
+        mag = abs(v)
+        strength = "살짝" if mag <= 0.3 else ("꽤" if mag <= 0.6 else "확")
+        direction = "줄이고" if v < 0 else "올리고"
+        parts.append(f"{name}은 {strength} {direction}")
+    joined = ", ".join(parts)
+    if joined.endswith("고"):
+        joined = joined[:-1] + "는"
+    return joined
+
+
+def _describe_final_balance(net_deltas: dict) -> str:
+    if not net_deltas:
+        return ""
+    kept = [_AXIS_KO.get(k, k) for k, v in net_deltas.items() if v > 0]
+    reduced = [_AXIS_KO.get(k, k) for k, v in net_deltas.items() if v < 0]
+    segs = []
+    if kept:
+        segs.append(f"{', '.join(kept)}은 살려두고")
+    if reduced:
+        segs.append(f"{', '.join(reduced)}은 덜어낸")
+    if not segs:
+        return ""
+    return " ".join(segs) + " 밸런스로 확정한 추천입니다"
+
+
+def print_final_recommendation(
+    db,
+    picked: dict,
+    initial_vec: dict | None = None,
+    final_vec: dict | None = None,
+) -> None:
     from app.db.models import Cocktail
     c = db.query(Cocktail).filter(Cocktail.cocktail_id == picked["cocktail_id"]).first()
     print("\n" + "=" * 50)
@@ -420,14 +469,36 @@ def print_final_recommendation(db, picked: dict) -> None:
     if c and c.name_en:
         name = f"{picked['name_kr']} / {c.name_en} — {picked['category']}"
     print(f"\n  {name}\n")
-    if picked.get("reason"):
-        print(f"[추천 이유]\n  {picked['reason']}\n")
+
+    initial_reason = (picked.get("reason") or "").strip().rstrip(".。!?")
+    net_deltas = (
+        _compute_net_deltas(initial_vec, final_vec)
+        if (initial_vec and final_vec) else {}
+    )
+    adjust_phrase = _describe_net_adjustments(net_deltas)
+    balance_phrase = _describe_final_balance(net_deltas)
+
+    lines: list[str] = []
+    if initial_reason:
+        lines.append(f"처음에는 {initial_reason}.")
+    if adjust_phrase:
+        lines.append(f"시음 후 {adjust_phrase} 방향으로 조정했습니다.")
+        lines.append(f"최종적으로는 {balance_phrase}.")
+    elif initial_reason:
+        lines.append("시음 후에도 방향이 취향과 크게 어긋나지 않아 그대로 최종 확정했습니다.")
+
+    if lines:
+        print("[추천 이유]")
+        for ln in lines:
+            print(f"  {ln}")
+        print()
+
     if c and c.description:
         print(f"[칵테일 설명]\n  {c.description.strip()}\n")
 
 
 def main() -> None:
-    print("=== Qwen 전체 플로우 시뮬레이터 (메모리 only) ===")
+    print("=== LLM 전체 플로우 시뮬레이터 (메모리 only) ===")
     tag_row = ask_initial_tags()
     seeded = _seed_slots_from_initial_tags(tag_row)
     print(f"\n초기 태그 seed 결과: {json.dumps(seeded, ensure_ascii=False)}")
@@ -473,7 +544,7 @@ def main() -> None:
                 break
 
         if final_pick is not None:
-            print_final_recommendation(db, final_pick)
+            print_final_recommendation(db, final_pick, DEFAULT_VEC, vec)
     finally:
         db.close()
 

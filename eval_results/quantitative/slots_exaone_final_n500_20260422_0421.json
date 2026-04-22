@@ -1,0 +1,21 @@
+{
+  "kind": "slots",
+  "tag": "exaone_final_n500",
+  "model": "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct",
+  "timestamp": "20260422_0421",
+  "limit": 500,
+  "n": 500,
+  "elapsed_sec": 12010.984393275809,
+  "scalar_avg": 66.74074074074075,
+  "scalar_per_slot": {
+    "current_mood": 58.44444444444444,
+    "party_purpose": 74.66666666666667,
+    "strength_preference": 67.11111111111111
+  },
+  "taste_key_f1": 84.8951048951049,
+  "taste_kv_f1": 75.8041958041958,
+  "aroma_key_f1": 92.07650273224044,
+  "aroma_kv_f1": 76.775956284153,
+  "bases_f1": 92.5925925925926,
+  "favs_detected_pct": 56.00000000000001
+}

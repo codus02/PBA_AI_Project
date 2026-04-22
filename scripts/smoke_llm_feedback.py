@@ -1,7 +1,7 @@
-"""Qwen analyze_feedback 스모크 테스트.
+"""LLM analyze_feedback 스모크 테스트.
 
-실행: python -m scripts.smoke_qwen_feedback
-요구: GPU + Qwen3-8B (bnb 4bit)
+실행: python -m scripts.smoke_llm_feedback
+요구: GPU + LLM (bnb 4bit)
 """
 from __future__ import annotations
 

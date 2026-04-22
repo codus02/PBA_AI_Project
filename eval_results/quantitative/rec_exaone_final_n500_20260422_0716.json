@@ -1,0 +1,13 @@
+{
+  "kind": "rec",
+  "tag": "exaone_final_n500",
+  "model": "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct",
+  "timestamp": "20260422_0716",
+  "limit": 500,
+  "hit@1": 0.08,
+  "hit@3": 0.154,
+  "cat_hit@3": 0.518,
+  "no_candidate_rate": 0.0,
+  "n": 500,
+  "elapsed_sec": 10554.193314122036
+}

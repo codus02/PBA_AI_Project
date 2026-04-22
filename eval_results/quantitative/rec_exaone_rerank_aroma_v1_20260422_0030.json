@@ -1,0 +1,13 @@
+{
+  "kind": "rec",
+  "tag": "exaone_rerank_aroma_v1",
+  "model": "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct",
+  "timestamp": "20260422_0030",
+  "limit": 50,
+  "hit@1": 0.26,
+  "hit@3": 0.38,
+  "cat_hit@3": 0.62,
+  "no_candidate_rate": 0.0,
+  "n": 50,
+  "elapsed_sec": 1314.4866309086792
+}

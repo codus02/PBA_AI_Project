@@ -31,6 +31,7 @@ from app.agents.preference_agent import (
     merge_slots,
     should_move_to_recommendation,
     _calc_effective_completion,
+    _seed_slots_from_initial_tags,
 )
 from app.agents.orchestration_agent import run_recommendation, process_feedback, finalize_sample
 from app.agents.output_agent import generate_output_json
@@ -78,68 +79,6 @@ class EvaluationRequest(BaseModel):
 # ============================================================
 # Helpers
 # ============================================================
-
-def _seed_slots_from_initial_tags(tag_row) -> dict:
-    if not tag_row:
-        return {}
-
-    seeded = {}
-
-    strength_map = {
-        "무알콜":"zero",
-        "논알콜":"zero",
-        "알코올 없음":"zero",
-        "제로":"zero",
-        "약함": "light",
-        "가볍게": "light",
-        "중간": "medium",
-        "적당히": "medium",
-        "보통": "medium",
-        "강함": "strong",
-        "센 거": "strong",
-        "강하게": "strong",
-    }
-
-    aroma_map = {
-        "과일향": "fruity",
-        "허브향": "herbal",
-        "민트향": "minty",
-        "시트러스향": "citrus",
-        "우디향": "woody",
-        "커피향": "coffee",
-        "꽃향": "floral",
-    }
-
-    taste_map = {
-        "단맛": "sweet",
-        "신맛": "sour",
-        "쓴맛": "bitter",
-        "청량함": "freshness",
-        "청량감": "freshness",
-        "바디감": "body",
-        "크리미함": "creamy",
-    }
-
-    if tag_row.strength_tag in strength_map:
-        seeded["strength_preference"] = strength_map[tag_row.strength_tag]
-
-    taste_profile = {}
-    for t in (tag_row.taste_tags_json or []):
-        k = taste_map.get(t)
-        if k:
-            taste_profile[k] = "high"
-    if taste_profile:
-        seeded["taste_profile"] = taste_profile
-
-    aroma_profile = {}
-    for a in (tag_row.aroma_tags_json or []):
-        k = aroma_map.get(a)
-        if k:
-            aroma_profile[k] = "high"
-    if aroma_profile:
-        seeded["aroma_profile"] = aroma_profile
-
-    return seeded
 
 def _serialize_dialogue_turn(turn) -> dict:
     return {
@@ -270,6 +209,7 @@ def feedback_endpoint(
             guest_session_id=gid,
             sample_recommendation_id=req.sample_recommendation_id,
             feedback_text=req.feedback_text,
+            feedback_round=current_round,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -431,7 +371,7 @@ def start_dialogue_endpoint(
     if not guest:
         raise HTTPException(status_code=404, detail="guest_session_id not found")
 
-    # 오프닝은 Qwen 호출 없이 고정 문구 사용 (첫 턴은 정보가 0이라 생성 의미가 적음)
+    # 오프닝은 LLM 호출 없이 고정 문구 사용 (첫 턴은 정보가 0이라 생성 의미가 적음)
     greeting = "안녕하세요! 오늘 취향에 맞는 칵테일 찾아드릴게요. "
     question = greeting + generate_opening_question()
 
@@ -490,11 +430,14 @@ def dialogue_endpoint(
         for row in history_rows
     ]
 
-    # 4) 단일 Qwen 호출 — 추출 + 종료 + 다음 질문
+    # 4) 단일 LLM 호출 — 추출 + 종료 + 다음 질문
+    user_turn_count = count_user_turns(db, gid)
     agent_result = analyze_user_turn(
         history=history,
         slots=current_slots,
         user_msg=req.message,
+        familiarity=getattr(tag_row, "familiarity_tag", None),
+        user_turn_count=user_turn_count,
     )
     extracted_slots = agent_result["extracted_slots"]
 

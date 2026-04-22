@@ -59,9 +59,13 @@ STRENGTH_RANGE = {
     "strong": (3.0, 5.0),
 }
 
+# 도수 선호별 이상치 (0~5 스케일). score_cocktail 에서 대칭 가중치 계산에 사용.
+# (zero 는 is_non_alcoholic 하드필터가 잡으므로 여기서는 비-zero 만 정의.)
+STRENGTH_TARGET = {"light": 1.0, "medium": 2.5, "strong": 4.0}
+
 # intensity → 점수 스케일
-INTENSITY_WEIGHT = {"low": -1.0, "medium": 0.3, "high": 1.0}
-# high/medium만 "선호"로 취급하고 점수에 가점, low는 감점
+INTENSITY_WEIGHT = {"low": 0.2, "medium": 0.5, "high": 1.0}
+# low/medium/high 모두 "선호"로 취급(가점). zero만 하드 필터로 제외.
 HIGH_THRESHOLD_COL_VALUE = 3.5
 AROMA_ING_THRESHOLD = 3.0
 
@@ -119,7 +123,7 @@ def _build_reason_parts(
     taste_profile: dict = merged.get("taste_profile") or {}
     matched_tastes: list[str] = []
     for tag, intensity in taste_profile.items():
-        if intensity not in ("medium", "high"):
+        if intensity not in ("low", "medium", "high"):
             continue
         col = TASTE_TO_COCKTAIL.get(tag)
         if col and getattr(cocktail, col) is not None:
@@ -132,7 +136,7 @@ def _build_reason_parts(
     matched_aromas: list[str] = []
     for _, ingredient in recipe_ingredients:
         for tag, intensity in aroma_profile.items():
-            if intensity not in ("medium", "high"):
+            if intensity not in ("low", "medium", "high"):
                 continue
             col = AROMA_TO_INGREDIENT.get(tag)
             if col and getattr(ingredient, col, 0) >= AROMA_ING_THRESHOLD and tag not in matched_aromas:
@@ -162,7 +166,7 @@ def _build_reason_parts(
 
 
 # ============================================================
-# RAG: 쿼리 합성 + pgvector 검색 + Qwen 리랭크
+# RAG: 쿼리 합성 + pgvector 검색 + LLM 리랭크
 # ============================================================
 
 _RAG_TASTE_KR = {
@@ -176,32 +180,84 @@ _RAG_AROMA_KR = {
 _RAG_INTENSITY_KR = {
     "high": "강하게 선호",
     "medium": "적당히 선호",
-    "low": "약하게 비선호",
+    "low": "약하게 선호",
     "zero": "완전 비선호(제외)",
 }
 
 # 칵테일의 해당 축 level >= 이 임계값이면 "두드러진다"고 본다.
 _ZERO_EXCLUDE_THRESHOLD = 3.5
 
-# taste 축 → Cocktail 컬럼명 매핑
-_TASTE_LEVEL_COL = {
-    "sweet": "sweet_level",
-    "sour": "sour_level",
-    "bitter": "bitter_level",
-    "body": "body_level",
-    "creamy": "creamy_level",
-    "freshness": "freshness_level",
-}
 # 향 축은 Cocktail 컬럼이 없어 재료 기반 판단 → 일단 description/레시피 감각노트 스캔으로 근사.
 # 현재 구조에서 aroma zero 는 rerank LLM 단계에서 강하게 감점 처리하게 둔다.
 _RAG_STRENGTH_KR = {"zero": "논알콜(무알콜)", "light": "가벼운 도수", "medium": "중간 도수", "strong": "강한 도수"}
+_RAG_PURPOSE_KR = {
+    "celebration": "축하 자리",
+    "date": "데이트 자리",
+    "business": "비즈니스 자리",
+    "solo": "혼자 마시는 자리",
+    "hangout": "친구들과 가볍게 마시는 자리",
+}
+_RAG_MOOD_KR = {
+    "good": "기분 좋음",
+    "soso": "그냥저냥",
+    "bad": "기분이 가라앉음",
+}
+
+# 피드백 ADJUST 로 갱신된 vector 의 편차를 쿼리에 반영.
+_VEC_AXIS_KR = {
+    "sweetness_score": "단맛",
+    "bitterness_score": "쓴맛",
+    "sourness_score": "신맛",
+    "freshness_score": "청량감",
+    "body_score": "바디감",
+    "herbal_score": "허브",
+    "citrus_score": "시트러스",
+    "alcohol_score": "도수",
+}
+_VEC_AXIS_DEFAULT = {
+    "sweetness_score": 3.0, "bitterness_score": 3.0, "sourness_score": 3.0,
+    "freshness_score": 3.0, "body_score": 3.0,
+    "herbal_score": 2.0, "citrus_score": 2.0, "alcohol_score": 3.0,
+}
+
+
+def _vec_deviation_bits(vector) -> list[str]:
+    """vector 가 기본값에서 얼마나 벌어졌는지 자연어 조각으로 변환.
+
+    ADJUST 피드백 이후 RAG 쿼리가 조정 방향을 반영하게 만들기 위함.
+    """
+    if vector is None:
+        return []
+    out: list[str] = []
+    for field, label in _VEC_AXIS_KR.items():
+        val = getattr(vector, field, None)
+        if val is None:
+            continue
+        try:
+            v = float(val)
+        except (TypeError, ValueError):
+            continue
+        delta = v - _VEC_AXIS_DEFAULT[field]
+        if abs(delta) < 0.3:
+            continue
+        mag = abs(delta)
+        strength = "크게" if mag >= 0.7 else ("꽤" if mag >= 0.4 else "살짝")
+        direction = "강조" if delta > 0 else "약화"
+        out.append(f"{label} {strength} {direction}")
+    return out
 
 
 def _rag_collect_profile(profile_dict: dict, label_map: dict[str, str]) -> list[str]:
+    """RAG 쿼리에 넣을 선호만 추림.
+
+    - pending: 미확정 → 제외
+    - zero: 하드필터가 잡으므로 자연어 쿼리엔 불필요 → 제외
+    - low: 약한 선호를 자연어로 강조하면 retrieval 노이즈만 됨 → 제외
+    - medium / high 만 쿼리에 반영
+    """
     out = []
     for tag, intensity in (profile_dict or {}).items():
-        if intensity == "pending":
-            # 강도 미확정은 RAG 쿼리에 넣지 않는다 (대화로 확정되면 반영).
+        if intensity not in ("medium", "high"):
             continue
         label = label_map.get(tag, tag)
         lvl = _RAG_INTENSITY_KR.get(intensity, intensity)
@@ -218,7 +274,12 @@ def synthesize_query(profile: dict) -> str:
     purpose = merged.get("party_purpose")
     mood = merged.get("current_mood")
     if purpose or mood:
-        ctx = ", ".join([v for v in [purpose, mood] if v])
+        ctx = ", ".join(
+            v for v in [
+                _RAG_PURPOSE_KR.get(purpose, purpose),
+                _RAG_MOOD_KR.get(mood, mood),
+            ] if v
+        )
         parts.append(f"상황/무드: {ctx}")
 
     taste_bits = _rag_collect_profile(merged.get("taste_profile") or {}, _RAG_TASTE_KR)
@@ -235,11 +296,16 @@ def synthesize_query(profile: dict) -> str:
 
     disliked_bases = merged.get("disliked_bases") or []
     if disliked_bases:
-        parts.append(f"베이스 회피: {', '.join(disliked_bases)}")
+        # dense query에는 부정 조건을 넣지 않고 하드필터 단계에만 맡긴다.
+        pass
 
     favs = merged.get("favorite_drinks") or []
     if favs:
         parts.append(f"유사 선호 음료: {', '.join(favs[:3])}")
+
+    vec_bits = _vec_deviation_bits(profile.get("vector"))
+    if vec_bits:
+        parts.append(f"피드백 반영 조정: {', '.join(vec_bits)}")
 
     if space and getattr(space, "mood_tags_json", None):
         top_moods = sorted(space.mood_tags_json.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -261,11 +327,12 @@ def retrieve_candidates(
 
     strength_preference="zero"면 논알콜만, 그 외(또는 None)이면 알콜만 반환.
     """
+    # 코퍼스(build_cocktail_embeddings.py)가 instruction prefix 없이 인코딩되므로
+    # 쿼리도 동일하게 인코딩해서 임베딩 공간 대칭성 유지 (R2 fix).
     vec = embed_texts(
         [query_text],
         batch_size=1,
         max_length=512,
-        instruction="주어진 사용자 선호 설명에 가장 잘 맞는 칵테일을 찾는다",
     )[0].tolist()
 
     distance = Cocktail.embedding.cosine_distance(vec).label("distance")
@@ -294,9 +361,10 @@ _RERANK_SYSTEM_PROMPT = """
 ★판단 기준 (우선순위 순):
 1) 맛 프로파일 일치
    - "zero"가 붙은 축은 해당 축이 두드러진 칵테일을 **절대 포함하지 마라**(이미 하드필터되지만 ranked에도 넣지 말 것).
-   - "low"가 붙은 축은 해당 축이 "강한" 칵테일을 반드시 배제하거나 강하게 감점하라.
+   - "low"는 비선호가 아니라 **약하게만 느껴지면 좋다**는 뜻이다.
+     해당 축이 과하게 두드러지는 후보는 감점하고, 은은하거나 약한 수준이면 허용하라.
      예: creamy=low이면 creamy_level이 높은 칵테일(아이리시 커피·포르토 플립 등)을 top에 넣지 마라.
-   - "high"는 해당 축이 3.5 이상, "medium"은 2~3.5, "low"는 2 이하가 바람직.
+   - "high"는 해당 축이 3.5 이상, "medium"은 2~3.5, "low"는 1~2.5 정도가 바람직.
    - 향 축도 동일: aroma_profile 에 zero 가 있으면 해당 향 계열(description·카테고리 기반) 칵테일은 배제.
 2) 향 프로파일 일치 — 향 키는 서로 다른 개념이니 혼동하지 마라.
    - fruity(열대/베리/복숭아/사과 등 과일) ≠ citrus(레몬/라임/자몽 등 시트러스)
@@ -322,48 +390,148 @@ _RERANK_SYSTEM_PROMPT = """
 ranked는 사용자 적합도 내림차순. 최대 K개.
 
 [reason 작성 규칙 — 중요]
-- 2~3문장, 80~180자 한국어. 단답형("~해서 적합합니다") 금지.
+- 2~3문장, 80~180자 **순수 한국어**.
+- ★ 영어 단어·슬롯키·enum 절대 금지. 따옴표로 감싼 영어도 금지.
+  금지 예: "sweet", "citrus", "good", "strong", 'fruity', 'mood', 'taste'
+  허용 예: 단맛, 시트러스향, 기분 좋을 때, 강한 도수, 과일향
+  (알파벳이 섞이면 즉시 실패로 간주하고 처음부터 한국어로만 다시 써라.)
+- 단답형("~해서 적합합니다") 금지.
 - 반드시 다음 3요소를 모두 녹여라:
   (1) 이 칵테일이 어떤 맛/향/도수 캐릭터인지 짧은 묘사 (예: "라임의 산미와 진의 허브향이 깔끔하게 맞물리는 드라이한 스타일")
   (2) 도수·강도 느낌 — "가볍게 마시기 좋음 / 중간 정도 바디 / 스피릿포워드로 묵직함" 같은 표현을 넣어라.
   (3) 사용자의 선호(맛/향/도수/분위기) 중 어느 부분과 맞는지 연결.
-- 후보 description 에 있는 풍미·질감 단어를 적극 활용하되, 없는 속성은 지어내지 마라.
+- 후보 설명(description)에 있는 풍미·질감 단어를 적극 활용하되, 없는 속성은 지어내지 마라.
+- reason 은 **네가 선택한 그 칵테일**에 대한 설명이다. 다른 칵테일 이름(사이드카·모히토 등)을 reason 안에 쓰지 마라.
 - "사용자의 선호에 부합합니다" 같은 상투어로 문장 끝내지 마라. 실제 칵테일 캐릭터를 설명하는 톤으로 써라.
 """.strip()
+
+
+_PURPOSE_KO = {
+    "celebration": "축하 자리", "date": "데이트", "business": "비즈니스",
+    "solo": "혼술", "hangout": "친구들과 편하게",
+}
+_MOOD_KO = {"good": "기분 좋음", "soso": "그냥저냥", "bad": "다운"}
+_STRENGTH_KO = {"zero": "무알콜", "light": "가볍게", "medium": "중간", "strong": "강한 도수"}
+_INTENSITY_KO = {"zero": "배제", "low": "은은하게", "medium": "적당히", "high": "강하게"}
+_TASTE_KO = {"sweet": "단맛", "sour": "신맛", "bitter": "쓴맛",
+             "body": "바디감", "creamy": "크리미", "freshness": "청량감"}
+_AROMA_KO = {"woody": "우디향", "minty": "민트향", "fruity": "과일향",
+             "citrus": "시트러스향", "floral": "꽃향", "coffee": "커피향", "herbal": "허브향"}
+
+# vibe/mood tag 영어→한국어 — DB mood_tag / space.mood_tags_json 방어용.
+# 이미 한국어면 mapping 없음 → 그대로 통과. 미지의 영어 토큰은 비노출(drop).
+_MOOD_TAG_KO = {
+    "modern": "모던한", "dark": "어두운", "bright": "밝은", "neon": "네온",
+    "romantic": "로맨틱한", "casual": "캐주얼", "energetic": "신나는",
+    "classic": "클래식", "cozy": "아늑한", "chic": "시크한",
+    "tropical": "트로피컬", "summer": "여름", "elegant": "세련된",
+    "sophisticated": "세련된", "light": "가벼운", "subtle": "은은한",
+    "vivid": "화려한", "calm": "차분한", "warm": "따뜻한",
+    "celebration": "축하",
+}
+
+
+def _ko_mood_tag(tag: str) -> Optional[str]:
+    """영어면 매핑 시도, 실패 시 None (비노출). 한국어(비-ASCII 포함)는 그대로 반환."""
+    if not tag:
+        return None
+    s = str(tag).strip()
+    if not s:
+        return None
+    # 한글/비ASCII 문자가 하나라도 있으면 한국어로 간주 → 그대로
+    if any(ord(ch) > 127 for ch in s):
+        return s
+    mapped = _MOOD_TAG_KO.get(s.lower())
+    return mapped  # 알 수 없는 영어면 None → 노출 안 함
+
+
+def _ko_taste_line(tp: dict) -> str:
+    if not isinstance(tp, dict) or not tp:
+        return "(없음)"
+    parts = [f"{_TASTE_KO.get(k, k)} {_INTENSITY_KO.get(v, v)}"
+             for k, v in tp.items() if v in _INTENSITY_KO]
+    return ", ".join(parts) if parts else "(없음)"
+
+
+def _ko_aroma_line(ap: dict) -> str:
+    if not isinstance(ap, dict) or not ap:
+        return "(없음)"
+    parts = [f"{_AROMA_KO.get(k, k)} {_INTENSITY_KO.get(v, v)}"
+             for k, v in ap.items() if v in _INTENSITY_KO]
+    return ", ".join(parts) if parts else "(없음)"
 
 
 def _format_profile_for_rerank(profile: dict) -> str:
     merged = profile.get("merged_slots") or {}
     lines = [
-        f"party_purpose: {merged.get('party_purpose')}",
-        f"current_mood: {merged.get('current_mood')}",
-        f"taste_profile: {json.dumps(merged.get('taste_profile') or {}, ensure_ascii=False)}",
-        f"aroma_profile: {json.dumps(merged.get('aroma_profile') or {}, ensure_ascii=False)}",
-        f"strength_preference: {merged.get('strength_preference')}",
-        f"favorite_drinks: {merged.get('favorite_drinks') or []}",
+        f"자리: {_PURPOSE_KO.get(merged.get('party_purpose'), '—')}",
+        f"기분: {_MOOD_KO.get(merged.get('current_mood'), '—')}",
+        f"맛 선호: {_ko_taste_line(merged.get('taste_profile') or {})}",
+        f"향 선호: {_ko_aroma_line(merged.get('aroma_profile') or {})}",
+        f"도수: {_STRENGTH_KO.get(merged.get('strength_preference'), '—')}",
     ]
+    favs = merged.get("favorite_drinks") or []
+    if favs:
+        lines.append(f"즐겨 마시는 술: {', '.join(favs)}")
     space = profile.get("space")
     if space and getattr(space, "mood_tags_json", None):
         top_moods = sorted(space.mood_tags_json.items(), key=lambda x: x[1], reverse=True)[:3]
-        lines.append(f"space_mood_top: {[k for k, _ in top_moods]}")
+        ko_moods = [ko for ko in (_ko_mood_tag(k) for k, _ in top_moods) if ko]
+        if ko_moods:
+            lines.append(f"공간 무드: {', '.join(ko_moods)}")
     return "\n".join(lines)
 
 
-def _format_candidates_for_rerank(candidates: list[Cocktail]) -> str:
+def _aggregate_aroma_from_ingredients(recipe_items: list[tuple]) -> dict[str, float]:
+    """cocktail의 recipe ingredient들에서 aroma 축별 최댓값 집계.
+
+    recipe_items: [(Recipe, Ingredient), ...] — crud.get_all_recipes_with_ingredients 반환값의 값.
+    반환: {"fruity": 3.0, "citrus": 2.0, ...} — AROMA_TO_INGREDIENT 키 중 >0 인 것만.
+    """
+    agg: dict[str, float] = {}
+    for _recipe, ing in recipe_items or []:
+        for aroma_key, col in AROMA_TO_INGREDIENT.items():
+            raw = getattr(ing, col, None)
+            if raw is None:
+                continue
+            v = float(raw)
+            if v > agg.get(aroma_key, 0.0):
+                agg[aroma_key] = v
+    return agg
+
+
+def _format_candidates_for_rerank(
+    candidates: list[Cocktail],
+    recipe_ingredients: Optional[dict[int, list[tuple]]] = None,
+) -> str:
     rows = []
     for c in candidates:
         taste = []
-        for label, col in [("sweet", "sweet_level"), ("sour", "sour_level"),
-                           ("bitter", "bitter_level"), ("body", "body_level"),
-                           ("freshness", "freshness_level"), ("creamy", "creamy_level")]:
+        for ko, col in [("단맛", "sweet_level"), ("신맛", "sour_level"),
+                        ("쓴맛", "bitter_level"), ("바디감", "body_level"),
+                        ("청량감", "freshness_level"), ("크리미", "creamy_level")]:
             v = getattr(c, col, None)
             if v is not None:
-                taste.append(f"{label}={float(v):.1f}")
-        desc = (c.description or "").replace("\n", " ")[:260]
+                taste.append(f"{ko} {float(v):.1f}")
+
+        strength_val = _get_cocktail_strength_value(c)
+        strength_str = f"도수 {strength_val:.1f}/5" if strength_val is not None else "도수 미기재"
+
+        aroma_str = ""
+        if recipe_ingredients is not None:
+            agg = _aggregate_aroma_from_ingredients(recipe_ingredients.get(c.cocktail_id, []))
+            if agg:
+                parts = [f"{_AROMA_KO.get(k, k)} {v:.1f}"
+                         for k, v in sorted(agg.items(), key=lambda x: -x[1]) if v >= 2.0]
+                if parts:
+                    aroma_str = f" | 향(재료기준): {', '.join(parts)}"
+
+        mood_str = _ko_mood_tag(c.mood_tag) or "—"
+        desc = (c.description or "").replace("\n", " ")[:220]
         rows.append(
             f"- id={c.cocktail_id} | {c.name_kr} | {c.category} | "
-            f"mood={c.mood_tag or '-'} | {', '.join(taste)}\n"
-            f"    desc: {desc}"
+            f"무드: {mood_str} | {strength_str} | 맛: {', '.join(taste)}{aroma_str}\n"
+            f"    설명: {desc}"
         )
     return "\n".join(rows)
 
@@ -379,23 +547,92 @@ def _extract_json_object(text: str) -> Optional[dict]:
     return obj if isinstance(obj, dict) else None
 
 
-def rerank_with_qwen(
+# rerank reason 검증 ────────────────────────────────────────────
+# LLM 이 프롬프트 지시를 어기고 영어 토큰을 흘리거나, 다른 후보의 이름을
+# reason 안에 써넣는 케이스를 잡아낸다. 실패 시 fallback 으로 대체.
+
+_REASON_ENGLISH_RE = re.compile(r"[A-Za-z]{3,}")
+_REASON_ENGLISH_ALLOW = {"pm", "am"}  # 시간 표기 등 예외. (3자 미만은 정규식이 이미 통과)
+
+
+def _build_fallback_reason(cocktail: Cocktail, profile: dict) -> str:
+    merged = (profile or {}).get("merged_slots") or {}
+    parts: list[str] = []
+    tp = merged.get("taste_profile") or {}
+    if isinstance(tp, dict):
+        confirmed = [_TASTE_KO[k] for k, v in tp.items()
+                     if k in _TASTE_KO and v in ("high", "medium")]
+        if confirmed:
+            parts.append(", ".join(confirmed[:3]) + " 선호")
+    ap = merged.get("aroma_profile") or {}
+    if isinstance(ap, dict):
+        confirmed = [_AROMA_KO[k] for k, v in ap.items()
+                     if k in _AROMA_KO and v in ("high", "medium")]
+        if confirmed:
+            parts.append(", ".join(confirmed[:2]) + " 취향")
+    strength = _STRENGTH_KO.get(merged.get("strength_preference"))
+    if strength and strength != "—":
+        parts.append(f"{strength} 도수")
+    lead = ", ".join(parts) if parts else "선호 프로파일"
+    return f"{cocktail.name_kr} 는 {lead} 와 잘 맞습니다."
+
+
+def _validate_rerank_reason(
+    reason: str,
+    chosen: Cocktail,
+    all_candidates: list[Cocktail],
+) -> tuple[bool, str]:
+    """reason 검증. (ok, fail_reason) 반환. ok=False 면 호출측이 fallback 대체."""
+    r = (reason or "").strip()
+    if len(r) < 10:
+        return False, "too_short"
+
+    # 영어 토큰 누출
+    for m in _REASON_ENGLISH_RE.finditer(r):
+        tok = m.group(0).lower()
+        if tok in _REASON_ENGLISH_ALLOW:
+            continue
+        return False, f"english_token:{tok}"
+
+    # 다른 후보 이름 누출 (자기 자신 제외)
+    chosen_id = chosen.cocktail_id
+    chosen_name_kr = (chosen.name_kr or "").strip()
+    for c in all_candidates:
+        if c.cocktail_id == chosen_id:
+            continue
+        other_kr = (c.name_kr or "").strip()
+        other_en = (getattr(c, "name_en", None) or "").strip()
+        if other_kr and len(other_kr) >= 3 and other_kr != chosen_name_kr and other_kr in r:
+            return False, f"other_name_kr:{other_kr}"
+        if other_en and len(other_en) >= 4 and other_en.lower() in r.lower():
+            return False, f"other_name_en:{other_en}"
+
+    return True, ""
+
+
+def rerank_with_llm(
     profile: dict,
     candidates: list[Cocktail],
     k: int = 3,
     max_new_tokens: int = 512,
+    recipe_ingredients: Optional[dict[int, list[tuple]]] = None,
 ) -> Optional[list[dict]]:
-    """Qwen3-8B로 후보 리랭킹. 실패 시 None → 호출측 fallback."""
+    """LLM 후보 리랭킹. 실패 시 None → 호출측 fallback.
+
+    recipe_ingredients 가 주어지면 각 후보에 ingredient 기반 aroma max 집계를 포함해
+    LLM 이 향 매칭을 수치로 판단할 수 있게 한다. None 이면 description 텍스트만으로 리랭크.
+    """
     if not candidates:
         return []
     try:
-        from app.utils.model_loader import load_qwen3
+        from app.utils.model_loader import load_llm
         import torch
 
-        tokenizer, model = load_qwen3()
+        tokenizer, model = load_llm()
         user_content = (
             f"사용자 프로파일:\n{_format_profile_for_rerank(profile)}\n\n"
-            f"후보 칵테일 (N={len(candidates)}):\n{_format_candidates_for_rerank(candidates)}\n\n"
+            f"후보 칵테일 (N={len(candidates)}):\n"
+            f"{_format_candidates_for_rerank(candidates, recipe_ingredients)}\n\n"
             f"위 후보 중에서 사용자에게 가장 잘 맞는 상위 {k}개를 ranked로 JSON 반환해라."
         )
         messages = [
@@ -424,6 +661,7 @@ def rerank_with_qwen(
             return None
 
         valid_ids = {c.cocktail_id for c in candidates}
+        id_to_cocktail = {c.cocktail_id: c for c in candidates}
         out_rows: list[dict] = []
         seen: set[int] = set()
         for item in ranked_raw:
@@ -435,7 +673,15 @@ def rerank_with_qwen(
                 continue
             if cid not in valid_ids or cid in seen:
                 continue
-            reason = str(item.get("reason") or "").strip() or "취향 적합도 기반 추천"
+            reason = str(item.get("reason") or "").strip()
+            chosen = id_to_cocktail[cid]
+            ok, fail_reason = _validate_rerank_reason(reason, chosen, candidates)
+            if not ok:
+                logger.warning(
+                    "rerank reason rejected cid=%s fail=%s raw=%r",
+                    cid, fail_reason, reason[:120],
+                )
+                reason = _build_fallback_reason(chosen, profile)
             out_rows.append({"cocktail_id": cid, "reason": reason})
             seen.add(cid)
             if len(out_rows) >= k:
@@ -444,7 +690,7 @@ def rerank_with_qwen(
         return out_rows or None
 
     except Exception as e:
-        logger.warning("Qwen rerank failed: %r", e, exc_info=True)
+        logger.warning("LLM rerank failed: %r", e, exc_info=True)
         return None
 
 
@@ -492,7 +738,7 @@ def _has_zero_taste_conflict(merged_slots: dict, cocktail) -> bool:
     for axis, level in taste.items():
         if level != "zero":
             continue
-        col = _TASTE_LEVEL_COL.get(axis)
+        col = TASTE_TO_COCKTAIL.get(axis)
         if not col:
             continue
         val = getattr(cocktail, col, None)
@@ -584,11 +830,11 @@ def score_cocktail(
             if val >= 3.0:
                 score += 5
         elif intensity == "low":
-            # 사용자가 "이 맛 안 좋아함" → 강하게 있으면 감점
-            if val >= 4.0:
-                score -= 25
-            elif val >= 3.0:
-                score -= 10
+            # 약하게 선호 → 은은하면 좋지만, 강하게 두드러지면 오히려 감점.
+            if 1.0 <= val <= 2.5:
+                score += 1
+            elif val >= 3.5:
+                score -= 4
 
     # 3. 향 프로파일 (intensity 가중)
     aroma_profile: dict = merged.get("aroma_profile") or {}
@@ -603,22 +849,29 @@ def score_cocktail(
                 score += 8
             elif intensity == "medium" and ing_val >= AROMA_ING_THRESHOLD:
                 score += 3
-            elif intensity == "low" and ing_val >= AROMA_ING_THRESHOLD:
-                score -= 20
+            elif intensity == "low" and ing_val >= (AROMA_ING_THRESHOLD + 1.0):
+                score -= 1
 
     # 4. 공간 무드 보너스
     if space and cocktail.mood_tag:
         mood_prob = (space.mood_tags_json or {}).get(cocktail.mood_tag, 0.0)
         score += mood_prob * 15
 
-    # 7. 도수 선호 보너스
-# 7. 도수 선호 보너스
+    # 7. 도수 선호 — 이상치(STRENGTH_TARGET) 와의 편차로 대칭 가중.
     strength_pref = merged.get("strength_preference")
     cocktail_strength = _get_cocktail_strength_value(cocktail)
-    if strength_pref in STRENGTH_RANGE and cocktail_strength is not None:
-        low, high = STRENGTH_RANGE[strength_pref]
-        if low <= cocktail_strength <= high:
-            score += 10
+    if strength_pref in STRENGTH_TARGET and cocktail_strength is not None:
+        dev = abs(cocktail_strength - STRENGTH_TARGET[strength_pref])
+        if dev <= 0.5:
+            score += 15
+        elif dev <= 1.0:
+            score += 8
+        elif dev <= 1.5:
+            score += 0
+        elif dev <= 2.0:
+            score -= 8
+        else:
+            score -= 15
 
     return round(score, 2)
 
@@ -636,7 +889,7 @@ def recommend_top_k(
     k: int = 3,
     exclude_ids: Optional[list[int]] = None,
 ) -> list[dict]:
-    """RAG 파이프라인: 임베딩 검색 → 하드 필터 → Qwen 리랭크.
+    """RAG 파이프라인: 임베딩 검색 → 하드 필터 → LLM 리랭크.
 
     LLM 리랭크 실패 시 score_cocktail 기반으로 fallback.
     """
@@ -671,8 +924,8 @@ def recommend_top_k(
     survivor_cocktails = [c for c, _ in survivors]
     dist_map = {c.cocktail_id: d for c, d in survivors}
 
-    # 3) Qwen 리랭크 (실패 시 score_cocktail fallback)
-    reranked = rerank_with_qwen(profile, survivor_cocktails, k=k)
+    # 3) LLM 리랭크 (실패 시 score_cocktail fallback)
+    reranked = rerank_with_llm(profile, survivor_cocktails, k=k, recipe_ingredients=all_ri)
 
     if reranked:
         id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
@@ -689,7 +942,7 @@ def recommend_top_k(
                 "score": score,
                 "retrieval_distance": dist_map.get(c.cocktail_id),
                 "reason_parts": [item["reason"]],
-                "source": "rag_qwen",
+                "source": "rag_llm",
             })
         if results:
             return results[:k]
@@ -850,6 +1103,7 @@ def process_feedback(
     guest_session_id: str,
     sample_recommendation_id: str,
     feedback_text: str,
+    feedback_round: int = 1,
 ) -> dict:
     sample_row = get_sample_recommendation(db, sample_recommendation_id)
     if not sample_row:
@@ -909,10 +1163,17 @@ def process_feedback(
     if intent == "ACCEPT":
         return finalize_sample(db, guest_session_id, sample_recommendation_id, forced=False)
 
+    # 3회차 ADJUST/REJECT → 재추천 없이 현재 샘플을 강제 확정 (세션 전체 3회 한도).
+    # 벡터 델타는 이미 위에서 반영됐으므로, finalize 시 누적 델타가 적용된다.
+    if feedback_round >= 3 and intent in ("ADJUST", "REJECT"):
+        return finalize_sample(db, guest_session_id, sample_recommendation_id, forced=True)
+
 # ADJUST → 벡터 업데이트 후 재추천
     if intent == "ADJUST":
         # ADJUST는 "현재 방향은 맞지만 조금 수정"의 의미이므로,
         # 현재 샘플 칵테일은 제외하지 않고 과거 다른 추천들만 배제한다.
+        # force=True: 이미 FEEDBACK_LOOP 단계 = 80% 게이트 한번 통과한 상태.
+        # 피드백으로 슬롯이 바뀌는 건 아니니 다시 게이트 걸 필요 없음.
         current_cocktail_id = sample_row.recommended_cocktail_id
         historical_ids = list_recommended_cocktail_ids_by_guest(db, guest_session_id)
         adjusted_excluded = [cid for cid in historical_ids if cid != current_cocktail_id]

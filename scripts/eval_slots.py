@@ -23,6 +23,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.agents.preference_agent import analyze_user_turn
+from scripts._eval_save import save_eval_result
 
 CSV_PATH = Path("data/eval/slot_extraction_eval_v2_500.csv")
 
@@ -142,7 +143,7 @@ def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | N
                 mismatches.append(f"{slot_key}: gold={g!r} pred={p!r}")
 
         # taste_profile
-        g_taste = _parse_json_dict(row.gold_taste_profile_json)
+        g_taste = _parse_json_dict(row.gold_taste_profile)
         p_taste = pred.get("taste_profile") or {}
         if g_taste or p_taste:
             taste_key_prf.add(set(p_taste.keys()), set(g_taste.keys()))
@@ -154,7 +155,7 @@ def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | N
                 mismatches.append(f"taste: gold={g_taste} pred={p_taste}")
 
         # aroma_profile
-        g_aroma = _parse_json_dict(row.gold_aroma_profile_json)
+        g_aroma = _parse_json_dict(row.gold_aroma_profile)
         p_aroma = pred.get("aroma_profile") or {}
         if g_aroma or p_aroma:
             aroma_key_prf.add(set(p_aroma.keys()), set(g_aroma.keys()))
@@ -166,7 +167,7 @@ def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | N
                 mismatches.append(f"aroma: gold={g_aroma} pred={p_aroma}")
 
         # disliked_bases
-        g_bases = set(_parse_json_list(row.gold_disliked_bases_json))
+        g_bases = set(_parse_json_list(row.gold_disliked_bases))
         p_bases = set(pred.get("disliked_bases") or [])
         if g_bases or p_bases:
             bases_prf.add(p_bases, g_bases)
@@ -174,10 +175,10 @@ def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | N
                 mismatches.append(f"bases: gold={sorted(g_bases)} pred={sorted(p_bases)}")
 
         # favorite_drinks: binary presence
-        g_favs = _parse_json_list(row.gold_favorite_drinks_json)
+        g_favs = _parse_json_list(row.gold_favorite_drinks)
         # gold_favorite_drinks is sometimes free string, not JSON — handle both
         if not g_favs:
-            raw = _s(row.gold_favorite_drinks_json)
+            raw = _s(row.gold_favorite_drinks)
             g_favs = [raw] if raw else []
         if g_favs:
             p_favs = pred.get("favorite_drinks") or []
@@ -209,32 +210,40 @@ def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | N
         pd.DataFrame(failures).to_csv(out, index=False)
         print(f"\n[dump] {len(failures)} failure cases → {out}")
 
-    print("\n" + "=" * 60)
-    print(f"SLOT EXTRACTION EVAL — {n} cases ({total_time:.1f}s, {total_time/max(n,1):.2f}s/case)")
-    print("=" * 60)
+    lines: list[str] = []
 
-    print("\n[Scalar enums — exact match]")
+    def _log(msg: str = ""):
+        print(msg)
+        lines.append(msg)
+
+    _log("\n" + "=" * 60)
+    _log(f"SLOT EXTRACTION EVAL — {n} cases ({total_time:.1f}s, {total_time/max(n,1):.2f}s/case)")
+    _log("=" * 60)
+
+    _log("\n[Scalar enums — exact match]")
     for k, acc in enum_acc.items():
-        print(f"  {k:22s}: {acc.correct:4d}/{acc.total:4d} = {acc.pct():5.1f}%")
+        _log(f"  {k:22s}: {acc.correct:4d}/{acc.total:4d} = {acc.pct():5.1f}%")
 
     def _pr(label, prf: PRF):
         p, r, f = prf.f1()
-        print(f"  {label:32s}: P={p:5.1f}  R={r:5.1f}  F1={f:5.1f}  (tp={prf.tp} fp={prf.fp} fn={prf.fn})")
+        _log(f"  {label:32s}: P={p:5.1f}  R={r:5.1f}  F1={f:5.1f}  (tp={prf.tp} fp={prf.fp} fn={prf.fn})")
 
-    print("\n[Intensity dicts]")
+    _log("\n[Intensity dicts]")
     _pr("taste_profile KEY presence", taste_key_prf)
     _pr("taste_profile KEY+VALUE exact", taste_kv_prf)
     _pr("aroma_profile KEY presence", aroma_key_prf)
     _pr("aroma_profile KEY+VALUE exact", aroma_kv_prf)
 
-    print("\n[List enum]")
+    _log("\n[List enum]")
     _pr("disliked_bases", bases_prf)
 
-    print("\n[Favorite drinks — binary presence]")
-    print(f"  favorite_drinks detected : {favs_bin.correct:4d}/{favs_bin.total:4d} = {favs_bin.pct():5.1f}%")
-    print()
+    _log("\n[Favorite drinks — binary presence]")
+    _log(f"  favorite_drinks detected : {favs_bin.correct:4d}/{favs_bin.total:4d} = {favs_bin.pct():5.1f}%")
+    _log("")
 
+    _, _, taste_key_f1 = taste_key_prf.f1()
     _, _, taste_kv_f1 = taste_kv_prf.f1()
+    _, _, aroma_key_f1 = aroma_key_prf.f1()
     _, _, aroma_kv_f1 = aroma_kv_prf.f1()
     _, _, bases_f1 = bases_prf.f1()
     scalar_pcts = [acc.pct() for acc in enum_acc.values() if acc.total]
@@ -245,10 +254,13 @@ def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | N
         "elapsed_sec": total_time,
         "scalar_avg": scalar_avg,
         "scalar_per_slot": {k: acc.pct() for k, acc in enum_acc.items()},
+        "taste_key_f1": taste_key_f1,
         "taste_kv_f1": taste_kv_f1,
+        "aroma_key_f1": aroma_key_f1,
         "aroma_kv_f1": aroma_kv_f1,
         "bases_f1": bases_f1,
         "favs_detected_pct": favs_bin.pct(),
+        "_summary_lines": lines,
     }
 
 
@@ -258,5 +270,22 @@ if __name__ == "__main__":
     ap.add_argument("-v", "--verbose", action="store_true")
     ap.add_argument("--dump", nargs="?", const="data/eval/slot_failures.csv", default=None,
                     help="실패 케이스를 CSV로 저장 (경로 생략 시 data/eval/slot_failures.csv)")
+    ap.add_argument("--tag", type=str, default=None,
+                    help="저장 라벨. 지정 시 eval_results/quantitative/slots_{tag}_{stamp}.{json,txt} 저장.")
+    ap.add_argument("--model", type=str, default=None,
+                    help="결과 메타에 기록할 모델명 (미지정 시 env LLM_MODEL)")
     args = ap.parse_args()
-    run_eval(limit=args.limit, verbose=args.verbose, dump_path=args.dump)
+
+    result = run_eval(limit=args.limit, verbose=args.verbose, dump_path=args.dump)
+    if args.tag:
+        summary_lines = result.pop("_summary_lines", [])
+        json_path, txt_path = save_eval_result(
+            kind="slots",
+            tag=args.tag,
+            limit=args.limit,
+            payload=result,
+            summary_lines=summary_lines,
+            model=args.model,
+        )
+        print(f"[saved] {json_path}")
+        print(f"[saved] {txt_path}")

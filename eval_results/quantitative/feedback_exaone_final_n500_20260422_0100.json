@@ -1,0 +1,34 @@
+{
+  "kind": "feedback",
+  "tag": "exaone_final_n500",
+  "model": "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct",
+  "timestamp": "20260422_0100",
+  "limit": 500,
+  "accuracy_pct": 100.0,
+  "correct": 474,
+  "total": 474,
+  "elapsed_sec": 1560.8796844240278,
+  "per_class": {
+    "ACCEPT": {
+      "correct": 100,
+      "total": 100
+    },
+    "ADJUST": {
+      "correct": 274,
+      "total": 274
+    },
+    "REJECT": {
+      "correct": 100,
+      "total": 100
+    }
+  },
+  "per_class_pct": {
+    "ACCEPT": 100.0,
+    "ADJUST": 100.0,
+    "REJECT": 100.0
+  },
+  "adjust_total": 274,
+  "adjust_with_deltas": 273,
+  "adjust_delta_rate_pct": 99.63503649635037,
+  "error_samples": []
+}

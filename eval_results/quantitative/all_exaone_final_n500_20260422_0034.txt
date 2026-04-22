@@ -1,0 +1,18 @@
+============================================================
+ 최종 요약 — tag=exaone_final_n500  model=LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct  20260422_0034
+ limit=500
+============================================================
+  피드백 전체 정확도        : 100.0%
+    └ ADJUST 델타 검출률    : 99.6%
+  슬롯 scalar enum 평균     : 66.7%
+    └ current_mood          : 58.4%
+    └ party_purpose         : 74.7%
+    └ strength_preference   : 67.1%
+  taste_profile KV F1       : 75.8
+  aroma_profile KV F1       : 76.8
+  disliked_bases F1         : 92.6
+  favorite_drinks 검출률    : 56.0%
+  추천 Hit@1                : 8.0%
+  추천 Hit@3                : 15.4%
+  카테고리 Hit@3            : 51.8%
+  후보 없음 비율            : 0.0%

@@ -1,0 +1,26 @@
+============================================================
+ SLOTS EVAL — tag=exaone_final_n500  model=LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct  20260422_0421
+ limit=500
+============================================================
+
+============================================================
+SLOT EXTRACTION EVAL — 500 cases (12011.0s, 24.02s/case)
+============================================================
+
+[Scalar enums — exact match]
+  current_mood          :  263/ 450 =  58.4%
+  party_purpose         :  336/ 450 =  74.7%
+  strength_preference   :  302/ 450 =  67.1%
+
+[Intensity dicts]
+  taste_profile KEY presence      : P= 90.6  R= 79.9  F1= 84.9  (tp=607 fp=63 fn=153)
+  taste_profile KEY+VALUE exact   : P= 80.9  R= 71.3  F1= 75.8  (tp=542 fp=128 fn=218)
+  aroma_profile KEY presence      : P= 95.9  R= 88.6  F1= 92.1  (tp=674 fp=29 fn=87)
+  aroma_profile KEY+VALUE exact   : P= 79.9  R= 73.9  F1= 76.8  (tp=562 fp=141 fn=199)
+
+[List enum]
+  disliked_bases                  : P= 93.6  R= 91.6  F1= 92.6  (tp=250 fp=17 fn=23)
+
+[Favorite drinks — binary presence]
+  favorite_drinks detected :   56/ 100 =  56.0%
+

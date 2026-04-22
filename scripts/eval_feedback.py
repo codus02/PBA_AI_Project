@@ -1,4 +1,4 @@
-"""피드백 분류 평가 — Qwen analyze_feedback 기반.
+"""피드백 분류 평가 — LLM analyze_feedback 기반.
 
 메트릭:
   - intent 정확도 (전체 + 클래스별)
@@ -16,9 +16,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pandas as pd
 
 from app.agents.preference_agent import analyze_feedback
+from scripts._eval_save import save_eval_result
 
 
-def eval_feedback(limit: int | None = None) -> float:
+def eval_feedback(limit: int | None = None) -> dict:
     df = pd.read_csv("data/eval/feedback_eval_v2_500.csv")
     if limit:
         df = df.head(limit)
@@ -59,32 +60,71 @@ def eval_feedback(limit: int | None = None) -> float:
             print(f"  progress {i}/{n}  elapsed={dt:.1f}s")
 
     total = len(df)
-    acc = correct / total * 100
+    acc = correct / total * 100 if total else 0.0
     elapsed = time.perf_counter() - t0
 
-    print("\n" + "=" * 60)
-    print(f"FEEDBACK EVAL — {total} cases ({elapsed:.1f}s, {elapsed/max(total,1):.2f}s/case)")
-    print("=" * 60)
+    lines: list[str] = []
 
+    def _log(msg: str = ""):
+        print(msg)
+        lines.append(msg)
+
+    _log("\n" + "=" * 60)
+    _log(f"FEEDBACK EVAL — {total} cases ({elapsed:.1f}s, {elapsed/max(total,1):.2f}s/case)")
+    _log("=" * 60)
+
+    per_class_pct: dict[str, float] = {}
     for intent, (c, t) in per_class.items():
         if t:
-            print(f"  {intent}: {c}/{t} = {c/t*100:.1f}%")
+            pct = c / t * 100
+            per_class_pct[intent] = pct
+            _log(f"  {intent}: {c}/{t} = {pct:.1f}%")
 
-    print(f"\n[전체 intent 정확도] {correct}/{total} = {acc:.1f}%")
+    _log(f"\n[전체 intent 정확도] {correct}/{total} = {acc:.1f}%")
+    adjust_delta_rate = (adjust_with_deltas / adjust_total * 100) if adjust_total else 0.0
     if adjust_total:
-        print(f"[ADJUST 델타 검출률] {adjust_with_deltas}/{adjust_total} = "
-              f"{adjust_with_deltas/adjust_total*100:.1f}%  (LLM이 축을 짚어낸 비율)")
+        _log(f"[ADJUST 델타 검출률] {adjust_with_deltas}/{adjust_total} = "
+             f"{adjust_delta_rate:.1f}%  (LLM이 축을 짚어낸 비율)")
 
-    print("\n오답 샘플 (최대 10개):")
+    _log("\n오답 샘플 (최대 10개):")
     for e in errors:
-        print(f"  '{e['text'][:60]}' → 예측:{e['got']} / 정답:{e['expected']} "
-              f"deltas={e['deltas']}")
+        _log(f"  '{e['text'][:60]}' → 예측:{e['got']} / 정답:{e['expected']} "
+             f"deltas={e['deltas']}")
 
-    return acc
+    return {
+        "accuracy_pct": acc,
+        "correct": correct,
+        "total": total,
+        "elapsed_sec": elapsed,
+        "per_class": {k: {"correct": v[0], "total": v[1]} for k, v in per_class.items()},
+        "per_class_pct": per_class_pct,
+        "adjust_total": adjust_total,
+        "adjust_with_deltas": adjust_with_deltas,
+        "adjust_delta_rate_pct": adjust_delta_rate,
+        "error_samples": errors,
+        "_summary_lines": lines,
+    }
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--tag", type=str, default=None,
+                    help="저장 라벨 (e.g. exaone, qwen). 지정 시 eval_results/quantitative/feedback_{tag}_{stamp}.{json,txt} 저장.")
+    ap.add_argument("--model", type=str, default=None,
+                    help="결과 메타에 기록할 모델명 (미지정 시 env LLM_MODEL)")
     args = ap.parse_args()
-    eval_feedback(limit=args.limit)
+
+    result = eval_feedback(limit=args.limit)
+    if args.tag:
+        summary_lines = result.pop("_summary_lines", [])
+        json_path, txt_path = save_eval_result(
+            kind="feedback",
+            tag=args.tag,
+            limit=args.limit,
+            payload=result,
+            summary_lines=summary_lines,
+            model=args.model,
+        )
+        print(f"\n[saved] {json_path}")
+        print(f"[saved] {txt_path}")
