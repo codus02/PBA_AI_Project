@@ -26,7 +26,7 @@ from app.agents.orchestration_agent import (
 from app.db.database import SessionLocal
 from app.db.crud import get_all_recipes_with_ingredients, get_available_ingredient_ids
 
-MAX_USER_TURNS = 7
+MAX_USER_TURNS = 10
 RAG_TOP_K = 20
 
 

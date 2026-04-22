@@ -1,6 +1,6 @@
 """LLM 슬롯 추출 인터랙티브 테스트 (단일 LLM 호출 구조).
 
-- 최대 7턴 제한
+- 최대 10턴 제한
 - LLM이 should_stop=true 반환하면 종료
 - quit/exit 입력 시 종료
 """
@@ -20,7 +20,7 @@ from app.agents.preference_agent import (
     _calc_effective_completion,
 )
 
-MAX_USER_TURNS = 7
+MAX_USER_TURNS = 10
 
 
 def main() -> None:

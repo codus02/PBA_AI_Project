@@ -336,33 +336,21 @@ def _ensure_preference_vector(
 
 def calculate_slot_completion(slots: PreferenceSlot) -> Decimal:
     """
-    슬롯 완료도 계산: 7개 중 채워진 개수 / 7 * 100.
-    disliked_bases / favorite_drinks 의 빈 리스트는 "없음"이라는 명시적 답변으로 보고 채운 것으로 카운트.
+    태그-level completion (단일 공식).
+
+    preference_agent._calc_effective_completion 과 동일 정의를 ORM row 에 적용.
+    필수축: party_purpose, strength_preference, taste_profile, aroma_profile.
+    선택축(current_mood, disliked_bases, favorite_drinks)은 분모 제외.
     """
-    # (value, allow_empty)
-    fields = [
-        (slots.party_purpose, False),
-        (slots.current_mood, False),
-        (slots.taste_profile_json, False),
-        (slots.aroma_profile_json, False),
-        (slots.strength_preference, False),
-        (slots.disliked_bases_json, True),
-        (slots.favorite_drinks_json, True),
-    ]
+    from app.agents.preference_agent import _calc_effective_completion
 
-    filled_count = 0
-    for value, allow_empty in fields:
-        if value is None:
-            continue
-        if isinstance(value, (list, dict)) and len(value) == 0:
-            if allow_empty:
-                filled_count += 1
-            continue
-        if isinstance(value, str) and value.strip() == "":
-            continue
-        filled_count += 1
-
-    score = round((filled_count / 7) * 100, 2)
+    slot_dict = {
+        "party_purpose": slots.party_purpose,
+        "strength_preference": slots.strength_preference,
+        "taste_profile": slots.taste_profile_json or {},
+        "aroma_profile": slots.aroma_profile_json or {},
+    }
+    score = _calc_effective_completion(slot_dict)
     return Decimal(str(score))
 
 

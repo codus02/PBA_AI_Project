@@ -209,6 +209,7 @@ def feedback_endpoint(
             guest_session_id=gid,
             sample_recommendation_id=req.sample_recommendation_id,
             feedback_text=req.feedback_text,
+            feedback_round=current_round,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

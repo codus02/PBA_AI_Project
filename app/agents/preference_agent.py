@@ -290,23 +290,41 @@ def _dislike_check_done(slots: dict, history: list[dict]) -> bool:
 
 
 def _calc_effective_completion(slots: dict) -> float:
-    core = [k for k in SLOT_KEYS if k not in _COMPLETION_OPTIONAL_SLOTS]
+    """Flat tag-level completion.
+
+    분모 구성:
+      - party_purpose: 1단위 (scalar)
+      - strength_preference: 1단위 (scalar)
+      - taste_profile 의 각 태그: 태그 1개당 1단위
+      - aroma_profile 의 각 태그: 태그 1개당 1단위
+
+    분자 = 확정된 scalar 수 + 확정된 태그 수 (pending/null 제외).
+    선택 슬롯(current_mood / disliked_bases / favorite_drinks)은 분모 제외.
+
+    예: scalar 2 확정 + taste[freshness=high, body=pending] + aroma[fruity=high]
+      → denom=4, filled=3 → 75.0%
+    """
+    denom = 0.0
     filled = 0.0
-    for k in core:
+
+    for k in ("party_purpose", "strength_preference"):
+        denom += 1.0
         v = slots.get(k)
-        if v is None or (isinstance(v, (list, dict)) and not v):
-            continue
-        if isinstance(v, str) and not v.strip():
-            continue
-        if k in ("taste_profile", "aroma_profile") and isinstance(v, dict):
-            # pending(초기 태그 seed)만 있으면 "채워지지 않은" 것으로 본다.
-            # 대화에서 high/medium/low/zero 로 확정되어야만 completion 에 가산.
-            has_confirmed = any(sub in _CONFIRMED_INTENSITIES for sub in v.values())
-            if has_confirmed:
+        if isinstance(v, str) and v.strip():
+            filled += 1.0
+
+    for k in ("taste_profile", "aroma_profile"):
+        v = slots.get(k)
+        if not isinstance(v, dict) or not v:
+            continue  # 태그 0개면 축 자체 분모 제외
+        for val in v.values():
+            denom += 1.0
+            if val in _CONFIRMED_INTENSITIES:
                 filled += 1.0
-            continue
-        filled += 1.0
-    return round(filled / max(len(core), 1) * 100, 2)
+
+    if denom <= 0:
+        return 0.0
+    return round(filled / denom * 100, 2)
 
 
 def should_move_to_recommendation(
@@ -998,6 +1016,135 @@ def _apply_rule_based_slot_guards(
 
     return fixed
 
+
+# ─── CONFIRM 발화 → 직전 LLM 제안값 복원 ─────────────────────────
+# 바텐더가 "청량함 강하게, 크리미 약하게로 갈까요?" 제안 후
+# 사용자가 "ㅇㅇ" / "응" / "그래" 하면 EXTRACT 는 rule 8 대로 {} 를 내뱉는다.
+# 그러면 제안값이 슬롯에 반영되지 않는 설계 갭이 생긴다.
+# → 아래 룰 기반 후처리로 직전 LLM 발화에서 "축 + 강도" 패턴을 복구한다.
+
+_PROPOSAL_WORD_TO_KEY: dict[str, tuple[str, str]] = {
+    # taste
+    "단맛": ("taste_profile", "sweet"),
+    "달달": ("taste_profile", "sweet"),
+    "달콤": ("taste_profile", "sweet"),
+    "신맛": ("taste_profile", "sour"),
+    "새콤": ("taste_profile", "sour"),
+    "쓴맛": ("taste_profile", "bitter"),
+    "쌉싸름": ("taste_profile", "bitter"),
+    "씁쓸": ("taste_profile", "bitter"),
+    "바디감": ("taste_profile", "body"),
+    "묵직": ("taste_profile", "body"),
+    "크리미": ("taste_profile", "creamy"),
+    "부드러": ("taste_profile", "creamy"),
+    "청량": ("taste_profile", "freshness"),
+    "상큼": ("taste_profile", "freshness"),
+    # aroma (향 단어는 더 길게 매칭해서 오염 방지)
+    "우디향": ("aroma_profile", "woody"),
+    "나무향": ("aroma_profile", "woody"),
+    "민트향": ("aroma_profile", "minty"),
+    "과일향": ("aroma_profile", "fruity"),
+    "프루티": ("aroma_profile", "fruity"),
+    "시트러스향": ("aroma_profile", "citrus"),
+    "시트러스": ("aroma_profile", "citrus"),
+    "레몬향": ("aroma_profile", "citrus"),
+    "자몽향": ("aroma_profile", "citrus"),
+    "라임향": ("aroma_profile", "citrus"),
+    "플로럴": ("aroma_profile", "floral"),
+    "꽃향": ("aroma_profile", "floral"),
+    "커피향": ("aroma_profile", "coffee"),
+    "허브향": ("aroma_profile", "herbal"),
+}
+
+_INTENSITY_WORDS: list[tuple[str, list[str]]] = [
+    ("high", ["강하게", "세게", "쎄게", "확", "진하게", "짱", "듬뿍"]),
+    ("low", ["약하게", "살짝", "은은하게", "옅게", "연하게", "약간"]),
+    ("medium", ["적당히", "적당하게", "보통", "중간"]),
+    ("zero", ["빼고", "없이", "질색"]),
+]
+
+_CONFIRM_TOKEN = (
+    r"(?:"
+    r"맞아요?|맞네|맞습니다|맞죠|응|어|네|예|ㅇㅇ+|ㅇㅋ+|오케이?|ok|okay|"
+    r"좋아요?|좋습니다|그래|그대로|그렇게(?:\s*해(?:줘)?)?|그거(?:로|로요)?|"
+    r"너가?\s*말한\s*대로|네?\s*그렇게\s*해주세요"
+    r")"
+)
+_CONFIRM_ONLY_RE = re.compile(
+    r"^\s*" + _CONFIRM_TOKEN + r"(?:[,\s!.?~]+" + _CONFIRM_TOKEN + r")*\s*[!.?~]*\s*$",
+    re.IGNORECASE,
+)
+
+# 양자택일 질문 감지 — "A 아니면 B", "A 좋으세요 B 좋으세요", 슬래시 옵션 등.
+# ("A, B 로 갈까요" 같은 '복수축 동시제안' 은 제안이므로 여기서 걸리면 안 된다.)
+_ALTERNATIVE_Q_RE = re.compile(
+    r"아니면|또는"
+    r"|좋으세요.{0,15}좋으세요"
+    r"|좋아하세요.{0,15}좋아하세요"
+    r"|어떠세요.{0,15}어떠세요"
+    r"|(강하게|세게|쎄게).{0,10}(아니면|또는|아님)"
+    r"|\s/\s"
+)
+
+
+def _is_confirm_only(user_msg: str) -> bool:
+    return bool(_CONFIRM_ONLY_RE.match((user_msg or "").strip()))
+
+
+def _parse_llm_proposal(text: str) -> dict:
+    """LLM 발화에서 '축 + 강도' 제안 패턴을 뽑아 slot dict 반환.
+
+    - 양자택일 질문(강하게/약하게 제시)이면 {} 반환 (모호).
+    - 축 키워드 뒤 20자 이내에서 가장 가까운 강도 단어 1개만 채택.
+    """
+    if not text or _ALTERNATIVE_Q_RE.search(text):
+        return {}
+
+    result: dict[str, dict] = {}
+    for kw, (axis, key) in _PROPOSAL_WORD_TO_KEY.items():
+        for m in re.finditer(re.escape(kw), text):
+            window = text[m.end(): m.end() + 20]
+            best_pos = len(window) + 1
+            best_intensity: Optional[str] = None
+            for intensity, iwords in _INTENSITY_WORDS:
+                for iw in iwords:
+                    idx = window.find(iw)
+                    if idx >= 0 and idx < best_pos:
+                        best_pos = idx
+                        best_intensity = intensity
+            if best_intensity:
+                result.setdefault(axis, {}).setdefault(key, best_intensity)
+    return result
+
+
+def _apply_confirmation_from_proposal(
+    history: list[dict],
+    user_msg: str,
+    extracted: dict,
+) -> dict:
+    """사용자가 '응/ㅇㅇ/그래'만 했을 때, 직전 LLM 제안값을 slot 으로 복원."""
+    if not _is_confirm_only(user_msg):
+        return extracted
+    fixed = dict(extracted or {})
+    # LLM 이 이미 taste/aroma 를 뽑았으면 신뢰
+    tp = fixed.get("taste_profile")
+    ap = fixed.get("aroma_profile")
+    if (isinstance(tp, dict) and tp) or (isinstance(ap, dict) and ap):
+        return fixed
+
+    last_llm = _last_llm_question(history)
+    proposals = _parse_llm_proposal(last_llm)
+    if not proposals:
+        return fixed
+
+    for axis, d in proposals.items():
+        base = dict(fixed.get(axis) or {})
+        for k, v in d.items():
+            base.setdefault(k, v)
+        fixed[axis] = base
+    return fixed
+
+
 def _build_user_prompt(history: list[dict], slots: dict, user_msg: str) -> str:
     last_q = _last_llm_question(history)
     return (
@@ -1473,7 +1620,7 @@ def _extract_json_object(text: str) -> Optional[dict]:
 def _validate_intensity_dict(raw: Any, allowed_keys: set[str], aliases: dict[str, str] | None = None) -> dict:
     if not isinstance(raw, dict):
         return {}
-    out: dict[str, str] = {}
+    out: dict[str, Optional[str]] = {}
     for k, v in raw.items():
         if not isinstance(k, str):
             continue
@@ -1482,11 +1629,18 @@ def _validate_intensity_dict(raw: Any, allowed_keys: set[str], aliases: dict[str
             key = aliases.get(key, key)
         if key not in allowed_keys:
             continue
-        if not isinstance(v, str):
+        # CORRECTION: null/"null"/"none"/"" 은 삭제 시그널로 통과시킨다.
+        # merge_slots 가 None 을 받으면 해당 태그를 pop.
+        if v is None:
+            out[key] = None
             continue
-        vv = v.strip().lower()
-        if vv in INTENSITY_VALUES:
-            out[key] = vv
+        if isinstance(v, str):
+            vv = v.strip().lower()
+            if vv in ("", "null", "none"):
+                out[key] = None
+                continue
+            if vv in INTENSITY_VALUES:
+                out[key] = vv
     return out
 
 
@@ -1643,9 +1797,22 @@ _EXTRACT_SYSTEM_PROMPT = """
 3. 사용자가 질문·되묻기만 했거나 "모르겠다/딱히" 로만 답한 경우 {"extracted_slots": {}} 출력.
 4. creamy/크리미/우유/밀키/밀크 → taste_profile.creamy (절대 disliked_bases 아님. creamy 는 base 가 아니라 질감이다).
 5. body/바디감/묵직 → taste_profile.body. aroma_profile 에 넣지 마라 (body 는 향 축이 아니다).
+5a. **⚠️ taste 키와 aroma 키는 절대 섞지 마라 — 섞으면 해당 엔트리 전부 드롭된다.**
+   - taste_profile 에 들어가는 키는 오직 {sweet, sour, bitter, body, creamy, freshness}.
+   - aroma_profile 에 들어가는 키는 오직 {woody, minty, fruity, citrus, floral, coffee, herbal}.
+   - 금지 패턴: taste_profile 안에 fruity/citrus/minty/floral/woody/coffee/herbal 넣기 → 전부 드롭.
+   - 금지 패턴: aroma_profile 안에 sweet/sour/bitter/body/creamy/freshness 넣기 → 전부 드롭.
+   - 특히 "청량함/상큼/시원함" = taste_profile.freshness (절대 aroma 아님).
+   - 특히 "과일향/시트러스/라임/레몬" = aroma_profile.fruity|citrus (절대 taste 아님).
+5b. **모든 taste/aroma 강도는 반드시 taste_profile/aroma_profile 안에 nesting.** top-level 에 "body":"medium" 같은 키 직접 넣으면 드롭. 반드시 {"taste_profile":{"body":"medium"}} 형태.
 6. 정정(CORRECTION): 사용자가 "나 그런 말 한 적 없어" 류로 앞 추론을 부정하면 해당 슬롯을 null 로 넣어라. 예: {"current_mood": null}
+6a. **CORRECTION 확장 패턴** — 아래 표현들도 전부 부정/정정이다 → 해당 슬롯 null:
+   - "X 얘기 안 한 것 같은데" / "X 말 안 했어" / "X 한 적 없어"
+   - "내가 언제 X 라고 했어?" (반문형 부정)
+   - "X 그런 건 아니고" / "X 그런 말 한 적 없어"
 7. 선호 극성 유지: "X 좋아해" = 선호(high/medium/low 중 강도로 분리), "X 싫어/별로" = zero. 극성 뒤집지 마라. ※ low/medium/high 전부 "선호" 범주다. 비선호는 오직 zero.
 8. **긍정 확인(CONFIRM) 발화는 새 슬롯 아님.** "맞아/응/좋아/오케/그래/네/그대로/너가 말한대로" 로만 된 발화에는 {"extracted_slots":{}} 를 출력. 이전 봇 질문을 사용자 답으로 착각해 복제하지 마라.
+8a. **단, 직전 봇이 "X 강하게, Y 약하게로 할까요?" 처럼 구체적 강도값을 제안했고 사용자가 그 제안을 확인(응/ㅇㅇ/네/그대로)한 경우**에는 예외적으로 그 제안 강도를 추출해라. 예: 봇 "청량함은 강하게, 크리미는 약하게로 갈까요?" + USER "응" → {"taste_profile":{"freshness":"high","creamy":"low"}}. (봇이 A/B 양자택일로 물었을 때는 추출하지 마라 — 어느 쪽인지 모호하니 {}.)
 9. **enum 외 값 절대 금지.** aroma 키는 {woody,minty,fruity,citrus,floral,coffee,herbal} 만. taste 키는 {sweet,sour,bitter,body,creamy,freshness} 만. 강도는 {zero,low,medium,high} 만. "mint"/"strong"/"medium-high" 같은 표현 절대 금지 — 의미가 맞는 허용 값으로 바꿔라.
 10. **⚠️ "강하게" → "high" (절대 "strong" 아님).** "strong" 은 strength_preference(도수) 슬롯 전용 값이다. taste_profile / aroma_profile 의 값으로 "strong" 을 쓰면 안 된다. "쓴맛 강하게" → bitter:"high" (절대 bitter:"strong" 금지).
 11. **봇이 제시한 옵션(강하게/약하게 등)은 사용자 답이 아니다.** 봇이 "강하게 원하세요 약하게 원하세요?" 물어본 뒤 사용자가 답 안 하면 그 축은 추출하지 마라. 이번 발화에 축 키워드가 없으면 그 축은 없는 것이다 — 이전 턴 슬롯을 다시 출력하지 마라.
@@ -1678,6 +1845,22 @@ USER: "오늘 혼자 조용히 마실거야. 약간 우울해"
 USER: "파인애플향 좋아해. 우유향은 싫고"
 → {"extracted_slots":{"aroma_profile":{"fruity":"high"},"taste_profile":{"creamy":"zero"}}}
 
+USER: "상큼한 거 짱 좋아해. 과일향도 진짜 좋아해. 묵직한 맛은 중간정도면 좋겠어"
+→ {"extracted_slots":{"taste_profile":{"freshness":"high","body":"medium"},"aroma_profile":{"fruity":"high"}}}
+(상큼=freshness(taste), 과일향=fruity(aroma), 묵직=body(taste) — 축 절대 섞지 마라. taste_profile 안에 fruity/citrus 넣으면 드롭된다.)
+
+USER: "청량함은 강했으면 좋겠고 크리미함은 약하면 좋겠어"
+→ {"extracted_slots":{"taste_profile":{"freshness":"high","creamy":"low"}}}
+(청량=freshness, 크리미=creamy — 둘 다 taste_profile 안에. aroma_profile 에 freshness/creamy 넣지 마라.)
+
+USER: "바디감 중간정도로"
+→ {"extracted_slots":{"taste_profile":{"body":"medium"}}}
+(body 는 반드시 taste_profile 안에 nesting. top-level 에 "body":"medium" 절대 금지.)
+
+USER: "라임 좋아해"
+→ {"extracted_slots":{"aroma_profile":{"citrus":"high"}}}
+(라임/레몬/자몽 = citrus(aroma). taste_profile 에 넣지 마라.)
+
 USER: "시트러스 강한 게 좋고 커피향은 완전 싫어"
 → {"extracted_slots":{"aroma_profile":{"citrus":"high","coffee":"zero"}}}
 
@@ -1690,6 +1873,14 @@ USER: "시트러스도 은은하게"
 USER: "맞아" / "응 그렇게 해줘" / "너가 말한 대로 진행해"
 → {"extracted_slots":{}}
 
+USER: "응" (직전 봇: "청량함은 강하게, 크리미는 약하게로 갈까요?")
+→ {"extracted_slots":{"taste_profile":{"freshness":"high","creamy":"low"}}}
+(봇이 구체적 값을 제안 → 사용자 확인 → 그 값을 추출. rule 8a.)
+
+USER: "응" (직전 봇: "청량함은 강하게가 좋으세요 약하게가 좋으세요?")
+→ {"extracted_slots":{}}
+(양자택일 질문 — 어느 쪽인지 모호 → {}.)
+
 USER: "쓴맛은 강하면 좋겠어"
 → {"extracted_slots":{"taste_profile":{"bitter":"high"}}}
 (주의: "강" 이 있어도 taste 값은 "strong" 금지. 반드시 "high".)
@@ -1700,6 +1891,10 @@ USER: "단맛 좋아한다고 안 했는데?" (직전에 봇이 단맛 강도를
 
 USER: "내가 언제 신맛 좋다고 했어"
 → {"extracted_slots":{"taste_profile":{"sour":null}}}
+
+USER: "크리미한 맛 얘기 안 한 것 같은데" (직전에 봇이 creamy=low 로 추론)
+→ {"extracted_slots":{"taste_profile":{"creamy":null}}}
+("~ 안 한 것 같은데 / ~ 말 안 했어" 도 CORRECTION 이다. null 로 지워라.)
 
 USER: "과일향이랑 민트향은 강하게" (직전 봇 발화에 bitter 언급됨, 사용자는 bitter 언급 없음)
 → {"extracted_slots":{"aroma_profile":{"fruity":"high","minty":"high"}}}
@@ -2040,6 +2235,7 @@ def analyze_user_turn(
         extracted_raw, extract_raw_text = _extract_slots_llm(history, user_msg)
         extracted = validate_extracted_slots(extracted_raw)
         extracted = _apply_rule_based_slot_guards(history, user_msg, extracted)
+        extracted = _apply_confirmation_from_proposal(history, user_msg, extracted)
         extracted = _drop_unchanged_slots(extracted, slots)
 
         # ─── Pass 2 : reply/action 생성 (추출 결과 주입) ─────────────
@@ -2181,7 +2377,11 @@ def merge_slots(current: dict, extracted: dict) -> dict:
     for key in ("taste_profile", "aroma_profile"):
         if key in extracted and isinstance(extracted[key], dict):
             base = dict(merged.get(key) or {})
-            base.update(extracted[key])
+            for sub_k, sub_v in extracted[key].items():
+                if sub_v is None:
+                    base.pop(sub_k, None)
+                else:
+                    base[sub_k] = sub_v
             merged[key] = base
 
     for key in ("disliked_bases", "favorite_drinks"):

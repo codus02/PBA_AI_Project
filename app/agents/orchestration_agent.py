@@ -232,10 +232,16 @@ def _vec_deviation_bits(vector) -> list[str]:
 
 
 def _rag_collect_profile(profile_dict: dict, label_map: dict[str, str]) -> list[str]:
+    """RAG 쿼리에 넣을 선호만 추림.
+
+    - pending: 미확정 → 제외
+    - zero: 하드필터가 잡으므로 자연어 쿼리엔 불필요 → 제외
+    - low: 약한 선호를 자연어로 강조하면 retrieval 노이즈만 됨 → 제외
+    - medium / high 만 쿼리에 반영
+    """
     out = []
     for tag, intensity in (profile_dict or {}).items():
-        if intensity == "pending":
-            # 강도 미확정은 RAG 쿼리에 넣지 않는다 (대화로 확정되면 반영).
+        if intensity not in ("medium", "high"):
             continue
         label = label_map.get(tag, tag)
         lvl = _RAG_INTENSITY_KR.get(intensity, intensity)
@@ -299,11 +305,12 @@ def retrieve_candidates(
 
     strength_preference="zero"면 논알콜만, 그 외(또는 None)이면 알콜만 반환.
     """
+    # 코퍼스(build_cocktail_embeddings.py)가 instruction prefix 없이 인코딩되므로
+    # 쿼리도 동일하게 인코딩해서 임베딩 공간 대칭성 유지 (R2 fix).
     vec = embed_texts(
         [query_text],
         batch_size=1,
         max_length=512,
-        instruction="주어진 사용자 선호 설명에 가장 잘 맞는 칵테일을 찾는다",
     )[0].tolist()
 
     distance = Cocktail.embedding.cosine_distance(vec).label("distance")
@@ -927,6 +934,7 @@ def process_feedback(
     guest_session_id: str,
     sample_recommendation_id: str,
     feedback_text: str,
+    feedback_round: int = 1,
 ) -> dict:
     sample_row = get_sample_recommendation(db, sample_recommendation_id)
     if not sample_row:
@@ -985,6 +993,11 @@ def process_feedback(
     # ACCEPT → 최종 추천 확정
     if intent == "ACCEPT":
         return finalize_sample(db, guest_session_id, sample_recommendation_id, forced=False)
+
+    # 3회차 ADJUST/REJECT → 재추천 없이 현재 샘플을 강제 확정 (세션 전체 3회 한도).
+    # 벡터 델타는 이미 위에서 반영됐으므로, finalize 시 누적 델타가 적용된다.
+    if feedback_round >= 3 and intent in ("ADJUST", "REJECT"):
+        return finalize_sample(db, guest_session_id, sample_recommendation_id, forced=True)
 
 # ADJUST → 벡터 업데이트 후 재추천
     if intent == "ADJUST":
