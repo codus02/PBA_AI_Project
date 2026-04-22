@@ -1,0 +1,173 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+============================================================
+ LLM 통합 평가 | model=Qwen/Qwen3-8B | tag=qwen_final_n500 | 20260422_0717
+ limit=500
+============================================================
+
+[1/3] 피드백 인텐트 분류
+Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]Loading weights:   0%|          | 1/399 [00:00<03:55,  1.69it/s]Loading weights:   1%|          | 2/399 [00:01<03:53,  1.70it/s]Loading weights:   1%|          | 4/399 [00:01<01:40,  3.92it/s]Loading weights:   2%|▏         | 6/399 [00:01<01:03,  6.22it/s]Loading weights:   4%|▍         | 16/399 [00:01<00:18, 20.57it/s]Loading weights:   6%|▌         | 24/399 [00:01<00:11, 31.27it/s]Loading weights:   7%|▋         | 29/399 [00:01<00:12, 30.72it/s]Loading weights:   9%|▉         | 37/399 [00:01<00:08, 40.45it/s]Loading weights:  11%|█         | 43/399 [00:02<00:08, 41.33it/s]Loading weights:  12%|█▏        | 49/399 [00:02<00:08, 42.63it/s]Loading weights:  15%|█▍        | 59/399 [00:02<00:06, 51.06it/s]Loading weights:  16%|█▋        | 65/399 [00:02<00:06, 49.33it/s]Loading weights:  18%|█▊        | 71/399 [00:02<00:06, 47.57it/s]Loading weights:  20%|█▉        | 78/399 [00:02<00:06, 51.04it/s]Loading weights:  21%|██        | 84/399 [00:02<00:06, 45.38it/s]Loading weights:  23%|██▎       | 92/399 [00:03<00:05, 53.13it/s]Loading weights:  25%|██▍       | 98/399 [00:03<00:05, 50.21it/s]Loading weights:  26%|██▌       | 104/399 [00:03<00:06, 49.06it/s]Loading weights:  29%|██▊       | 114/399 [00:03<00:05, 54.26it/s]Loading weights:  30%|███       | 120/399 [00:03<00:05, 51.90it/s]Loading weights:  32%|███▏      | 126/399 [00:03<00:05, 51.15it/s]Loading weights:  34%|███▍      | 136/399 [00:03<00:04, 58.41it/s]Loading weights:  36%|███▌      | 142/399 [00:03<00:05, 49.42it/s]Loading weights:  37%|███▋      | 148/399 [00:04<00:05, 45.03it/s]Loading weights:  39%|███▉      | 156/399 [00:04<00:04, 52.40it/s]Loading weights:  41%|████      | 162/399 [00:04<00:05, 47.13it/s]Loading weights:  42%|████▏     | 169/399 [00:04<00:04, 51.68it/s]Loading weights:  44%|████▍     | 175/399 [00:04<00:04, 48.45it/s]Loading weights:  45%|████▌     | 181/399 [00:04<00:04, 47.60it/s]Loading weights:  47%|████▋     | 188/399 [00:04<00:04, 52.64it/s]Loading weights:  49%|████▊     | 194/399 [00:05<00:04, 44.73it/s]Loading weights:  51%|█████     | 202/399 [00:05<00:03, 51.19it/s]Loading weights:  52%|█████▏    | 208/399 [00:05<00:03, 48.52it/s]Loading weights:  54%|█████▎    | 214/399 [00:05<00:04, 46.21it/s]Loading weights:  55%|█████▌    | 221/399 [00:05<00:03, 51.13it/s]Loading weights:  57%|█████▋    | 227/399 [00:05<00:03, 45.95it/s]Loading weights:  59%|█████▉    | 236/399 [00:05<00:03, 50.56it/s]Loading weights:  61%|██████▏   | 245/399 [00:06<00:02, 59.68it/s]Loading weights:  63%|██████▎   | 252/399 [00:06<00:02, 51.24it/s]Loading weights:  65%|██████▍   | 258/399 [00:06<00:02, 49.67it/s]Loading weights:  66%|██████▋   | 265/399 [00:06<00:02, 54.08it/s]Loading weights:  68%|██████▊   | 271/399 [00:06<00:02, 46.97it/s]Loading weights:  70%|██████▉   | 279/399 [00:06<00:02, 53.22it/s]Loading weights:  71%|███████▏  | 285/399 [00:06<00:02, 45.28it/s]Loading weights:  73%|███████▎  | 291/399 [00:07<00:02, 42.81it/s]Loading weights:  74%|███████▍  | 296/399 [00:07<00:02, 44.07it/s]Loading weights:  76%|███████▌  | 302/399 [00:07<00:02, 42.78it/s]Loading weights:  77%|███████▋  | 307/399 [00:07<00:02, 42.03it/s]Loading weights:  78%|███████▊  | 313/399 [00:07<00:02, 42.01it/s]Loading weights:  80%|████████  | 320/399 [00:07<00:01, 48.20it/s]Loading weights:  82%|████████▏ | 326/399 [00:07<00:01, 41.74it/s]Loading weights:  84%|████████▍ | 335/399 [00:08<00:01, 47.47it/s]Loading weights:  86%|████████▌ | 342/399 [00:08<00:01, 52.26it/s]Loading weights:  87%|████████▋ | 348/399 [00:08<00:01, 43.19it/s]Loading weights:  89%|████████▉ | 356/399 [00:08<00:00, 50.65it/s]Loading weights:  91%|█████████ | 362/399 [00:08<00:00, 49.32it/s]Loading weights:  92%|█████████▏| 368/399 [00:08<00:00, 47.91it/s]Loading weights:  94%|█████████▍| 376/399 [00:08<00:00, 54.94it/s]Loading weights:  96%|█████████▌| 382/399 [00:08<00:00, 46.52it/s]Loading weights:  97%|█████████▋| 389/399 [00:09<00:00, 51.67it/s]Loading weights:  99%|█████████▉| 395/399 [00:09<00:00, 47.64it/s]Loading weights: 100%|██████████| 399/399 [00:09<00:00, 43.04it/s]
+The following generation flags are not valid and may be ignored: ['temperature', 'top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+The following generation flags are not valid and may be ignored: ['top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+validate_extracted_slots dropped: taste_profile invalid entries: {'body': 'light'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'body': 'light'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'body': 'light'}
+validate_extracted_slots dropped: strength_preference='high' (허용값: ['light', 'medium', 'strong', 'zero'])
+validate_extracted_slots dropped: aroma_profile invalid entries: {'sweet': 'low'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'body': 'light'}
+validate_extracted_slots dropped: aroma_profile invalid entries: {'freshness': 'high'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'body': 'light'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'strength_preference': 'zero'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'sweet': None, 'sour': None, 'body': None, 'creamy': None, 'freshness': None}
+validate_extracted_slots dropped: aroma_profile invalid entries: {'freshness': 'high'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'sweet': None, 'sour': None, 'bitter': None, 'creamy': None, 'freshness': None}
+validate_extracted_slots dropped: taste_profile invalid entries: {'body': 'light'}
+validate_extracted_slots dropped: disliked_bases invalid: ['dekelai', 'jin']
+validate_extracted_slots dropped: taste_profile invalid entries: {'coffee': 'high'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'coffee': 'low'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'body': 'light'}
+validate_extracted_slots dropped: aroma_profile invalid entries: {'freshness': 'high'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'body': 'light'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'body': 'light'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'sweet': None}
+validate_extracted_slots dropped: aroma_profile invalid entries: {'creamy': 'medium'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'body': 'light'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'body': 'light'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'body': 'light'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'citrus': 'high', 'coffee': 'zero'}
+`torch_dtype` is deprecated! Use `dtype` instead!
+  progress 25/474  elapsed=55.1s
+  progress 50/474  elapsed=94.0s
+  progress 75/474  elapsed=133.1s
+  progress 100/474  elapsed=172.2s
+  progress 125/474  elapsed=217.1s
+  progress 150/474  elapsed=260.2s
+  progress 175/474  elapsed=304.4s
+  progress 200/474  elapsed=349.3s
+  progress 225/474  elapsed=407.8s
+  progress 250/474  elapsed=470.2s
+  progress 275/474  elapsed=531.0s
+  progress 300/474  elapsed=591.9s
+  progress 325/474  elapsed=654.6s
+  progress 350/474  elapsed=713.0s
+  progress 375/474  elapsed=775.6s
+  progress 400/474  elapsed=836.8s
+  progress 425/474  elapsed=900.3s
+  progress 450/474  elapsed=964.0s
+
+============================================================
+FEEDBACK EVAL — 474 cases (1022.8s, 2.16s/case)
+============================================================
+  ACCEPT: 100/100 = 100.0%
+  ADJUST: 274/274 = 100.0%
+  REJECT: 87/100 = 87.0%
+
+[전체 intent 정확도] 461/474 = 97.3%
+[ADJUST 델타 검출률] 274/274 = 100.0%  (LLM이 축을 짚어낸 비율)
+
+오답 샘플 (최대 10개):
+  '방금 보여준 건 이쪽보다는 다른 스타일이 더 맞을 것 같아서 다른 방향으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={'herbal_score': -0.5, 'citrus_score': 0.5}
+  '방금 보여준 건 원하던 방향에서 조금 벗어나 있어서 다른 선택지를 다시 보여줘' → 예측:ADJUST / 정답:REJECT deltas={'body_score': -0.5, 'citrus_score': -0.5}
+  '지금 나온 후보는 원하던 방향에서 조금 벗어나 있어서 새로 골라줬으면 좋겠어' → 예측:ADJUST / 정답:REJECT deltas={'body_score': 0.5}
+  '지금 나온 후보는 원하던 방향에서 조금 벗어나 있어서 처음부터 다른 쪽으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={'body_score': 0.5, 'citrus_score': -0.5}
+  '이번 추천은 전체적으로 애매하게 느껴져서 다른 방향으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={'freshness_score': 0.5, 'body_score': 0.5}
+  '지금 추천은 조금 끌리지 않아서 다른 방향으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={'sweetness_score': -0.5, 'citrus_score': -0.5}
+  '지금 결과는 이쪽보다는 다른 스타일이 더 맞을 것 같아서 다른 방향으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={'freshness_score': 0.5, 'body_score': -0.5}
+  '방금 보여준 건 원하던 방향에서 조금 벗어나 있어서 처음부터 다른 쪽으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={'body_score': -0.5, 'citrus_score': 0.5}
+  '이건 이쪽보다는 다른 스타일이 더 맞을 것 같아서 다른 걸로 보고 싶어' → 예측:ADJUST / 정답:REJECT deltas={'body_score': 0.5, 'citrus_score': 0.5}
+  '이 추천안은 지금 기분이랑 안 맞을 것 같아서 다른 방향으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={'freshness_score': 0.5, 'body_score': -0.5}
+
+[2/3] 슬롯 추출
+  progress 25/500  elapsed=403.4s
+  progress 50/500  elapsed=813.0s
+  progress 75/500  elapsed=1201.8s
+  progress 100/500  elapsed=1615.5s
+  progress 125/500  elapsed=2005.3s
+  progress 150/500  elapsed=2402.4s
+  progress 175/500  elapsed=2810.9s
+  progress 200/500  elapsed=3211.3s
+  progress 225/500  elapsed=3618.2s
+  progress 250/500  elapsed=4026.8s
+  progress 275/500  elapsed=4424.2s
+  progress 300/500  elapsed=4819.0s
+  progress 325/500  elapsed=5249.6s
+  progress 350/500  elapsed=5651.1s
+  progress 375/500  elapsed=6063.9s
+  progress 400/500  elapsed=6477.7s
+  progress 425/500  elapsed=6889.5s
+  progress 450/500  elapsed=7280.1s
+  progress 475/500  elapsed=7680.0s
+  progress 500/500  elapsed=8081.6s
+
+============================================================
+SLOT EXTRACTION EVAL — 500 cases (8081.6s, 16.16s/case)
+============================================================
+
+[Scalar enums — exact match]
+  current_mood          :  266/ 450 =  59.1%
+  party_purpose         :  338/ 450 =  75.1%
+  strength_preference   :  340/ 450 =  75.6%
+
+[Intensity dicts]
+  taste_profile KEY presence      : P= 86.2  R= 76.3  F1= 80.9  (tp=580 fp=93 fn=180)
+  taste_profile KEY+VALUE exact   : P= 73.6  R= 65.1  F1= 69.1  (tp=495 fp=178 fn=265)
+  aroma_profile KEY presence      : P= 97.0  R= 97.6  F1= 97.3  (tp=743 fp=23 fn=18)
+  aroma_profile KEY+VALUE exact   : P= 64.9  R= 65.3  F1= 65.1  (tp=497 fp=269 fn=264)
+
+[List enum]
+  disliked_bases                  : P= 75.4  R= 75.1  F1= 75.2  (tp=205 fp=67 fn=68)
+
+[Favorite drinks — binary presence]
+  favorite_drinks detected :   23/ 100 =  23.0%
+
+
+[3/3] 추천 매칭 (RAG + rerank)
+Loading weights:   0%|          | 0/310 [00:00<?, ?it/s]Loading weights:   0%|          | 1/310 [00:00<00:31,  9.92it/s]Loading weights:  49%|████▉     | 152/310 [00:00<00:00, 886.93it/s]Loading weights:  85%|████████▍ | 262/310 [00:00<00:00, 983.70it/s]Loading weights: 100%|██████████| 310/310 [00:00<00:00, 920.62it/s]
+  progress 25/500  elapsed=880.5s
+  progress 50/500  elapsed=1805.2s
+  progress 75/500  elapsed=2704.3s
+  progress 100/500  elapsed=3595.1s
+  progress 125/500  elapsed=4475.6s
+  progress 150/500  elapsed=5337.0s
+  progress 175/500  elapsed=6240.6s
+  progress 200/500  elapsed=7129.6s
+  progress 225/500  elapsed=8010.4s
+  progress 250/500  elapsed=8893.3s
+  progress 275/500  elapsed=9768.8s
+  progress 300/500  elapsed=10645.2s
+  progress 325/500  elapsed=11519.5s
+  progress 350/500  elapsed=12414.2s
+  progress 375/500  elapsed=13275.0s
+  progress 400/500  elapsed=14163.7s
+  progress 425/500  elapsed=15066.5s
+  progress 450/500  elapsed=16010.2s
+  progress 475/500  elapsed=16904.6s
+  progress 500/500  elapsed=17818.7s
+
+[LLM 추천 적합도 평가] 총 500건
+  Hit@1  (top1 정답 포함): 79/500 = 15.8%
+  Hit@3  (top3 정답 포함): 108/500 = 21.6%
+  카테고리 Hit@3:           273/500 = 54.6%
+  후보 없음:                0/500 = 0.0%
+  소요 시간:                17818.7s (35.64s/case)
+
+============================================================
+ 최종 요약 — tag=qwen_final_n500  model=Qwen/Qwen3-8B  20260422_0717
+ limit=500
+============================================================
+  피드백 전체 정확도        : 97.3%
+    └ ADJUST 델타 검출률    : 100.0%
+  슬롯 scalar enum 평균     : 69.9%
+    └ current_mood          : 59.1%
+    └ party_purpose         : 75.1%
+    └ strength_preference   : 75.6%
+  taste_profile KV F1       : 69.1
+  aroma_profile KV F1       : 65.1
+  disliked_bases F1         : 75.2
+  favorite_drinks 검출률    : 23.0%
+  추천 Hit@1                : 15.8%
+  추천 Hit@3                : 21.6%
+  카테고리 Hit@3            : 54.6%
+  후보 없음 비율            : 0.0%
+
+저장: eval_results/quantitative/all_qwen_final_n500_20260422_0717.json
+      eval_results/quantitative/all_qwen_final_n500_20260422_0717.txt

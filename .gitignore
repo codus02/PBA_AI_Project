@@ -14,6 +14,8 @@ data/
 /tmp/
 uploads/
 *.log
+# eval 로그는 공유해야 하므로 예외
+!eval_results/logs/*.log
 
 # model/cache
 .cache/
