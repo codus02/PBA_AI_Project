@@ -635,13 +635,8 @@ def rerank_with_llm(
             f"{_format_candidates_for_rerank(candidates, recipe_ingredients)}\n\n"
             f"위 후보 중에서 사용자에게 가장 잘 맞는 상위 {k}개를 ranked로 JSON 반환해라."
         )
-        messages = [
-            {"role": "system", "content": _RERANK_SYSTEM_PROMPT},
-            {"role": "user", "content": user_content},
-        ]
-        rendered = tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, tokenize=False, enable_thinking=False
-        )
+        from app.utils.model_loader import render_chat
+        rendered = render_chat(tokenizer, _RERANK_SYSTEM_PROMPT, user_content)
         inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
         input_len = inputs["input_ids"].shape[-1]
 

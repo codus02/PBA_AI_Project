@@ -12,6 +12,42 @@ _CACHE: dict[str, Tuple] = {}
 
 _DEFAULT_QUANT = os.getenv("LLM_QUANT", "4bit").lower()
 
+_NETWORK_ERR_KEYWORDS = (
+    "connect",
+    "resolve",
+    "dns",
+    "timeout",
+    "timed out",
+    "offline",
+    "no internet",
+    "failed to fetch",
+    "name or service",
+    "temporary failure",
+)
+
+
+def _offline_mode() -> bool:
+    for var in ("LLM_OFFLINE", "HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE"):
+        if os.getenv(var, "").lower() in ("1", "true", "yes"):
+            return True
+    return False
+
+
+def _load_with_offline_fallback(loader_fn, model_id: str, **kwargs):
+    """네트워크 로드 → 연결 오류 시 local_files_only=True 재시도."""
+    if _offline_mode():
+        kwargs.setdefault("local_files_only", True)
+        return loader_fn(model_id, **kwargs)
+    try:
+        return loader_fn(model_id, **kwargs)
+    except Exception as e:
+        msg = str(e).lower()
+        if any(k in msg for k in _NETWORK_ERR_KEYWORDS):
+            retry_kwargs = dict(kwargs)
+            retry_kwargs["local_files_only"] = True
+            return loader_fn(model_id, **retry_kwargs)
+        raise
+
 
 def _bnb_4bit_config() -> BitsAndBytesConfig:
     return BitsAndBytesConfig(
@@ -32,24 +68,31 @@ def load_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
     if cache_key in _CACHE:
         return _CACHE[cache_key]
 
-    tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL, trust_remote_code=True)
+    tokenizer = _load_with_offline_fallback(
+        AutoTokenizer.from_pretrained,
+        LLM_MODEL,
+        trust_remote_code=True,
+    )
 
     if quant == "4bit":
-        model = AutoModelForCausalLM.from_pretrained(
+        model = _load_with_offline_fallback(
+            AutoModelForCausalLM.from_pretrained,
             LLM_MODEL,
             quantization_config=_bnb_4bit_config(),
             device_map="auto",
             trust_remote_code=True,
         )
     elif quant == "8bit":
-        model = AutoModelForCausalLM.from_pretrained(
+        model = _load_with_offline_fallback(
+            AutoModelForCausalLM.from_pretrained,
             LLM_MODEL,
             quantization_config=_bnb_8bit_config(),
             device_map="auto",
             trust_remote_code=True,
         )
     else:
-        model = AutoModelForCausalLM.from_pretrained(
+        model = _load_with_offline_fallback(
+            AutoModelForCausalLM.from_pretrained,
             LLM_MODEL,
             torch_dtype=torch.float16,
             device_map="auto",
@@ -61,15 +104,62 @@ def load_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
     return tokenizer, model
 
 
+def _apply_template(tokenizer, messages, add_generation_prompt: bool) -> str:
+    try:
+        return tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=add_generation_prompt,
+            tokenize=False,
+            enable_thinking=False,
+        )
+    except TypeError:
+        return tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=add_generation_prompt,
+            tokenize=False,
+        )
+
+
+def render_chat(tokenizer, system: str, user: str, add_generation_prompt: bool = True) -> str:
+    """모델-agnostic chat template 렌더링.
+
+    표준 [system, user] 형식을 먼저 시도하고, 템플릿이 system role 을 거부하면
+    (Gemma 계열 등) system 내용을 user 앞에 프리펜드해 단일 user 메시지로 폴백한다.
+    이름 기반 분기를 피해 로컬 스냅샷·alias 경로에서도 안전하다.
+    """
+    try:
+        return _apply_template(
+            tokenizer,
+            [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            add_generation_prompt,
+        )
+    except Exception as e:
+        msg = str(e).lower()
+        if "system" in msg and ("role" in msg or "not support" in msg or "unsupported" in msg):
+            return _apply_template(
+                tokenizer,
+                [{"role": "user", "content": f"{system}\n\n{user}"}],
+                add_generation_prompt,
+            )
+        raise
+
+
 def load_qwen3_embedding():
     cache_key = f"{QWEN3_EMBED_MODEL}:embed"
     if cache_key in _CACHE:
         return _CACHE[cache_key]
 
-    tokenizer = AutoTokenizer.from_pretrained(
-        QWEN3_EMBED_MODEL, padding_side="left", trust_remote_code=True
+    tokenizer = _load_with_offline_fallback(
+        AutoTokenizer.from_pretrained,
+        QWEN3_EMBED_MODEL,
+        padding_side="left",
+        trust_remote_code=True,
     )
-    model = AutoModel.from_pretrained(
+    model = _load_with_offline_fallback(
+        AutoModel.from_pretrained,
         QWEN3_EMBED_MODEL,
         torch_dtype=torch.float16,
         device_map="auto",

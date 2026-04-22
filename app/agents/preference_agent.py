@@ -657,15 +657,11 @@ def analyze_feedback(
 
         tokenizer, model = load_llm()
 
-        messages = [
-            {"role": "system", "content": _FEEDBACK_SYSTEM_PROMPT},
-            {"role": "user", "content": f"USER 피드백: {feedback_text}\n\nJSON으로 답해라."},
-        ]
-        rendered = tokenizer.apply_chat_template(
-            messages,
-            add_generation_prompt=True,
-            tokenize=False,
-            enable_thinking=False,
+        from app.utils.model_loader import render_chat
+        rendered = render_chat(
+            tokenizer,
+            _FEEDBACK_SYSTEM_PROMPT,
+            f"USER 피드백: {feedback_text}\n\nJSON으로 답해라.",
         )
         inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
         input_len = inputs["input_ids"].shape[-1]
@@ -1592,15 +1588,11 @@ def _extract_slots_llm(history: list[dict], user_msg: str) -> tuple[dict, str]:
         import torch
 
         tokenizer, model = load_llm()
-        messages = [
-            {"role": "system", "content": _EXTRACT_SYSTEM_PROMPT},
-            {"role": "user", "content": _build_extract_user_prompt(history, user_msg)},
-        ]
-        rendered = tokenizer.apply_chat_template(
-            messages,
-            add_generation_prompt=True,
-            tokenize=False,
-            enable_thinking=False,
+        from app.utils.model_loader import render_chat
+        rendered = render_chat(
+            tokenizer,
+            _EXTRACT_SYSTEM_PROMPT,
+            _build_extract_user_prompt(history, user_msg),
         )
         inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
         input_len = inputs["input_ids"].shape[-1]
@@ -1872,18 +1864,14 @@ def analyze_user_turn(
         tokenizer, model = load_llm()
 
         remaining = max(MAX_USER_TURNS - user_turn_count, 0)
-        messages = [
-            {"role": "system", "content": _BARTENDER_SYSTEM_PROMPT},
-            {"role": "user", "content": _build_bartender_user_prompt(
+        from app.utils.model_loader import render_chat
+        rendered = render_chat(
+            tokenizer,
+            _BARTENDER_SYSTEM_PROMPT,
+            _build_bartender_user_prompt(
                 history, slots, user_msg, familiarity, remaining,
                 extracted_this_turn=extracted,
-            )},
-        ]
-        rendered = tokenizer.apply_chat_template(
-            messages,
-            add_generation_prompt=True,
-            tokenize=False,
-            enable_thinking=False,
+            ),
         )
         inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
         input_len = inputs["input_ids"].shape[-1]
