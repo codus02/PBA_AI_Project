@@ -77,7 +77,7 @@ def run_recommendation(slots: dict) -> None:
             return
 
         survivor_cocktails = [c for c, _ in survivors]
-        reranked = rerank_with_llm(profile, survivor_cocktails, k=3)
+        reranked = rerank_with_llm(profile, survivor_cocktails, k=3, recipe_ingredients=all_ri)
 
         if reranked:
             id_to_c = {c.cocktail_id: c for c in survivor_cocktails}

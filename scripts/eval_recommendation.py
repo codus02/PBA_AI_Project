@@ -20,6 +20,7 @@ from app.agents.orchestration_agent import (
     score_cocktail,
     _has_disliked_base,
     _is_unstockable,
+    _has_zero_taste_conflict,
 )
 from scripts._eval_save import save_eval_result
 
@@ -105,13 +106,15 @@ def _llm_top3(
             continue
         if _is_unstockable(ri, available_ids):
             continue
+        if _has_zero_taste_conflict(merged, cocktail):
+            continue
         survivors.append((cocktail, dist))
 
     if not survivors:
         return []
 
     survivor_cocktails = [c for c, _ in survivors]
-    reranked = rerank_with_llm(profile, survivor_cocktails, k=3)
+    reranked = rerank_with_llm(profile, survivor_cocktails, k=3, recipe_ingredients=all_ri)
 
     if reranked:
         id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}

@@ -75,6 +75,12 @@ _AROMA_KEY_ALIASES = {
 
 DISLIKED_BASE_VALUES = {"whiskey", "gin", "rum", "vodka", "tequila"}
 
+# LLM이 disliked_bases 에 잘못 넣는 "스피릿 아닌" 재료 → taste/aroma 축으로 리매핑.
+# enum 위반으로 드롭되기 전에 여기서 의미를 살린다 (우유·크림 비선호가 사라져버리는 버그 방지).
+_DISLIKED_BASE_REMAP_TO_CREAMY_ZERO = {
+    "milk", "cream", "dairy", "우유", "크림", "milky", "creamy",
+}
+
 SLOT_KEYS = [
     "current_mood",
     "party_purpose",
@@ -584,6 +590,15 @@ _SYSTEM_PROMPT = """
 ★최우선 규칙 12: 사용자가 새로운 선호 정보를 주지 않고 "오직 질문·되묻기·혼란 표현만" 한 경우 extracted_slots 는 반드시 빈 객체 {} 를 출력하라. 절대 추측으로 슬롯을 채우지 마라.
   예: "그게 뭐야?", "왜 커피 향을?", "무슨 뜻이야?", "어떤 거요?", "모르겠는데 더 설명해줘", "은은한게 뭐야" → extracted_slots={}
   이런 발화는 LLM 의 다음 턴에서 같은 슬롯을 다시 묻게 되므로 completion 이 올라가면 안 된다.
+★최우선 규칙 13: **맛 축(taste)과 향 축(aroma)을 절대 혼동하지 마라.** 신맛/쓴맛/단맛/크리미/바디/상큼함은 **taste_profile**. 시트러스향/꽃향/과일향/민트향/우디향/허브향/커피향은 **aroma_profile**. 가장 흔한 오류:
+  - "신맛 강하게" → taste_profile.sour=high (절대 aroma_profile.citrus 아님!)
+  - "신 맛이 좋아" / "시큼한 거 좋아" → taste_profile.sour=high
+  - "시트러스향 좋아" / "레몬향 좋아" → aroma_profile.citrus=high
+  - "상큼한 맛" → taste_profile.freshness=high (향 아님)
+  - "단맛 좋아" → taste_profile.sweet=high (절대 aroma_profile 아님)
+  - "쓴맛" → taste_profile.bitter (절대 aroma 아님)
+  - "우유맛/크림같은 느낌" → taste_profile.creamy (절대 aroma 아님)
+
 ★최우선 규칙 11: 사용자가 일상 음료/음식을 "좋아해/즐겨 마셔"라고만 말한 경우(예: "커피 좋아해", "녹차 자주 마셔", "오렌지주스 좋아") — 직전 LLM 질문이 "향"이나 "맛" 이 아니라면, 절대 aroma_profile/taste_profile 에 high 로 넣지 마라. 이럴 때는 favorite_drinks 에만 넣어라 (강도는 대화로 확인해야 하므로). 오직 "커피향 좋아", "우디한 향이 좋아"처럼 향/맛 축을 명시했거나, 직전 LLM 질문이 "향이 어떤 게 좋으세요?"인 경우에만 aroma_profile 에 넣어라. 구문 변형 — "X 같은 스타일은 자주 마셔봤고", "보통 X 쪽은 잘 마시는 편이고", "평소엔 X 좋아하는 편", "X 자주 마셔" 모두 해당된다.
 
 출력 형식:
@@ -740,6 +755,21 @@ USER: "상큼한 맛 좋아해. 근데 너무 시거나 단건 싫어. 그리고
 
 USER: "나는 열대과일같은 향 좋아해. 우유향은 싫어. 느끼해"
 → {"extracted_slots":{"aroma_profile":{"fruity":"high"},"taste_profile":{"creamy":"low"}},"should_stop":false,"stop_reason":""}
+
+USER: "과일향 적당하게 해줘. 우유향은 피하고싶어"
+→ {"extracted_slots":{"aroma_profile":{"fruity":"medium"},"taste_profile":{"creamy":"zero"}},"should_stop":false,"stop_reason":""}
+# 두 축 동시 추출 필수. "피하고싶어"는 zero. 우유향은 taste_profile.creamy (aroma 아님).
+
+USER: "과일향 중간이면 좋겠고 우유는 안 땡겨"
+→ {"extracted_slots":{"aroma_profile":{"fruity":"medium"},"taste_profile":{"creamy":"low"}},"should_stop":false,"stop_reason":""}
+
+USER: "신맛은 강하게 부탁해"
+→ {"extracted_slots":{"taste_profile":{"sour":"high"}},"should_stop":false,"stop_reason":""}
+# 신맛 = taste_profile.sour. 절대 aroma_profile.citrus 아님. 시트러스는 "향" 이어야만 citrus.
+
+USER: "레몬향 강한게 좋아"
+→ {"extracted_slots":{"aroma_profile":{"citrus":"high"}},"should_stop":false,"stop_reason":""}
+# "향"이 붙으면 aroma. 신맛 자체가 아니라 시트러스 "향"이니까 citrus 로 간다.
 
 USER: "우유향 싫어 느끼해"
 → {"extracted_slots":{"taste_profile":{"creamy":"low"}},"should_stop":false,"stop_reason":""}
@@ -1549,8 +1579,23 @@ def validate_extracted_slots(raw: dict) -> dict:
         else:
             lst = _validate_list_enum(rv, DISLIKED_BASE_VALUES)
             invalid = [x for x in (rv if isinstance(rv, list) else []) if not (isinstance(x, str) and x.strip().lower() in DISLIKED_BASE_VALUES)]
-            if invalid:
+            # 우유/크림류 구제: LLM이 disliked_bases에 milk/cream 넣은 경우 → taste_profile.creamy=zero
+            remap_creamy = any(
+                isinstance(x, str) and x.strip().lower() in _DISLIKED_BASE_REMAP_TO_CREAMY_ZERO
+                for x in invalid
+            )
+            if remap_creamy:
+                tp = cleaned.get("taste_profile") or {}
+                if "creamy" not in tp:  # 이미 명시값 있으면 덮어쓰지 않음
+                    tp["creamy"] = "zero"
+                    cleaned["taste_profile"] = tp
+                    dropped.append("disliked_bases milk/cream → taste_profile.creamy=zero (remapped)")
+            if invalid and not remap_creamy:
                 dropped.append(f"disliked_bases invalid: {invalid}")
+            elif invalid and remap_creamy:
+                leftover = [x for x in invalid if isinstance(x, str) and x.strip().lower() not in _DISLIKED_BASE_REMAP_TO_CREAMY_ZERO]
+                if leftover:
+                    dropped.append(f"disliked_bases invalid: {leftover}")
             if lst:
                 cleaned["disliked_bases"] = lst
 

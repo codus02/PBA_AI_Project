@@ -278,7 +278,7 @@ def recommend_once(
         return []
 
     survivor_cocktails = [c for c, _ in survivors]
-    reranked = rerank_with_llm(profile, survivor_cocktails, k=3)
+    reranked = rerank_with_llm(profile, survivor_cocktails, k=3, recipe_ingredients=all_ri)
 
     results: list[dict] = []
     if reranked:

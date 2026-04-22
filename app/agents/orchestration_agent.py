@@ -387,7 +387,28 @@ def _format_profile_for_rerank(profile: dict) -> str:
     return "\n".join(lines)
 
 
-def _format_candidates_for_rerank(candidates: list[Cocktail]) -> str:
+def _aggregate_aroma_from_ingredients(recipe_items: list[tuple]) -> dict[str, float]:
+    """cocktail의 recipe ingredient들에서 aroma 축별 최댓값 집계.
+
+    recipe_items: [(Recipe, Ingredient), ...] — crud.get_all_recipes_with_ingredients 반환값의 값.
+    반환: {"fruity": 3.0, "citrus": 2.0, ...} — AROMA_TO_INGREDIENT 키 중 >0 인 것만.
+    """
+    agg: dict[str, float] = {}
+    for _recipe, ing in recipe_items or []:
+        for aroma_key, col in AROMA_TO_INGREDIENT.items():
+            raw = getattr(ing, col, None)
+            if raw is None:
+                continue
+            v = float(raw)
+            if v > agg.get(aroma_key, 0.0):
+                agg[aroma_key] = v
+    return agg
+
+
+def _format_candidates_for_rerank(
+    candidates: list[Cocktail],
+    recipe_ingredients: Optional[dict[int, list[tuple]]] = None,
+) -> str:
     rows = []
     for c in candidates:
         taste = []
@@ -397,10 +418,24 @@ def _format_candidates_for_rerank(candidates: list[Cocktail]) -> str:
             v = getattr(c, col, None)
             if v is not None:
                 taste.append(f"{label}={float(v):.1f}")
-        desc = (c.description or "").replace("\n", " ")[:260]
+
+        # 도수: _get_cocktail_strength_value 는 0~5 스케일 값만 리턴 (검증 포함)
+        strength_val = _get_cocktail_strength_value(c)
+        strength_str = f"strength={strength_val:.1f}" if strength_val is not None else "strength=?"
+
+        # 아로마: ingredient 컬럼에서 축별 max 집계 — 리랭커가 향 매칭할 근거가 됨
+        aroma_str = ""
+        if recipe_ingredients is not None:
+            agg = _aggregate_aroma_from_ingredients(recipe_ingredients.get(c.cocktail_id, []))
+            if agg:
+                parts = [f"{k}={v:.1f}" for k, v in sorted(agg.items(), key=lambda x: -x[1]) if v >= 2.0]
+                if parts:
+                    aroma_str = f" | aroma(재료기준 max): {', '.join(parts)}"
+
+        desc = (c.description or "").replace("\n", " ")[:220]
         rows.append(
             f"- id={c.cocktail_id} | {c.name_kr} | {c.category} | "
-            f"mood={c.mood_tag or '-'} | {', '.join(taste)}\n"
+            f"mood={c.mood_tag or '-'} | {strength_str} | {', '.join(taste)}{aroma_str}\n"
             f"    desc: {desc}"
         )
     return "\n".join(rows)
@@ -422,8 +457,13 @@ def rerank_with_llm(
     candidates: list[Cocktail],
     k: int = 3,
     max_new_tokens: int = 512,
+    recipe_ingredients: Optional[dict[int, list[tuple]]] = None,
 ) -> Optional[list[dict]]:
-    """LLM 후보 리랭킹. 실패 시 None → 호출측 fallback."""
+    """LLM 후보 리랭킹. 실패 시 None → 호출측 fallback.
+
+    recipe_ingredients 가 주어지면 각 후보에 ingredient 기반 aroma max 집계를 포함해
+    LLM 이 향 매칭을 수치로 판단할 수 있게 한다. None 이면 description 텍스트만으로 리랭크.
+    """
     if not candidates:
         return []
     try:
@@ -433,7 +473,8 @@ def rerank_with_llm(
         tokenizer, model = load_llm()
         user_content = (
             f"사용자 프로파일:\n{_format_profile_for_rerank(profile)}\n\n"
-            f"후보 칵테일 (N={len(candidates)}):\n{_format_candidates_for_rerank(candidates)}\n\n"
+            f"후보 칵테일 (N={len(candidates)}):\n"
+            f"{_format_candidates_for_rerank(candidates, recipe_ingredients)}\n\n"
             f"위 후보 중에서 사용자에게 가장 잘 맞는 상위 {k}개를 ranked로 JSON 반환해라."
         )
         messages = [
@@ -708,7 +749,7 @@ def recommend_top_k(
     dist_map = {c.cocktail_id: d for c, d in survivors}
 
     # 3) LLM 리랭크 (실패 시 score_cocktail fallback)
-    reranked = rerank_with_llm(profile, survivor_cocktails, k=k)
+    reranked = rerank_with_llm(profile, survivor_cocktails, k=k, recipe_ingredients=all_ri)
 
     if reranked:
         id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
