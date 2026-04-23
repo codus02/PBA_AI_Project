@@ -1,0 +1,328 @@
+==========================================
+ [2026-04-23 03:28:59] start  tag=gemma_n500  model=google/gemma-2-9b-it  limit=500
+==========================================
+============================================================
+ LLM 통합 평가 | model=google/gemma-2-9b-it | tag=gemma_n500 | 20260423_0329
+ limit=500
+============================================================
+
+[1/3] 피드백 인텐트 분류
+Loading weights:   0%|          | 0/464 [00:00<?, ?it/s]Loading weights:   0%|          | 1/464 [00:00<02:34,  3.00it/s]Loading weights:   1%|          | 5/464 [00:00<00:33, 13.76it/s]Loading weights:   5%|▍         | 22/464 [00:00<00:07, 59.64it/s]Loading weights:   8%|▊         | 36/464 [00:00<00:05, 81.24it/s]Loading weights:  10%|█         | 48/464 [00:00<00:04, 91.55it/s]Loading weights:  13%|█▎        | 60/464 [00:00<00:04, 98.80it/s]Loading weights:  17%|█▋        | 77/464 [00:00<00:03, 117.46it/s]Loading weights:  20%|█▉        | 91/464 [00:01<00:03, 120.14it/s]Loading weights:  22%|██▏       | 104/464 [00:01<00:03, 114.62it/s]Loading weights:  26%|██▌       | 121/464 [00:01<00:02, 128.94it/s]Loading weights:  29%|██▉       | 135/464 [00:01<00:02, 129.63it/s]Loading weights:  32%|███▏      | 149/464 [00:01<00:02, 124.56it/s]Loading weights:  36%|███▌      | 165/464 [00:01<00:02, 133.63it/s]Loading weights:  39%|███▊      | 179/464 [00:01<00:02, 132.52it/s]Loading weights:  42%|████▏     | 193/464 [00:01<00:02, 126.13it/s]Loading weights:  45%|████▌     | 209/464 [00:01<00:01, 134.73it/s]Loading weights:  48%|████▊     | 223/464 [00:02<00:01, 133.91it/s]Loading weights:  51%|█████     | 237/464 [00:02<00:01, 126.47it/s]Loading weights:  55%|█████▍    | 253/464 [00:02<00:01, 134.99it/s]Loading weights:  58%|█████▊    | 267/464 [00:02<00:01, 134.09it/s]Loading weights:  61%|██████    | 281/464 [00:02<00:01, 127.29it/s]Loading weights:  64%|██████▍   | 297/464 [00:02<00:01, 134.91it/s]Loading weights:  67%|██████▋   | 311/464 [00:02<00:01, 134.42it/s]Loading weights:  70%|███████   | 325/464 [00:02<00:01, 127.19it/s]Loading weights:  74%|███████▎  | 342/464 [00:02<00:00, 138.29it/s]Loading weights:  77%|███████▋  | 357/464 [00:03<00:00, 124.56it/s]Loading weights:  81%|████████  | 374/464 [00:03<00:00, 135.34it/s]Loading weights:  84%|████████▎ | 388/464 [00:03<00:00, 132.84it/s]Loading weights:  87%|████████▋ | 402/464 [00:03<00:00, 125.02it/s]Loading weights:  90%|█████████ | 418/464 [00:03<00:00, 133.43it/s]Loading weights:  93%|█████████▎| 432/464 [00:03<00:00, 133.07it/s]Loading weights:  96%|█████████▌| 446/464 [00:03<00:00, 126.08it/s]Loading weights: 100%|█████████▉| 462/464 [00:03<00:00, 134.13it/s]Loading weights: 100%|██████████| 464/464 [00:03<00:00, 119.00it/s]
+validate_extracted_slots dropped: taste_profile invalid entries: {'strength_preference': 'medium'}
+validate_extracted_slots dropped: current_mood='medium' (허용값: ['bad', 'good', 'soso'])
+validate_extracted_slots dropped: aroma_profile invalid entries: {'body': 'high'}
+validate_extracted_slots dropped: aroma_profile invalid entries: {'bitter': 'medium'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'citrus': 'low'}
+validate_extracted_slots dropped: aroma_profile invalid entries: {'freshness': 'high'}
+validate_extracted_slots dropped: current_mood='medium' (허용값: ['bad', 'good', 'soso'])
+validate_extracted_slots dropped: taste_profile invalid entries: {'strength_preference': 'zero'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'freshness': 'pending'}
+validate_extracted_slots dropped: aroma_profile invalid entries: {'bitter': 'low'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'strength_preference': 'zero'}
+validate_extracted_slots dropped: aroma_profile invalid entries: {'bitter': 'high'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'strength_preference': 'zero'}
+validate_extracted_slots dropped: disliked_bases invalid: ['penicillin']
+validate_extracted_slots dropped: taste_profile invalid entries: {'fruity': 'low'}
+validate_extracted_slots dropped: current_mood='medium' (허용값: ['bad', 'good', 'soso'])
+validate_extracted_slots dropped: disliked_bases invalid: ['moscow mule']
+validate_extracted_slots dropped: taste_profile invalid entries: {'citrus': 'low'}
+validate_extracted_slots dropped: aroma_profile invalid entries: {'freshness': 'high'}
+validate_extracted_slots dropped: current_mood='medium' (허용값: ['bad', 'good', 'soso']) | taste_profile invalid entries: {'strength_preference': 'strong'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'citrus': 'low'}
+validate_extracted_slots dropped: aroma_profile invalid entries: {'bitter': 'low'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'strength_preference': 'medium'}
+validate_extracted_slots dropped: taste_profile invalid entries: {'citrus': 'low'}
+validate_extracted_slots dropped: strength_preference=['zero'] (허용값: ['light', 'medium', 'strong', 'zero'])
+validate_extracted_slots dropped: current_mood='medium' (허용값: ['bad', 'good', 'soso'])
+validate_extracted_slots dropped: aroma_profile invalid entries: {'bitter': 'low'}
+`torch_dtype` is deprecated! Use `dtype` instead!
+  progress 25/474  elapsed=65.8s
+  progress 50/474  elapsed=120.3s
+  progress 75/474  elapsed=175.8s
+  progress 100/474  elapsed=230.9s
+  progress 125/474  elapsed=290.6s
+  progress 150/474  elapsed=352.7s
+  progress 175/474  elapsed=413.4s
+  progress 200/474  elapsed=473.3s
+  progress 225/474  elapsed=554.9s
+  progress 250/474  elapsed=643.8s
+  progress 275/474  elapsed=729.8s
+  progress 300/474  elapsed=816.3s
+  progress 325/474  elapsed=904.2s
+  progress 350/474  elapsed=985.9s
+  progress 375/474  elapsed=1074.1s
+  progress 400/474  elapsed=1161.8s
+  progress 425/474  elapsed=1251.4s
+  progress 450/474  elapsed=1342.0s
+
+============================================================
+FEEDBACK EVAL — 474 cases (1424.9s, 3.01s/case)
+============================================================
+  ACCEPT: 100/100 = 100.0%
+  ADJUST: 274/274 = 100.0%
+  REJECT: 88/100 = 88.0%
+
+[전체 intent 정확도] 462/474 = 97.5%
+[ADJUST 델타 검출률] 211/274 = 77.0%  (LLM이 축을 짚어낸 비율)
+
+오답 샘플 (최대 10개):
+  '방금 보여준 건 이쪽보다는 다른 스타일이 더 맞을 것 같아서 다른 방향으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={}
+  '이 선택지는 생각보다 마음이 안 가서 다른 방향으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={}
+  '이번 추천은 전체적으로 애매하게 느껴져서 다른 방향으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={}
+  '지금 추천은 조금 끌리지 않아서 다른 방향으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={}
+  '이 추천안은 조금 끌리지 않아서 다른 방향으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={}
+  '지금 결과는 이쪽보다는 다른 스타일이 더 맞을 것 같아서 다른 방향으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={}
+  '방금 보여준 건 원하던 방향에서 조금 벗어나 있어서 처음부터 다른 쪽으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={}
+  '지금 결과는 전체적으로 애매하게 느껴져서 처음부터 다른 쪽으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={}
+  '이번 방향은 조금 끌리지 않아서 처음부터 다른 쪽으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={}
+  '이건 생각보다 마음이 안 가서 다른 방향으로 다시 가고 싶어' → 예측:ADJUST / 정답:REJECT deltas={}
+
+[per-item] 474 cases → eval_results/per_item/feedback_gemma_n500_20260423_0352.csv  (model=google/gemma-2-9b-it)
+
+[2/3] 슬롯 추출
+  progress 25/500  elapsed=658.4s
+  progress 50/500  elapsed=1281.6s
+  progress 75/500  elapsed=1874.4s
+  progress 100/500  elapsed=2493.5s
+  progress 125/500  elapsed=3124.8s
+  progress 150/500  elapsed=3740.9s
+  progress 175/500  elapsed=4380.1s
+  progress 200/500  elapsed=4984.6s
+  progress 225/500  elapsed=5605.1s
+  progress 250/500  elapsed=6227.0s
+  progress 275/500  elapsed=6862.9s
+  progress 300/500  elapsed=7481.7s
+  progress 325/500  elapsed=8090.4s
+  progress 350/500  elapsed=8713.4s
+  progress 375/500  elapsed=9353.8s
+  progress 400/500  elapsed=9982.6s
+  progress 425/500  elapsed=10627.0s
+  progress 450/500  elapsed=11243.2s
+  progress 475/500  elapsed=11855.7s
+  progress 500/500  elapsed=12469.3s
+[per-item] 500 cases → eval_results/per_item/slots_gemma_n500_20260423_0720.csv  (model=google/gemma-2-9b-it)
+
+============================================================
+SLOT EXTRACTION EVAL — 500 cases (12469.3s, 24.94s/case)
+============================================================
+
+[Scalar enums — exact match]
+  current_mood          :  282/ 450 =  62.7%
+  party_purpose         :  331/ 450 =  73.6%
+  strength_preference   :  268/ 450 =  59.6%
+
+[Intensity dicts]
+  taste_profile KEY presence      : P=100.0  R= 68.9  F1= 81.6  (tp=524 fp=0 fn=236)
+  taste_profile KEY+VALUE exact   : P= 91.0  R= 62.8  F1= 74.3  (tp=477 fp=47 fn=283)
+  aroma_profile KEY presence      : P=100.0  R= 35.9  F1= 52.8  (tp=273 fp=0 fn=488)
+  aroma_profile KEY+VALUE exact   : P= 82.1  R= 29.4  F1= 43.3  (tp=224 fp=49 fn=537)
+
+[List enum]
+  disliked_bases                  : P= 94.3  R= 91.6  F1= 92.9  (tp=250 fp=15 fn=23)
+
+[Favorite drinks — binary presence]
+  favorite_drinks detected :   28/ 100 =  28.0%
+
+
+[3/3] 추천 매칭 (RAG + rerank)
+Loading weights:   0%|          | 0/310 [00:00<?, ?it/s]Loading weights:   0%|          | 1/310 [00:00<01:14,  4.16it/s]Loading weights:  44%|████▎     | 135/310 [00:00<00:00, 502.04it/s]Loading weights:  71%|███████   | 220/310 [00:00<00:00, 613.36it/s]Loading weights: 100%|██████████| 310/310 [00:00<00:00, 569.53it/s]
+rerank reason rejected cid=70 fail=other_name_kr:샴페인 칵테일 raw='샴페인 칵테일은 탄산의 가벼움과 오렌지 리큐르의 향이 먼저 기억에 남는 스파클링 칵테일입니다. 사용자는 가볍게 마시는 것을 선호하며, 탄산과 오렌지 리큐르의 조합은 그의 선호도에 잘 맞습니다.'
+rerank reason rejected cid=35 fail=other_name_kr:마티니 raw='에스프레소 마티니는 에스프레소의 로스티한 향이 비교적 선명한 칵테일입니다. 사용자는 커피향을 강하게 좋아하며, 에스프레소 마티니는 크리미한 질감이 적당하지만, 사용자의 선호도에 맞는 가볍게 마시기 좋은 옵션입니다.'
+rerank reason rejected cid=96 fail=other_name_kr:팔로마 raw='키르는 과일향이 강하고, 가볍게 마시기 좋으며, 사용자 선호도에 부합합니다. 팔로마와 유사한 맛과 탄산의 가벼움을 선호하는 사용자에게 적합합니다.'
+rerank reason rejected cid=92 fail=other_name_kr:팔로마 raw='미모사는 과일향이 강하고, 탄산의 가벼움이 특징이며, 사용자 선호도에 부합합니다. 팔로마와 유사한 맛과 탄산의 가벼움을 선호하는 사용자에게 적합합니다.'
+rerank reason rejected cid=11 fail=other_name_kr:블랙 러시안 raw='메리 픽포드는 파인애플의 과일감와 체리 계열 단향이 돋보이는 칵테일로, 사용자 선호하는 과일향과 커피향과의 조화가 좋습니다. 단맛이 강하고, 즐겨 마시는 블랙 러시안과 비슷한 맛의 칵테일입니다.'
+rerank reason rejected cid=72 fail=other_name_kr:화이트 레이디 raw='화이트 레이디는 사용자께서 좋아하시는 화이트 레이디와 비슷한 맛과 향을 가지고 있으며, 도수도 낮아 다운한 기분에 잘 어울립니다. 오렌지 리큐르와 레몬의 산미가 균형을 이루며, 크리미한 맛이 없어 사용자 선호에 부합'
+rerank reason rejected cid=96 fail=other_name_kr:마이타이 raw='키르는 과일계 칵테일로, 사용자 선호하는 꽃향과 과일향을 충족하며,  특히 베이스 스피릿의 향이 먼저 떠오르는 스타일입니다.  청량감이 덜한 탓에 마이타이와 비슷한 느낌이지만, 과일향이 더욱 다채롭고 섬세하게 느껴집'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 사용자 선호도에 따라 라임의 산미가 돋보이는 맛이 적합하며, 가볍게 마시고 싶다는 점도 고려하여 선택되었습니다.'
+rerank reason rejected cid=43 fail=other_name_kr:사제락 raw='사제락은 허브향과 비터한 맛이 강하고, 사용자 선호도에 따라 쓴맛이 덜한 칵테일이라 쓴맛이 1~2.5 정도로 낮은 사제락이 적합합니다.'
+rerank reason rejected cid=69 fail=other_name_kr:라스트 워드 raw='라스트 워드는 허브 향와 체리 계열 단향이 전면에 서는 타입으로, 재료의 개성이 비교적 또렷합니다. 사용자의 커피향 선호도와 허브향 선호도를 고려하여, 라스트 워드가 적합합니다.  도수도 중간 정도라 부담없이 즐길 '
+rerank reason rejected cid=1 fail=other_name_kr:메리 픽포드 raw='메리 픽포드는 파인애플과 체리 계열 단향이 돋보이는 티키 칵테일입니다. 단맛이 강하고 과일향이 풍부하여 사용자의 선호도에 부합할 수 있습니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 전면에 서는 타입으로, 재료의 개성이 비교적 또렷합니다. 입에 닿으면 라임의 산미가 먼저 열리고, 오렌지 리큐르가 가운데를 둥글게 묶어주고 마무리는 무겁지 않게 떨'
+rerank reason rejected cid=77 fail=other_name_kr:트리니다드 사워 raw='트리니다드 사워는 비터한 쌉쌀함과 너티한 여운을 앞세워 캐릭터를 만드는 칵테일입니다. 입에 닿으면 레몬의 산미가 먼저 열리고, 중간에서는 비터한 결이 구조를 세워주고 끝에는 쌉쌀한 여운이 분명하게 남습니다. 사용자 '
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 라임의 산미가 중심을 잡는 스타일로, 사용자 선호하는 시트러스향 강하고, 단맛 강하게, 크리미한 맛을 원하는 당신에게 잘 어울립니다.  도수도 강한 옵션입니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 시트러스향이 강하고 청량감이 있는 칵테일입니다. 사용자의 선호도에 부합하며, 라임의 산미와 오렌지 리큐르의 균형이 훌륭합니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 사용자 선호도에 따라 탄산이 없는 것이 장점이며,  중간 정도의 도수와 신맛이 강한 맛이 적합합니다.'
+rerank reason rejected cid=3 fail=other_name_kr:마가리타 raw='토미스 마가리타는 라임의 산미가 돋보이는 칵테일로, 사용자 선호하는 과일향과 시트러스향과 잘 어울립니다. 단맛이 강하고 도수가 중간 정도라 사용자의 선호도에 부합하며, 식전 한 잔이나 캐주얼한 모임에서 즐길 수 있습'
+rerank reason rejected cid=82 fail=other_name_kr:스프리츠 raw='스프리츠는 탄산의 가벼움과 비터한 쌉쌀함이 먼저 기억에 남는 스파클링 칵테일입니다. 사용자 선호하는 시트러스향과 가볍게 마시기 좋은 탄산감을 가지고 있으며, 축하 자리에 어울리는 밝고 쾌활한 분위기를 연출합니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 돋보이는 칵테일로, 사용자 선호하는 허브향과 과일향과도 잘 어울립니다. 단맛은 적당하며, 가볍게 마시기 좋습니다.'
+rerank reason rejected cid=72 fail=other_name_kr:샴페인 칵테일 raw='샴페인 칵테일은 탄산의 가벼움과 오렌지 리큐르의 향이 먼저 기억에 남는 스파클링 칵테일입니다. 사용자 선호하는 과일향과 청량감을 충족시키며, 가볍고 시원한 맛이 다운한 분위기에 어울립니다.'
+rerank reason rejected cid=72 fail=other_name_kr:라스트 워드 raw='라스트 워드는 쓴맛이 강하고, 허브 향이 뚜렷하며, 도수도 2.5로 중간 정도입니다. 사용자 선호에 따라 쓴맛과 허브 향이 즐거운 칵테일입니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 라임의 산미와 오렌지 리큐르의 향이 조화롭게 어우러져 시트러스 사워 맛을 선사하며, 가볍게 마시기 좋은 도수를 가지고 있습니다. 사용자 선호도에 따라 탄산이 없는 칵테일을 선호하는 경우도 있으므로, '
+rerank reason rejected cid=72 fail=other_name_kr:마가리타 raw='위스키 사워는 레몬의 산미와 크리미한 질감이 먼저 기억에 남는 시트러스 사워 칵테일입니다.  사용자는 신맛을 강하게 선호하며 마가리타를 좋아한다는 점을 고려하여, 레몬의 산미와 크리미함이 조화로운 위스키 사워가 적합'
+rerank reason rejected cid=92 fail=other_name_kr:마가리타 raw='미모사는 오렌지 리큐르의 향과 탄산의 가벼움이 전면에 서는 타입으로, 재료의 개성이 비교적 또렷합니다. 사용자는 마가리타를 좋아한다는 점을 고려하여,  오렌지 리큐르의 향과 탄산의 가벼움이 돋보이는 미모사가 적합할 '
+rerank reason rejected cid=96 fail=other_name_kr:홀시스 넥 raw='키르는 베이스 스피릿의 향이 먼저 열리고, 중간에는 베이스 스피릿가 뼈대를 잡아주고 마무리는 무겁지 않게 떨어지는 균형 잡힌 칵테일입니다. 사용자는 홀시스 넥을 좋아한다는 점에서 균형 잡힌 맛을 선호하는 것으로 보이'
+rerank reason rejected cid=88 fail=other_name_kr:홀시스 넥 raw='스프리츠는 탄산의 가벼움과 비터한 쌉쌀함이 먼저 기억에 남는 스파클링 칵테일입니다. 사용자는 가볍게 마시기 좋은 칵테일을 선호하며, 홀시스 넥과 마찬가지로 탄산이 있는 칵테일을 선호하는 것으로 보입니다.'
+rerank reason rejected cid=69 fail=other_name_kr:사이드카 raw='사이드카는 오렌지 리큐르의 향과 레몬의 산미가 먼저 기억에 남는 시트러스 사워 칵테일입니다. 입에 닿으면 레몬의 산미가 먼저 열리고, 오렌지 리큐르가 가운데를 둥글게 묶어주고 마무리는 무겁지 않게 떨어진다. 단맛 2'
+rerank reason rejected cid=68 fail=other_name_kr:리멤버 더 메인 raw='리멤버 더 메인은 첫 향부터 허브 향이 존재감을 만듭니다. 입에 닿으면 위스키 향이 먼저 열리고, 중간에서는 허브 향이 중심을 잡아주고 마무리는 무겁지 않게 떨어집니다. 사용자 선호도에 따라 쓴맛이 강할 수 있으나,'
+rerank reason rejected cid=72 fail=other_name_kr:스프리츠 raw='스프리츠는 탄산의 가벼움과 비터한 쌉쌀함이 먼저 기억에 남는 스파클링 칵테일입니다. 입에 닿으면 탄산의 가벼움가 먼저 열리고, 중간에서는 비터한 결이 구조를 세워주고 마무리는 비교적 짧고 시원하게 정리된다. 사용자 '
+rerank reason rejected cid=43 fail=other_name_kr:사우스사이드 raw='사우스사이드는 레몬의 산미와 민트의 냉감을 앞세워 캐릭터를 만드는 칵테일입니다. 사용자 선호하는 청량감과 민트향, 시트러스향과 잘 어울리고, 가볍게 마시기 좋다는 점도 매력적입니다.'
+rerank reason rejected cid=43 fail=other_name_kr:라스트 워드 raw='라스트 워드는 허브향과 체리 계열 단향이 강조되어 사용자의 선호도에 부합합니다.  특히 허브향은 강렬하지만, 쓴맛이 뚜렷하게 나오는 것이 사용자의 선호도에 부합합니다.  라스트 워드는 깔끔하고 묵직한 맛이 특징이며,'
+rerank reason rejected cid=3 fail=other_name_kr:마가리타 raw='토미스 마가리타는 라임의 산미가 중심을 잡는 스타일로, 사용자 선호하는 쓴맛이 없는 톡 쏘는 시트러스 사워 칵테일입니다. 가볍게 마시고 싶다는 선호도와도 부합하며, 과일향을 좋아한다는 점과도 잘 어울립니다.'
+rerank reason rejected cid=20 fail=other_name_kr:다이키리 raw='돈스 스페셜 다이키리는 패션프루트 향과 라임의 산미가 돋보이는 칵테일로, 사용자 선호하는 크리미한 맛과 단맛, 과일향을 충족합니다. 톡톡 튀는 과일향이 싫으신 경우, 좀 더 부드러운 맛을 원하신다면 2번째 추천 칵테'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 균형을 이루는 시트러스 사워 칵테일입니다.  신맛을 선호하신다고 하셨으므로, 라임의 상큼함이 돋보이는 이 칵테일이 좋겠습니다.  가볍게 마시기 좋고, 데이트 분위기에 잘'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 조화롭게 어우러져 시원하고 상큼한 맛을 선사합니다. 사용자 선호도에 따라 청량감이 강하고 단맛이 적은 것을 좋아하는 사용자에게 적합하며, 혼술에 딱 맞는 스타일입니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 전면에 서는 타입으로, 재료의 개성이 비교적 또렷합니다. 입에 닿으면 라임의 산미가 먼저 열리고, 오렌지 리큐르가 가운데를 둥글게 묶어주고 마무리는 무겁지 않게 떨'
+rerank reason rejected cid=72 fail=other_name_kr:메리 픽포드 raw='메리 픽포드는 파인애플의 과일향이 강하고, 쓴맛이 없는 칵테일입니다. 사용자 선호도에 따라 과일향이 강하고 쓴맛이 없는 칵테일입니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 조화로운 칵테일로, 단맛과 신맛이 균형을 이루어 깔끔하고 상큼한 맛을 줍니다.  사워 계열이지만, 오렌지 리큐르의 달콤함이 뒷받침되어 단맛을 선호하는 당신에게도 적'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 사용자 선호도에 따라 라임의 산미가 강조되는 톡 쏘는 맛과 시원함을 선사하며, 중간 정도의 도수는 축하 분위기에 잘 어울립니다'
+rerank reason rejected cid=77 fail=other_name_kr:티퍼러리 raw='티퍼러리는 사용자의 선호도에 부합하는 허브향과 비터한 쌉쌀함을 갖춘 칵테일입니다.  가볍게 마시기 좋으며,  사용자의 선호도에 부합하는 낮은 도수의 칵테일입니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 돋보이는 칵테일로, 사용자 선호하는 과일향과 강한 도수에 부합합니다. 라임의 시트러스 향과 오렌지 리큐르의 달콤함이 조화롭게 어우러져 톡 쏘는 맛과 함께 부드러운 '
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 사용자는 단맛과 신맛을 강하게 선호하며, 민트향을 좋아한다는 점에서 라임의 시트러스 향과 민트 향이 잘 어울릴 것으로 예상됩니'
+rerank reason rejected cid=48 fail=other_name_kr:파라다이스 raw='파라다이스는 오렌지 리큐르의 향이 비교적 선명한 과일계 칵테일입니다. 사용자는 과일향을 선호하며, 중간 정도의 도수도 사용자 선호도에 부합합니다. 파라다이스는 오렌지 리큐르의 향이 직관적이고 접근성이 좋으며, 사용자'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 조화롭게 어우러져 시트러스 향이 강렬하지만, 사용자 선호도에 따라 균형을 이루는 칵테일입니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 먼저 기억에 남는 스타일입니다. 라임의 산미가 먼저 열리고, 오렌지 리큐르가 가운데를 둥글게 묶어주고 마무리는 무겁지 않게 떨어져 단맛 강하게 원하는 사용자에게 잘'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 라임의 산미와 오렌지 리큐르의 향이 조화롭게 어우러져 시트러스 사워 맛을 선사하며, 가볍게 마시기 좋은 알코올 도수를 가지고 있습니다. 사용자 선호도에 따라 탄산이 없는 칵테일을 선호하는 경우도 있으'
+rerank reason rejected cid=2 fail=other_name_kr:레몬 드롭 마티니 raw='레몬 드롭 마티니는 라임의 산미와 시트러스 향이 강조되어 사용자 선호하는 청량감과 쓴맛을 충족시킬 수 있습니다.  강한 도수를 원하는 점도 고려하여, 레몬 드롭 마티니가 가장 적합합니다.'
+rerank reason rejected cid=72 fail=other_name_kr:트리니다드 사워 raw='트리니다드 사워는 레몬의 산미가 톡톡 쏘는 맛을 선사하며, 사용자 선호하는 강한 단맛과 크리미함을 동시에 갖추고 있습니다.'
+rerank reason rejected cid=72 fail=other_name_kr:파라다이스 raw='파라다이스는 오렌지 리큐르의 향이 돋보이는 칵테일로, 사용자의 우디향과 과일향 선호도에 부합합니다.  또한, 청량감이 있는 맛이라 사용자의 선호도에 잘 맞습니다.'
+rerank reason rejected cid=3 fail=other_name_kr:마가리타 raw='토미스 마가리타는 라임의 산미가 중심을 잡는 스타일로, 사용자 선호하는 과일향과 가볍게 마시기 좋은 알코올 강도를 모두 충족합니다. 라임의 상큼함과 테킬라의 뼈대가 조화롭게 어우러져 즐거운 맛을 선사하며, 친구들과 '
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 전면에 서는 스타일로, 사용자 선호하는 쓴맛과 단맛이 적당히 균형을 이루고 있습니다. 라임의 산미가 먼저 돋보이며, 오렌지 리큐르가 가운데를 둥글게 묶어주고 마무리'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 균형을 이루는 칵테일로, 사용자 선호하는 과일향과 단맛을 충족시킬 수 있습니다.  사용자 선호하는 강한 도수도 갖추고 있으며,  라임의 산미가 톡톡 쏘는 맛은 사용'
+rerank reason rejected cid=69 fail=other_name_kr:사이드카 raw='사이드카는 오렌지 리큐르의 향과 레몬의 산미가 먼저 기억에 남는 시트러스 사워 칵테일입니다. 입에 닿으면 레몬의 산미가 먼저 열리고, 오렌지 리큐르가 가운데를 둥글게 묶어주고 마무리는 무겁지 않게 떨어진다. 단맛 2'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 돋보이는 칵테일로, 사용자 선호하는 단맛과 청량감을 충족시켜줍니다. 라임의 산미가 먼저 돋보이며, 오렌지 리큐르가 균형을 맞춰주고 마무리는 시원하게 정리되어, 사용'
+rerank reason rejected cid=3 fail=other_name_kr:마가리타 raw='토미스 마가리타는 라임의 산미가 중심을 잡는 스타일로, 사용자 선호하는 시트러스향과 과일향이 강조된 칵테일입니다.  도수도 중간 정도로, 사용자 선호도에 부합합니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 라임의 산미와 오렌지 리큐르의 향이 조화롭게 어우러져 시트러스 사워 맛을 선사하며, 단맛과 신맛이 균형을 이루어 사용자 선호에 부합합니다.  도수도 중간 정도로, 사용자의 선호도에 맞춰 즐길 수 있습'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 균형을 이루며 시트러스 향과 신맛을 동시에 만족시킬 수 있습니다. 사용자 선호도가 높은 신맛과 과일향이 돋보이며, 중간 정도의 도수도 적합합니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 전면에 서는 타입으로, 재료의 개성이 비교적 또렷합니다. 입에 닿으면 라임의 산미가 먼저 열리고, 오렌지 리큐르가 가운데를 둥글게 묶어주고 마무리는 무겁지 않게 떨'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 라임의 산미와 오렌지 리큐르의 향이 균형을 이루며, 사용자의 강한 신맛 선호에 잘 맞습니다.  단맛은 적고 크리미한 맛이 적어 사용자 선호에 부합합니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 강한 도수와 단맛을 선호하는 당신에게 적합하며, 라임의 상큼함이 기분을 좋게 만들어줄 것입니다. 축하 자리에서 즐길 수 있는 '
+rerank reason rejected cid=69 fail=other_name_kr:헤밍웨이 스페셜 raw='사제락은 허브 향와 비터한 쌉쌀함을 앞세워 캐릭터를 만드는 칵테일입니다.  단맛보다는 허브·비터의 성격이 강하며, 사용자 선호도에 따라 씁쓸한 맛을 즐기는 분께 적합합니다.  헤밍웨이 스페셜과 비슷한 맛을 가지고 있'
+rerank reason rejected cid=78 fail=other_name_kr:헤밍웨이 스페셜 raw='스팅어는 특정 한 요소보다 전체 밸런스로 캐릭터를 만드는 칵테일입니다.  브랜디/코냑 향이 먼저 떠오르고, 중간에는 브랜디/코냑이 뼈대를 잡아주고 마무리는 무겁지 않게 떨어집니다.  헤밍웨이 스페셜과 비슷한 맛을 가'
+rerank reason rejected cid=66 fail=other_name_kr:사제락 raw='맨해튼은 허브 향와 비터한 쌉쌀함이 먼저 기억에 남는 비터/허벌 칵테일입니다.  단맛보다는 허브·비터의 성격이 강하며, 사용자 선호도에 따라 씁쓸한 맛을 즐기는 분께 적합합니다.  사제락과 비슷한 맛을 가지고 있지만'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 사용자 선호도에 따라 강한 단맛과 과일향을 원하시는 점을 고려하여, 라임의 상큼함과 오렌지 리큐르의 달콤함이 어우러져 즐거운 맛을 '
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 전면에 서는 칵테일로, 사용자 선호하는 시트러스 사워 맛을 충족시킬 수 있습니다.  도수도 2.9로 중간 정도로, 사용자 선호도에 따라 딱 맞는 맛과 강도를 제공합'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 라임의 산미와 오렌지 리큐르의 향이 조화롭게 어우러져 시트러스 사워 맛을 선사하며, 단맛과 신맛이 균형을 이루어 사용자 선호에 부합합니다.  도수도 중간 정도로, 사용자의 선호도에 맞춰 즐길 수 있습'
+rerank reason rejected cid=2 fail=other_name_kr:트리니다드 사워 raw='마가리타는 오렌지 리큐르의 향과 라임의 산미가 돋보이는 칵테일로, 사용자 선호하는 시트러스향과 단맛이 강한 맛을 충족합니다. 가볍게 마시기 좋은 도수도 적합하며, 트리니다드 사워와 유사한 맛을 가지고 있어 선호하는 '
+rerank reason rejected cid=48 fail=other_name_kr:트리니다드 사워 raw='사우스사이드는 레몬의 산미와 민트의 냉감이 조화롭게 어우러져 시트러스향과 가벼운 단맛을 동시에 즐길 수 있습니다. 사용자 선호하는 시트러스향과 가볍게 마시기 좋은 도수는 물론, 트리니다드 사워와 유사한 맛을 가지고 '
+rerank reason rejected cid=96 fail=other_name_kr:트리니다드 사워 raw='키르는 과일향이 강하고 단맛이 적당하며, 사용자 선호하는 시트러스향과 단맛을 동시에 즐길 수 있습니다. 도수도 낮아 가볍게 마시기에 적합하며, 트리니다드 사워와 유사한 맛을 가지고 있어 선호하는 맛에 부합합니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 라임의 산미가 중심을 잡는 스타일로, 사용자 선호하는 시트러스향과 과일향이 강하게 드러나며, 강한 도수를 원하는 사용자에게도 적합합니다.'
+rerank reason rejected cid=3 fail=other_name_kr:마가리타 raw='토미스 마가리타는 라임의 산미가 중심을 잡는 칵테일로, 사용자 선호하는 시트러스향과 단맛을 충족합니다. 가볍게 마시기 좋은 도수도 적합하며, 친구들과의 편안한 분위기에 잘 어울립니다.'
+rerank reason rejected cid=1 fail=other_name_kr:메리 픽포드 raw='메리 픽포드는 파인애플의 과일감과 체리 계열 단향이 돋보이는 칵테일입니다. 사용자 선호도에 따라 쓴맛이 강한 칵테일을 선호하는 경우, 메리 픽포드가 적합합니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 균형을 이루며 시트러스향을 강조하는 칵테일입니다. 사용자 선호도에 맞춰 강한 시트러스향을 즐길 수 있으며, 도수도 2.9로 적당합니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 라임의 산미와 오렌지 리큐르의 향이 조화롭게 어우러져 시트러스 사워 맛을 선사하며, 강한 도수를 선호하는 당신에게 딱 맞습니다.  청량감이 뛰어나 기분 좋게 마실 수 있으며, 축하하는 분위기에도 잘 '
+rerank reason rejected cid=11 fail=other_name_kr:플랜터즈 펀치 raw='메리 픽포드는 파인애플의 과일감과 체리 계열 단향이 전면에 서는 칵테일입니다. 입에 닿으면 파인애플의 단향이 먼저 열리고, 중간에서는 럼가 뼈대를 잡아주고 마무리는 무겁지 않게 떨어진다. 사용자 선호하는 플랜터즈 펀'
+rerank reason rejected cid=77 fail=english_token:leaning raw='사이드카는 레몬의 산미와 오렌지 리큐르의 달콤함이 조화롭게 어우러져 시트러스향이 강조되는 칵테일입니다. 사용자 선호도에 따라 쓴맛이 적은 쪽으로 leaning하는 듯하여, 사이드카의 톡 쏘는 시트러스 맛과 가볍게 마'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 균형을 이루는 칵테일로, 사용자의 단맛과 산미 선호에 부합합니다.  라임의 상큼함과 오렌지 리큐르의 달콤함이 조화롭게 어우러져 시원하고 깔끔한 맛을 줍니다.'
+rerank reason rejected cid=69 fail=other_name_kr:아메리카노 raw='아메리카노는 비터한 쌉쌀함과 허브 향을 앞세워 캐릭터를 만드는 스타일입니다. 사용자는 청량감을 강하게 원하며, 커피향을 좋아한다는 점에서 아메리카노가 적합합니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 돋보이는 칵테일로, 사용자의 시트러스향과 과일향 선호도에 잘 부합합니다. 단맛은 적당하며, 강한 도수도 선호하는 범위에 있습니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 라임의 산미와 오렌지 리큐르의 향이 조화롭게 어우러져 청량감이 강하고 단맛도 즐길 수 있는 칵테일입니다. 사용자 선호도에 따라 라임의 시트러스 향이 돋보이는 맛이 좋을 것 같습니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 돋보이는 칵테일로, 사용자 선호하는 쓴맛과 단맛을 동시에 충족시킬 수 있습니다.  시트러스 향이 강하지만, 톡 쏘는 맛이 덜한 편이라 다운한 기분에 어울릴 수 있습니다.'
+rerank reason rejected cid=69 fail=other_name_kr:파라다이스 raw='파라다이스는 오렌지 리큐르의 향이 뚜렷하고, 시트러스 향과 우디 향을 모두 좋아하신다고 하셨기에,'
+rerank reason rejected cid=72 fail=other_name_kr:사이드카 raw='사이드사이드는 레몬의 산미와 크리미한 질감이 먼저 기억에 남는 시트러스 사워 칵테일입니다. 사용자 선호도에 따라 레몬의 산미와 우디향, 과일향이 잘 어울리는 칵테일입니다. 가볍게 마시고 싶다는 점을 고려하여 사이드카'
+rerank reason rejected cid=3 fail=other_name_kr:그랑 마가리타 raw='토미스 마가리타는 라임의 산미가 중심을 잡는 스타일로, 사용자의 청량감 선호도와 잘 어울립니다. 단맛이 적고, 라임의 시트러스 향이 강조되어 즐겨 마시는 그랑 마가리타와도 맥락이 통합니다.  도수도 중간 정도로, 사'
+rerank reason rejected cid=2 fail=other_name_kr:그랑 마가리타 raw="마가리타는 라임의 산미와 오렌지 리큐르의 향이 돋보이는 칵테일입니다. 사용자의 '청량감 강하게, 단맛 배제' 선호도와도 일치하며, 그랑 마가리타와 유사한 맛과 향을 가지고 있어 친숙하게 받아들일 수 있습니다. 도수도"
+rerank reason rejected cid=77 fail=other_name_kr:화이트 레이디 raw="사이드카는 레몬의 산미가 톡톡 쏘는 시트러스 사워 칵테일로, 쓴맛이 없는 깔끔한 맛이 특징입니다.  중간 정도의 도수로, '그냥저냥'한 분위기에 잘 어울리고, 사용자께서 좋아하시는 화이트 레이디와 비슷한 시트러스 사"
+rerank reason rejected cid=69 fail=other_name_kr:메리 픽포드 raw="메리 픽포드는 파인애플과 체리의 달콤한 과일향이 돋보이는 티키 칵테일입니다.  쓴맛이 없고, 단맛이 강하며, '그냥저냥'한 분위기에 잘 어울리는 칵테일입니다.  도수도 낮아 사용자의 선호도에 부합합니다."
+rerank reason rejected cid=34 fail=other_name_kr:블랙 러시안 raw='시 브리즈는 자몽의 상큼함과 톡톡 쏘는 시원함이 돋보이는 칵테일입니다. 사용자분께서 청량감을 강하게 원하시고 블랙 러시안과는 다른 맛을 원하신다면 시 브리즈가 적합할 것 같습니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 균형 잡힌 맛이 특징이며, 시트러스 향이 강하지만 과도하지 않아 사용자분께서 좋아하실 수 있습니다.'
+rerank reason rejected cid=57 fail=other_name_kr:파라다이스 raw="파라다이스는 오렌지 리큐르의 향이 뚜렷하고, 시트러스향과 과일향이 강하여 사용자의 '과일향' 선호도와 잘 어울립니다. 도수도 2.5로 '중간' 선호도에 맞습니다."
+rerank reason rejected cid=3 fail=other_name_kr:마가리타 raw='토미스 마가리타는 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다.  가볍게 마시기 좋고, 시트러스향을 좋아하는 당신께 딱 맞는 칵테일입니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 사용자 선호도에 따라 단맛 강하게 원하시는 점을 고려하여, 시트러스향과 단맛이 강한 그랑 마가리타가 적합합니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 사용자 선호도에 따라 단맛 강하고 크리미한 맛을 원하시는 점을 고려하여, 라임의 산미와 오렌지 리큐르의 균형이 훌륭하며, 강한'
+rerank reason rejected cid=77 fail=other_name_kr:파라다이스 raw='파라다이스는 오렌지 리큐르의 향이 비교적 선명한 칵테일입니다.  단맛이 강하고 시트러스향이 강하게 느껴지며,  도수가 중간 정도로, 사용자 선호에 부합합니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 전면에 서는 타입으로, 재료의 개성이 비교적 또렷합니다. 입에 닿으면 라임의 산미가 먼저 열리고, 오렌지 리큐르가 가운데를 둥글게 묶어주고 마무리는 무겁지 않게 떨'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 사용자 선호도에 따라 단맛이 강하고 우디향이 섞인 칵테일입니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 사용자 선호에 따라 쓴맛은 덜하고, 강한 도수를 원하는 점을 고려하여 선택했습니다. 라임의 상큼함과 오렌지 리큐르의 달콤함이 조화롭'
+rerank reason rejected cid=76 fail=other_name_kr:화이트 레이디 raw='화이트 레이디는 오렌지 리큐르와 레몬의 산미가 균형을 이루며 시트러스향과 허브향이 강조되는 스타일입니다. 사용자 선호하는 단맛과 허브향, 시트러스향이 잘 어우러지며, 축하 자리에 어울리는 밝고 시원한 분위기까지 갖추'
+rerank reason rejected cid=90 fail=other_name_kr:미모사 raw='미모사는 오렌지 리큐르의 달콤함과 탄산의 가벼움이 조화롭게 어우러져 상큼하고 시원한 맛을 선사합니다. 사용자 선호도에 따라 쓴맛이 강한 칵테일을 선호하는 경우도 있으나, 본 칵테일은 쓴맛이 없는 것이 장점입니다. 가'
+rerank reason rejected cid=69 fail=other_name_kr:스팅어 raw='스팅어는 브랜디/코냑 향과 허브 향이 균형을 이루는 칵테일로, 사용자의 꽃향을 제외한 다른 향 선호도와 어울립니다. 도수도 낮아 사용자의 선호도에 맞으며, 믹서보다 베이스의 개성과 피니시가 돋보이는 스타일입니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 강한 도수를 선호하는 당신에게 딱 맞는 묵직하고 깊은 맛을 선사하며, 오렌지 리큐르와 라임의 조화로운 맛이 즐거움을 더합니다.'
+rerank reason rejected cid=43 fail=other_name_kr:프렌치 마티니 raw="프렌치 마티니는 파인애플의 과일향이 선명하게 느껴지는 칵테일로, 사용자의 '단맛 강하게' 선호도와 잘 부합합니다.  또한, 과일향을 좋아하시는 점을 고려하여 추천되었습니다.  단맛의 깊이를 즐길 수 있는 스타일입니다"
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 전면에 서는 타입으로, 재료의 개성이 비교적 또렷합니다. 라임의 산미가 먼저 열리고, 오렌지 리큐르가 가운데를 둥글게 묶어주고 마무리는 무겁지 않게 떨어집니다. 강'
+rerank reason rejected cid=11 fail=other_name_kr:페이퍼 플레인 raw='메리 픽포드는 파인애플의 과일감과 체리 계열 단향이 돋보이는 칵테일로, 사용자의 선호하는 과일향과 페이퍼 플레인과 비슷한 낮은 도수에 부합합니다.  달콤하고 톡톡 튀는 맛이 즐거운 칵테일입니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 라임의 산미와 오렌지 리큐르의 향이 조화롭게 어우러져 사용자 선호에 부합합니다. 도수도 중간 정도이며, 쓴맛이나 크림이 없는 스타일입니다.'
+rerank reason rejected cid=69 fail=other_name_kr:사이드카 raw='사이드카는 오렌지 리큐르의 향과 레몬의 산미가 먼저 기억에 남는 시트러스 사워 칵테일입니다. 입에 닿으면 레몬의 산미가 먼저 열리고, 오렌지 리큐르가 가운데를 둥글게 묶어주고 마무리는 무겁지 않게 떨어진다. 단맛 2'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 전면에 서는 칵테일입니다. 사용자 선호하는 신맛 강하고, 도수도 강한 것을 좋아한다는 점을 고려하여, 톡 쏘는 라임과 달콤한 오렌지 리큐르가 어우러진 이 칵테일이 '
+rerank reason rejected cid=2 fail=other_name_kr:마티니 raw='레몬 드롭 마티니와 유사한 시트러스 사워 칵테일입니다. 레몬의 산미와 오렌지 리큐르의 향이 균형을 이루며, 사용자 선호하는 단맛과 시트러스향과도 잘 어울릴 것 같습니다. 가볍게 마시기 좋고, 레몬 드롭 마티니와 비슷'
+rerank reason rejected cid=72 fail=other_name_kr:샤르트뢰즈 스위즐 raw='위스키 사워는 레몬의 산미와 크리미한 질감이 먼저 기억에 남는 시트러스 사워 칵테일입니다. 입에 닿으면 레몬의 산미가 먼저 열리고, 중간부터 질감이 한층 부드러워지고 피니시는 둥글고 부드럽게 남는다. 전체 인상이 비'
+rerank reason rejected cid=48 fail=other_name_kr:샤르트뢰즈 스위즐 raw='사우스사이드는 레몬의 산미와 민트의 냉감을 앞세워 캐릭터를 만드는 스타일입니다. 입에 닿으면 레몬의 산미가 먼저 열리고, 중간부터 질감이 한층 부드러워지고 마무리는 비교적 짧고 시원하게 정리된다. 전체 인상이 비교적'
+rerank reason rejected cid=90 fail=other_name_kr:샤르트뢰즈 스위즐 raw='트리니다드 사워는 비터한 쌉쌀함과 너티한 여운을 앞세워 캐릭터를 만드는 스타일입니다. 입에 닿으면 레몬의 산미가 먼저 열리고, 중간에서는 비터한 결이 구조를 세워주고 끝에는 쌉쌀한 여운이 분명하게 남는다.  사용자 '
+rerank reason rejected cid=11 fail=other_name_kr:미셔너리즈 다운폴 raw='메리 픽포드는 파인애플과 체리 계열 단향이 전면에 서는 타입으로, 재료의 개성이 비교적 또렷합니다. 입에 닿으면 파인애플의 단향이 먼저 열리고, 중간에서는 럼가 뼈대를 잡아주고 마무리는 무겁지 않게 떨어진다. 사용자'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 전면에 서는 타입으로, 재료의 개성이 비교적 또렷합니다. 입에 닿으면 라임의 산미가 먼저 열리고, 오렌지 리큐르가 가운데를 둥글게 묶어주고 마무리는 무겁지 않게 떨'
+rerank reason rejected cid=35 fail=other_name_kr:마티니 raw='에스프레소 마티니는 에스프레소의 로스티한 향과 단맛이 강하며, 커피향과 과일향을 모두 좋아하는 당신께 딱 맞습니다.  크리미한 질감은 부드럽고, 늦은 밤 텐션을 살리고 싶을 때 잘 어울리는 칵테일입니다.'
+rerank reason rejected cid=28 fail=other_name_kr:마티니 raw='레몬 드롭 마티니는 레몬의 산미와 오렌지 리큐르의 향이 균형을 이루는 칵테일입니다. 사용자께서 레몬 드롭 마티니와 비슷한 맛을 선호하신다면,  새로운 맛을 경험하며 즐길 수 있습니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 돋보이는 칵테일로, 사용자 선호하는 과일향과 강한 도수에 부합합니다. 라임의 시트러스 향과 오렌지 리큐르의 달콤함이 조화롭게 어우러져 톡 쏘는 맛과 함께 부드러운 '
+rerank reason rejected cid=3 fail=other_name_kr:마가리타 raw='토미스 마가리타는 라임의 산미가 중심을 잡는 스타일로, 사용자 선호도에 따라 라임의 산미가 적당합니다.  도수가 중간 정도이므로 사용자의 선호도에 부합합니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 사용자 선호도에 따라 단맛 강하고 시트러스향 강한 맛을 원하는 데 적합하며, 데이트 분위기에도 잘 어울립니다.'
+rerank reason rejected cid=72 fail=other_name_kr:트리니다드 사워 raw='트리니다드 사워는 비터한 쌉쌀함과 너티한 여운이 돋보이는 칵테일입니다. 사용자는 쓴맛과 우디향을 강하게 선호하며, 혼술에 적합한 칵테일입니다. 레몬의 산미가 먼저 퍼지고, 쓴맛과 향신료가 중심을 잡으며 마무리는 쌉쌀'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 돋보이는 칵테일로, 사용자 선호하는 시트러스향과 꽃향, 그리고 강한 도수에 부합합니다. 라임의 산미가 톡톡 쏘는 맛과 오렌지 리큐르의 달콤함이 조화롭게 어우러져 균'
+rerank reason rejected cid=66 fail=english_token:cocktail raw='맨해튼은 허브 향와 비터한 쌉쌀함이 먼저 기억에 남는 비터/허벌 칵테일입니다. 입에 닿으면 위스키 향이 먼저 열리고, 중간에서는 비터한 결이 구조를 세워주고 마무리는 무겁지 않게 떨어집니다.  사용자 선호하는 우디향'
+rerank reason rejected cid=72 fail=other_name_kr:트리니다드 사워 raw='트리니다드 사워는 비터한 쌉쌀함과 너티한 여운이 특징이며, 사용자의 크리미한 질감 선호도와 허브향 선호도에 부합합니다. 또한, 강한 도수를 선호하는 점도 고려하여 선택되었습니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 전면에 서는 타입으로, 재료의 개성이 비교적 또렷합니다. 입에 닿으면 라임의 산미가 먼저 열리고, 오렌지 리큐르가 가운데를 둥글게 묶어주고 마무리는 무겁지 않게 떨'
+rerank reason rejected cid=46 fail=other_name_kr:몽키 글랜드 raw='몽키 글랜드는 오렌지 리큐르의 향과 허브 향이 균형을 이루며, 사용자 선호하는 꽃향과 우디향을 모두 갖추고 있습니다. 단맛과 쓴맛이 강하며, 도수도 중간 정도로, 다운한 분위기에 잘 어울리는 칵테일입니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 돋보이는 시트러스 사워 스타일입니다. 사용자 선호도에 따라 라임의 시트러스향이 강조되는 칵테일이기에, 쓴맛과 청량감이 없는 칵테일을 원하는 사용자에게 적합합니다. 또한,'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 먼저 기억에 남는 칵테일입니다. 라임의 산미가 먼저 열리고, 오렌지 리큐르가 가운데를 둥글게 묶어주고 마무리는 무겁지 않게 떨어집니다. 단맛이 강하게 원하는 당신에'
+rerank reason rejected cid=72 fail=other_name_kr:사우스사이드 raw='사우스사이드는 레몬의 산미와 민트의 냉감이 돋보이는 칵테일로, 사용자의 선호하는 허브향과 산미에 부합합니다.  가볍게 마시기 좋은 칵테일이라 친구들과 편하게 모임에서 즐길 수 있습니다.'
+rerank reason rejected cid=3 fail=other_name_kr:마가리타 raw='토미스 마가리타는 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 청량감이 강하고, 탄산이 섞여있지 않아 좀 더 깊이 있는 맛을 느낄 수 있습니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 조화롭게 어우러진 시트러스 사워 칵테일입니다.  청량감이 강하고, 탄산이 섞여있지 않아 좀 더 깊이 있는 맛을 느낄 수 있습니다.'
+rerank reason rejected cid=43 fail=other_name_kr:라스트 워드 raw='라스트 워드는 민트향과 우디향이 강하고, 쓴맛이 덜한 칵테일입니다.  가볍게 마시기 좋으며, 사용자 선호와 부합합니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 조화롭게 어우러져 상큼하고 시원한 맛을 선사합니다. 사용자 선호도에 따라 단맛과 과일향을 좋아하는 당신에게 딱 맞는 칵테일이며, 가볍게 마시기에 좋습니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 균형을 이루는 시트러스 사워 칵테일입니다. 사용자 선호하는 과일향과 시트러스향을 충족시키며, 강한 도수를 원하는 점도 고려하여 선택되었습니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 산미가 조화로운 시트러스 사워 칵테일입니다. 사용자 선호도에 따라 상큼한 라임과 달콤한 오렌지 리큐르의 조합이 균형을 이루며, 중간 정도의 도수는 다운한 분위기에 잘 어울립니다'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르와 라임의 상큼한 맛이 조화롭게 어우러져 강렬하지만 깔끔한 맛을 선사합니다. 쓴맛이 없고, 시트러스 향이 톡톡 쏘는 맛은 데이트 분위기에 잘 어울리며, 강한 도수도 즐길 수 있습니다.'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 라임의 산미와 오렌지 리큐르의 향이 조화롭게 어우러져, 단맛을 좋아하는 당신에게 훌륭한 선택입니다.  🌸  가볍게 마시기에 좋고, 톡 쏘는 시트러스 향이 기분을 전환시켜줄 거예요.'
+rerank reason rejected cid=72 fail=other_name_kr:트리니다드 사워 raw='트리니다드 사워는 비터한 쌉쌀함과 너티한 여운이 돋보이는 칵테일입니다. 사용자께서 단맛과 크리미함을 선호하신다면, 비터한 맛과 허브 향이 어울리는 칵테일이 될 것입니다.  도수도 강한 것을 선호하시므로, 2.5/5의'
+rerank reason rejected cid=88 fail=other_name_kr:스팅어 raw='스팅어는 브랜디/코냑 향과 허브 향이 돋보이는 칵테일입니다. 사용자께서 단맛과 크리미함을 선호하신다면, 브랜디/코냑 향과 허브 향이 어울리는 칵테일이 될 것입니다.  도수도 강한 것을 선호하시므로, 2.5/5의 알코'
+rerank reason rejected cid=1 fail=other_name_kr:마가리타 raw='그랑 마가리타는 오렌지 리큐르의 향과 라임의 산미가 돋보이는 시트러스 사워 칵테일입니다. 사용자 선호도에 따라 단맛과 신맛이 강한 맛을 제공하며, 시트러스 향과 과일향이 강하게 어우러져 사용자의 선호도에 부합합니다.'
+  progress 25/500  elapsed=1082.2s
+  progress 50/500  elapsed=2114.6s
+  progress 75/500  elapsed=3216.1s
+  progress 100/500  elapsed=4275.3s
+  progress 125/500  elapsed=5365.3s
+  progress 150/500  elapsed=6409.5s
+  progress 175/500  elapsed=7470.4s
+  progress 200/500  elapsed=8478.3s
+  progress 225/500  elapsed=9473.9s
+  progress 250/500  elapsed=10588.8s
+  progress 275/500  elapsed=11639.8s
+  progress 300/500  elapsed=12761.6s
+  progress 325/500  elapsed=13766.5s
+  progress 350/500  elapsed=14734.7s
+  progress 375/500  elapsed=15764.9s
+  progress 400/500  elapsed=16837.1s
+  progress 425/500  elapsed=18015.8s
+  progress 450/500  elapsed=19037.1s
+  progress 475/500  elapsed=20057.7s
+  progress 500/500  elapsed=21123.4s
+
+[LLM 추천 적합도 평가] 총 500건
+  Hit@1  (top1 정답 포함): 43/500 = 8.6%
+  Hit@3  (top3 정답 포함): 73/500 = 14.6%
+  카테고리 Hit@3:           249/500 = 49.8%
+  후보 없음:                0/500 = 0.0%
+  소요 시간:                21123.4s (42.25s/case)
+  [per-item] 500 cases → eval_results/per_item/rec_gemma_n500_20260423_1312.csv  (model=google/gemma-2-9b-it)
+
+============================================================
+ 최종 요약 — tag=gemma_n500  model=google/gemma-2-9b-it  20260423_0329
+ limit=500
+============================================================
+  피드백 전체 정확도        : 97.5%
+    └ ADJUST 델타 검출률    : 77.0%
+  슬롯 scalar enum 평균     : 65.3%
+    └ current_mood          : 62.7%
+    └ party_purpose         : 73.6%
+    └ strength_preference   : 59.6%
+  taste_profile KV F1       : 74.3
+  aroma_profile KV F1       : 43.3
+  disliked_bases F1         : 92.9
+  favorite_drinks 검출률    : 28.0%
+  추천 Hit@1                : 8.6%
+  추천 Hit@3                : 14.6%
+  카테고리 Hit@3            : 49.8%
+  후보 없음 비율            : 0.0%
+
+저장: eval_results/quantitative/all_gemma_n500_20260423_0329.json
+      eval_results/quantitative/all_gemma_n500_20260423_0329.txt
+[2026-04-23 13:12:42] done   tag=gemma_n500  rc=0
+==========================================
+ [2026-04-23 13:12:42] start  tag=qwen_n500  model=Qwen/Qwen3-8B  limit=500
+==========================================
+============================================================
+ LLM 통합 평가 | model=Qwen/Qwen3-8B | tag=qwen_n500 | 20260423_1312
+ limit=500
+============================================================
+
+[1/3] 피드백 인텐트 분류
+Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]Loading weights:   0%|          | 1/399 [00:00<03:58,  1.67it/s]Loading weights:   1%|          | 2/399 [00:01<03:55,  1.69it/s]Loading weights:   1%|          | 4/399 [00:01<01:40,  3.94it/s]Loading weights:   2%|▏         | 6/399 [00:01<01:03,  6.24it/s]Loading weights:   4%|▍         | 16/399 [00:01<00:18, 20.62it/s]Loading weights:   6%|▌         | 24/399 [00:01<00:11, 31.35it/s]Loading weights:   7%|▋         | 29/399 [00:01<00:11, 31.36it/s]Loading weights:   9%|▉         | 37/399 [00:01<00:08, 41.30it/s]Loading weights:  11%|█         | 43/399 [00:02<00:08, 42.46it/s]Loading weights:  12%|█▏        | 49/399 [00:02<00:08, 42.29it/s]Loading weights:  15%|█▍        | 59/399 [00:02<00:07, 46.54it/s]Loading weights:  16%|█▌        | 64/399 [00:02<00:07, 42.46it/s]Loading weights:  18%|█▊        | 70/399 [00:02<00:07, 45.05it/s]Loading weights:  19%|█▉        | 75/399 [00:02<00:07, 43.95it/s]Loading weights:  20%|██        | 81/399 [00:02<00:06, 47.36it/s]Loading weights:  22%|██▏       | 86/399 [00:02<00:06, 45.71it/s]Loading weights:  23%|██▎       | 93/399 [00:03<00:06, 45.65it/s]Loading weights:  25%|██▌       | 101/399 [00:03<00:05, 53.43it/s]Loading weights:  27%|██▋       | 107/399 [00:03<00:06, 47.88it/s]Loading weights:  29%|██▊       | 114/399 [00:03<00:05, 52.06it/s]Loading weights:  30%|███       | 120/399 [00:03<00:05, 50.36it/s]Loading weights:  32%|███▏      | 126/399 [00:03<00:05, 49.38it/s]Loading weights:  34%|███▍      | 136/399 [00:03<00:04, 55.00it/s]Loading weights:  36%|███▌      | 142/399 [00:04<00:04, 52.99it/s]Loading weights:  37%|███▋      | 148/399 [00:04<00:04, 50.86it/s]Loading weights:  40%|███▉      | 158/399 [00:04<00:04, 55.64it/s]Loading weights:  41%|████      | 164/399 [00:04<00:04, 52.95it/s]Loading weights:  43%|████▎     | 170/399 [00:04<00:04, 50.75it/s]Loading weights:  44%|████▍     | 177/399 [00:04<00:04, 54.62it/s]Loading weights:  46%|████▌     | 183/399 [00:04<00:05, 42.39it/s]Loading weights:  48%|████▊     | 191/399 [00:05<00:04, 47.98it/s]Loading weights:  49%|████▉     | 197/399 [00:05<00:04, 46.76it/s]Loading weights:  51%|█████     | 203/399 [00:05<00:04, 43.91it/s]Loading weights:  53%|█████▎    | 210/399 [00:05<00:03, 48.75it/s]Loading weights:  54%|█████▍    | 216/399 [00:05<00:04, 44.82it/s]Loading weights:  56%|█████▋    | 225/399 [00:05<00:03, 49.36it/s]Loading weights:  58%|█████▊    | 233/399 [00:05<00:02, 56.10it/s]Loading weights:  60%|█████▉    | 239/399 [00:06<00:03, 48.19it/s]Loading weights:  62%|██████▏   | 246/399 [00:06<00:02, 52.63it/s]Loading weights:  63%|██████▎   | 252/399 [00:06<00:02, 50.98it/s]Loading weights:  65%|██████▍   | 258/399 [00:06<00:02, 50.78it/s]Loading weights:  66%|██████▋   | 265/399 [00:06<00:02, 53.88it/s]Loading weights:  68%|██████▊   | 271/399 [00:06<00:02, 47.17it/s]Loading weights:  70%|██████▉   | 279/399 [00:06<00:02, 53.22it/s]Loading weights:  71%|███████▏  | 285/399 [00:06<00:02, 50.27it/s]Loading weights:  73%|███████▎  | 291/399 [00:07<00:02, 48.54it/s]Loading weights:  74%|███████▍  | 296/399 [00:07<00:02, 47.53it/s]Loading weights:  76%|███████▌  | 302/399 [00:07<00:02, 44.75it/s]Loading weights:  77%|███████▋  | 309/399 [00:07<00:01, 49.03it/s]Loading weights:  79%|███████▉  | 315/399 [00:07<00:01, 43.84it/s]Loading weights:  81%|████████  | 323/399 [00:07<00:01, 51.91it/s]Loading weights:  82%|████████▏ | 329/399 [00:07<00:01, 49.98it/s]Loading weights:  84%|████████▍ | 335/399 [00:07<00:01, 47.73it/s]Loading weights:  86%|████████▋ | 345/399 [00:08<00:00, 54.06it/s]Loading weights:  88%|████████▊ | 351/399 [00:08<00:00, 52.13it/s]Loading weights:  89%|████████▉ | 357/399 [00:08<00:00, 50.27it/s]Loading weights:  91%|█████████▏| 365/399 [00:08<00:00, 57.46it/s]Loading weights:  93%|█████████▎| 371/399 [00:08<00:00, 50.10it/s]Loading weights:  95%|█████████▍| 378/399 [00:08<00:00, 54.46it/s]Loading weights:  96%|█████████▌| 384/399 [00:08<00:00, 51.87it/s]Loading weights:  98%|█████████▊| 390/399 [00:09<00:00, 49.83it/s]Loading weights: 100%|█████████▉| 398/399 [00:09<00:00, 57.26it/s]Loading weights: 100%|██████████| 399/399 [00:09<00:00, 43.69it/s]
+The following generation flags are not valid and may be ignored: ['temperature', 'top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.

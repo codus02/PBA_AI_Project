@@ -51,7 +51,7 @@ def main(tag: str, model: str | None, limit: int | None = None):
 
     # ---------------- 1/3 피드백 ----------------
     print("\n[1/3] 피드백 인텐트 분류")
-    feedback = eval_feedback(limit=limit)
+    feedback = eval_feedback(limit=limit, tag=tag)
     fb_lines = feedback.pop("_summary_lines", [])
     save_eval_result(
         kind="feedback", tag=tag, limit=limit,
@@ -60,7 +60,7 @@ def main(tag: str, model: str | None, limit: int | None = None):
 
     # ---------------- 2/3 슬롯 ----------------
     print("\n[2/3] 슬롯 추출")
-    slots = eval_slots_llm(limit=limit)
+    slots = eval_slots_llm(limit=limit, tag=tag)
     sl_lines = slots.pop("_summary_lines", [])
     save_eval_result(
         kind="slots", tag=tag, limit=limit,
@@ -69,7 +69,7 @@ def main(tag: str, model: str | None, limit: int | None = None):
 
     # ---------------- 3/3 추천 ----------------
     print("\n[3/3] 추천 매칭 (RAG + rerank)")
-    rec = eval_recommendation(limit=limit)
+    rec = eval_recommendation(limit=limit, tag=tag)
     rc_lines = rec.pop("_summary_lines", [])
     save_eval_result(
         kind="rec", tag=tag, limit=limit,

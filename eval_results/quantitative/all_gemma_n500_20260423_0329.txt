@@ -1,0 +1,18 @@
+============================================================
+ 최종 요약 — tag=gemma_n500  model=google/gemma-2-9b-it  20260423_0329
+ limit=500
+============================================================
+  피드백 전체 정확도        : 97.5%
+    └ ADJUST 델타 검출률    : 77.0%
+  슬롯 scalar enum 평균     : 65.3%
+    └ current_mood          : 62.7%
+    └ party_purpose         : 73.6%
+    └ strength_preference   : 59.6%
+  taste_profile KV F1       : 74.3
+  aroma_profile KV F1       : 43.3
+  disliked_bases F1         : 92.9
+  favorite_drinks 검출률    : 28.0%
+  추천 Hit@1                : 8.6%
+  추천 Hit@3                : 14.6%
+  카테고리 Hit@3            : 49.8%
+  후보 없음 비율            : 0.0%

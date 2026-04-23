@@ -238,13 +238,11 @@ def save_space_analysis(
     party_session_id: str | Any,
     image_path: str,
     mood_tags_json: dict,
-    mood_weight: float = 0.30,
 ) -> PartySpaceAnalysis:
     row = PartySpaceAnalysis(
         party_session_id=party_session_id,
         image_path=image_path,
         mood_tags_json=mood_tags_json,
-        mood_weight=_to_decimal(mood_weight),
     )
     db.add(row)
     db.commit()

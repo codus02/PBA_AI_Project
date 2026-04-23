@@ -383,6 +383,28 @@ def should_move_to_recommendation(
         return True, llm_stop_reason or "llm_recommend"
     return False, "keep_collecting"
 
+
+_PROCEED_REASON_TO_OPENER = {
+    "completion_threshold": "취향을 충분히 파악했어요. 맞춤 칵테일을 골라드릴게요.",
+    "user_requested":       "네, 바로 추천해드릴게요.",
+    "turn_limit":           "지금까지 말씀해주신 내용으로 추천해드릴게요.",
+    "llm_recommend":        "이 정도면 충분할 것 같아요. 이제 추천으로 넘어갈게요.",
+}
+
+# 80% 미만에서도 통과시키는 reason → /recommend-sample 에 force=True 가 필요함.
+_PROCEED_REASONS_FORCE = {"user_requested", "turn_limit"}
+
+
+def transition_opener(reason: str) -> str:
+    """proceed_to_recommendation 직전에 사용자에게 보낼 전환 멘트."""
+    return _PROCEED_REASON_TO_OPENER.get(reason, _PROCEED_REASON_TO_OPENER["llm_recommend"])
+
+
+def proceed_requires_force(reason: str) -> bool:
+    """이 reason 은 completion<80 에서도 통과 → /recommend-sample 에 force 필요."""
+    return reason in _PROCEED_REASONS_FORCE
+
+
 # ============================================================
 # 피드백 인텐트 분류 + 벡터 델타 (LLM 단일 호출)
 # ============================================================
@@ -598,6 +620,10 @@ def _apply_feedback_sign_rules(text: str, deltas: dict[str, float]) -> dict[str,
             continue
         pre_window = text[max(0, hit_pos - 15): hit_pos]
         if any(w in pre_window for w in _FEEDBACK_SUBJECT_CONFLICT.get(axis, [])):
+            continue
+        # "더" 가 앞에 있으면 "좀 더 달아", "더 달아도 좋을" 같은 positive request →
+        # 불평 룰로 덮어쓰지 말고 LLM 의 부호를 그대로 유지한다.
+        if "더" in pre_window:
             continue
         mag = 0.3
         for adverbs, m in _FEEDBACK_DEGREE_MAG:

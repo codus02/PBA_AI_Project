@@ -1,0 +1,13 @@
+{
+  "kind": "rec",
+  "tag": "gemma_n500",
+  "model": "google/gemma-2-9b-it",
+  "timestamp": "20260423_1312",
+  "limit": 500,
+  "hit@1": 0.086,
+  "hit@3": 0.146,
+  "cat_hit@3": 0.498,
+  "no_candidate_rate": 0.0,
+  "n": 500,
+  "elapsed_sec": 21123.419203969184
+}

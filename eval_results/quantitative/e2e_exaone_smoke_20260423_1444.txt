@@ -1,0 +1,30 @@
+============================================================
+ E2E EVAL — tag=exaone_smoke  model=EXAONE  20260423_1444
+ limit=20
+============================================================
+[per-item] 20 cases → eval_results/per_item/e2e_exaone_smoke_20260423_1444.csv  (model=EXAONE)
+
+============================================================
+E2E EVAL — 20 cases (33.2s, 1.66s/case)
+============================================================
+
+[Slot Extraction]
+  scalar enums — exact match
+    current_mood          :    0/  19 =   0.0%
+    party_purpose         :    0/  15 =   0.0%
+    strength_preference   :    0/  18 =   0.0%
+  intensity dicts
+    taste_profile KEY presence      : P=  0.0  R=  0.0  F1=  0.0  (tp=0 fp=0 fn=34)
+    taste_profile KEY+VALUE exact   : P=  0.0  R=  0.0  F1=  0.0  (tp=0 fp=0 fn=34)
+    aroma_profile KEY presence      : P=  0.0  R=  0.0  F1=  0.0  (tp=0 fp=0 fn=36)
+    aroma_profile KEY+VALUE exact   : P=  0.0  R=  0.0  F1=  0.0  (tp=0 fp=0 fn=36)
+  list enum
+    disliked_bases                  : P=  0.0  R=  0.0  F1=  0.0  (tp=0 fp=0 fn=5)
+  favorite_drinks — binary presence
+    detected :    0/  20 =   0.0%
+
+[Recommendation (extracted slots → top-3 vs gold)]
+  Hit@1           : 2/20 = 10.0%
+  Hit@3           : 6/20 = 30.0%
+  카테고리 Hit@3   : 13/20 = 65.0%
+  후보 없음        : 0/20 = 0.0%

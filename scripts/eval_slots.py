@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -103,12 +105,14 @@ class PRF:
 # 평가 루프
 # ============================================================
 
-def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | None = None):
+def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | None = None,
+             tag: str | None = None):
     df = pd.read_csv(CSV_PATH)
     if limit:
         df = df.head(limit)
 
     failures: list[dict] = []
+    per_item: list[dict] = []
 
     enum_acc = {k: Accum() for k in ["current_mood", "party_purpose", "strength_preference"]}
 
@@ -126,6 +130,10 @@ def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | N
         pred = result["extracted_slots"]
 
         mismatches: list[str] = []
+        rec: dict = {
+            "case_id": getattr(row, "case_id", i),
+            "user_text": row.user_text,
+        }
 
         # scalar enums
         for csv_key, slot_key in [
@@ -134,10 +142,14 @@ def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | N
             ("gold_strength_preference", "strength_preference"),
         ]:
             g = _s(getattr(row, csv_key))
-            if g is None:
-                continue  # gold 비어 있으면 평가 대상 아님
             p = pred.get(slot_key)
+            rec[f"{slot_key}_gold"] = g
+            rec[f"{slot_key}_pred"] = p
+            if g is None:
+                rec[f"{slot_key}_hit"] = ""
+                continue  # gold 비어 있으면 평가 대상 아님
             ok = (p == g)
+            rec[f"{slot_key}_hit"] = int(ok)
             enum_acc[slot_key].add(ok)
             if not ok:
                 mismatches.append(f"{slot_key}: gold={g!r} pred={p!r}")
@@ -145,34 +157,52 @@ def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | N
         # taste_profile
         g_taste = _parse_json_dict(row.gold_taste_profile)
         p_taste = pred.get("taste_profile") or {}
+        rec["taste_gold"] = json.dumps(g_taste, ensure_ascii=False)
+        rec["taste_pred"] = json.dumps(p_taste, ensure_ascii=False)
         if g_taste or p_taste:
             taste_key_prf.add(set(p_taste.keys()), set(g_taste.keys()))
             taste_kv_prf.add(
                 {(k, v) for k, v in p_taste.items()},
                 {(k, v) for k, v in g_taste.items()},
             )
-            if {(k, v) for k, v in p_taste.items()} != {(k, v) for k, v in g_taste.items()}:
+            taste_exact = {(k, v) for k, v in p_taste.items()} == {(k, v) for k, v in g_taste.items()}
+            rec["taste_kv_exact"] = int(taste_exact)
+            if not taste_exact:
                 mismatches.append(f"taste: gold={g_taste} pred={p_taste}")
+        else:
+            rec["taste_kv_exact"] = ""
 
         # aroma_profile
         g_aroma = _parse_json_dict(row.gold_aroma_profile)
         p_aroma = pred.get("aroma_profile") or {}
+        rec["aroma_gold"] = json.dumps(g_aroma, ensure_ascii=False)
+        rec["aroma_pred"] = json.dumps(p_aroma, ensure_ascii=False)
         if g_aroma or p_aroma:
             aroma_key_prf.add(set(p_aroma.keys()), set(g_aroma.keys()))
             aroma_kv_prf.add(
                 {(k, v) for k, v in p_aroma.items()},
                 {(k, v) for k, v in g_aroma.items()},
             )
-            if {(k, v) for k, v in p_aroma.items()} != {(k, v) for k, v in g_aroma.items()}:
+            aroma_exact = {(k, v) for k, v in p_aroma.items()} == {(k, v) for k, v in g_aroma.items()}
+            rec["aroma_kv_exact"] = int(aroma_exact)
+            if not aroma_exact:
                 mismatches.append(f"aroma: gold={g_aroma} pred={p_aroma}")
+        else:
+            rec["aroma_kv_exact"] = ""
 
         # disliked_bases
         g_bases = set(_parse_json_list(row.gold_disliked_bases))
         p_bases = set(pred.get("disliked_bases") or [])
+        rec["bases_gold"] = json.dumps(sorted(g_bases), ensure_ascii=False)
+        rec["bases_pred"] = json.dumps(sorted(p_bases), ensure_ascii=False)
         if g_bases or p_bases:
             bases_prf.add(p_bases, g_bases)
-            if p_bases != g_bases:
+            bases_exact = (p_bases == g_bases)
+            rec["bases_exact"] = int(bases_exact)
+            if not bases_exact:
                 mismatches.append(f"bases: gold={sorted(g_bases)} pred={sorted(p_bases)}")
+        else:
+            rec["bases_exact"] = ""
 
         # favorite_drinks: binary presence
         g_favs = _parse_json_list(row.gold_favorite_drinks)
@@ -180,12 +210,20 @@ def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | N
         if not g_favs:
             raw = _s(row.gold_favorite_drinks)
             g_favs = [raw] if raw else []
+        p_favs = pred.get("favorite_drinks") or []
+        rec["favs_gold"] = json.dumps(g_favs, ensure_ascii=False)
+        rec["favs_pred"] = json.dumps(p_favs, ensure_ascii=False)
         if g_favs:
-            p_favs = pred.get("favorite_drinks") or []
             ok = bool(p_favs)
+            rec["favs_detected"] = int(ok)
             favs_bin.add(ok)
             if not ok:
                 mismatches.append(f"favs: gold={g_favs} pred={p_favs}")
+        else:
+            rec["favs_detected"] = ""
+
+        rec["any_mismatch"] = int(bool(mismatches))
+        per_item.append(rec)
 
         if mismatches:
             failures.append({
@@ -215,6 +253,15 @@ def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | N
     def _log(msg: str = ""):
         print(msg)
         lines.append(msg)
+
+    if tag:
+        stamp = datetime.now().strftime("%Y%m%d_%H%M")
+        model_name = os.getenv("LLM_MODEL", "")
+        per_dir = Path("eval_results/per_item")
+        per_dir.mkdir(parents=True, exist_ok=True)
+        per_csv = per_dir / f"slots_{tag}_{stamp}.csv"
+        pd.DataFrame(per_item).to_csv(per_csv, index=False)
+        _log(f"[per-item] {len(per_item)} cases → {per_csv}  (model={model_name})")
 
     _log("\n" + "=" * 60)
     _log(f"SLOT EXTRACTION EVAL — {n} cases ({total_time:.1f}s, {total_time/max(n,1):.2f}s/case)")
@@ -276,7 +323,7 @@ if __name__ == "__main__":
                     help="결과 메타에 기록할 모델명 (미지정 시 env LLM_MODEL)")
     args = ap.parse_args()
 
-    result = run_eval(limit=args.limit, verbose=args.verbose, dump_path=args.dump)
+    result = run_eval(limit=args.limit, verbose=args.verbose, dump_path=args.dump, tag=args.tag)
     if args.tag:
         summary_lines = result.pop("_summary_lines", [])
         json_path, txt_path = save_eval_result(
