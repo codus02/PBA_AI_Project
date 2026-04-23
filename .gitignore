@@ -27,3 +27,13 @@ models/
 # IDE
 .vscode/
 .idea/
+
+# Claude Code
+.claude/
+
+# compiled cache
+unsloth_compiled_cache/
+
+# large model weights (>100MB, GitHub limit)
+*.pt
+*.pth

@@ -1,0 +1,150 @@
+ingredient_id,ingredient_name,ingredient_type,sweet_score,sour_score,bitter_score,body_score,freshness_score,creamy_score,spicy_score,nutty_score,fruity_score,woody_score,coffee_score,herbal_score,floral_score,citrus_score,minty_score,sensory_note
+1,Agave Tequila,BASE,1,1,1,2,1,1,1,1,1,1,1,2,1,1,1,"balanced, mild flavor"
+2,Absinthe,MIXER,3,1,4,3,1,1,1,1,1,1,1,5,1,2,1,"herbal, bitter, sweet dominant"
+3,Agave Nectar,SYRUP,5,1,1,3,1,1,1,1,1,1,1,1,1,1,1,sweet dominant
+4,Aged Rum,BASE,1,1,1,3,1,1,1,1,1,3,1,1,1,1,1,woody dominant
+5,Allspice Saint Elizabeth,MIXER,1,1,1,2,1,1,4,1,1,2,1,2,1,1,1,spicy dominant
+6,Amaretto,MIXER,4,1,1,3,1,1,1,5,1,1,1,1,1,1,1,"nutty, sweet dominant"
+7,Amaro Nonino,MIXER,3,1,4,3,1,1,1,1,1,2,1,3,1,2,1,"bitter, sweet, herbal dominant"
+8,Amber Jamaican Rum,BASE,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+9,Amontillado Sherry,MIXER,1,1,1,3,1,1,1,1,1,3,1,1,1,1,1,woody dominant
+10,Angostura Bitters,MIXER,3,1,5,3,1,1,2,1,1,1,1,4,1,1,1,"bitter, herbal, sweet dominant"
+11,Aperol,MIXER,3,1,4,3,1,1,1,1,1,1,1,2,1,3,1,"bitter, sweet, citrus dominant"
+12,Apricot Brandy,BASE,4,1,1,3,1,1,1,1,4,3,1,1,1,1,1,"sweet, fruity, woody dominant"
+13,Aromatic Bitters,MIXER,3,1,5,3,1,1,2,1,1,1,1,4,1,1,1,"bitter, herbal, sweet dominant"
+14,Blackstrap Rum,BASE,1,1,2,4,1,1,1,1,1,3,1,1,1,1,1,woody dominant
+15,Blended Aged Rum,BASE,1,1,1,3,1,1,1,1,1,3,1,1,1,1,1,woody dominant
+16,Blended Scotch Whisky,BASE,1,1,1,3,1,1,1,1,1,4,1,1,1,1,1,woody dominant
+17,Bourbon Whiskey,BASE,1,1,1,3,1,1,2,1,1,4,1,1,1,1,1,woody dominant
+18,Brandy,BASE,1,1,1,3,1,1,1,1,2,3,1,1,1,1,1,woody dominant
+19,Calvados,BASE,1,1,1,3,1,1,1,1,3,3,1,1,1,1,1,"fruity, woody dominant"
+20,Campari,MIXER,2,1,5,3,1,1,1,1,1,1,1,3,1,3,1,"bitter, herbal, citrus dominant"
+21,Champagne,TOPPING,1,2,1,1,5,1,1,1,2,1,1,1,2,1,1,fresh dominant
+22,Cherry Brandy Luxardo,BASE,3,1,1,3,1,1,1,1,4,3,1,1,1,1,1,"fruity, sweet, woody dominant"
+23,Cherry Sangue Morlacco,GARNISH,3,1,1,2,1,1,1,1,4,1,1,1,1,1,1,"fruity, sweet dominant"
+24,Coconut Cream,MIXER,4,1,1,4,1,5,1,2,2,1,1,1,1,1,1,"creamy, sweet dominant"
+25,Coffee Liqueur,MIXER,4,1,2,3,1,1,1,1,2,1,5,1,1,1,1,"coffee, sweet dominant"
+26,Cognac,BASE,1,1,1,3,1,1,1,1,2,3,1,1,1,1,1,woody dominant
+27,Cointreau,MIXER,4,1,1,3,1,1,1,1,3,1,1,1,1,5,1,"citrus, sweet, fruity dominant"
+28,Cola,TOPPING,4,1,1,1,5,1,2,1,1,1,1,1,1,1,1,"fresh, sweet dominant"
+29,Cranberry Juice,JUICE,2,4,1,1,4,1,1,1,4,1,1,1,1,1,1,"sour, fresh, fruity dominant"
+30,Cream,MIXER,1,1,1,4,1,5,1,1,1,1,1,1,1,1,1,creamy dominant
+31,Creme De Cassis,MIXER,4,1,1,3,1,1,1,1,5,1,1,1,1,1,1,"fruity, sweet dominant"
+32,Crème De Cacao (Brown),MIXER,4,1,1,3,1,1,1,1,2,1,1,1,1,1,1,sweet dominant
+33,Crème De Cacao (White),MIXER,4,1,1,3,1,1,1,1,2,1,1,1,1,1,1,sweet dominant
+34,Crème De Menthe (Green),MIXER,4,1,1,3,1,1,1,1,2,1,1,3,1,1,5,"minty, sweet, herbal dominant"
+35,Crème De Mûre,MIXER,4,1,1,3,1,1,1,1,2,1,1,1,1,1,1,sweet dominant
+36,Crème De Violette,MIXER,4,1,1,3,1,1,1,1,2,1,1,1,4,1,1,"sweet, floral dominant"
+37,Cuban Aguardiente,BASE,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+38,Cuban Rum,BASE,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+39,Curacao,MIXER,4,1,1,3,1,1,1,1,3,1,1,1,1,5,1,"citrus, sweet, fruity dominant"
+40,Demerara Rum,BASE,1,1,1,3,1,1,1,1,1,3,1,1,1,1,1,woody dominant
+41,Demerara Sugar Syrup,SYRUP,5,1,1,3,1,1,1,1,1,1,1,1,1,1,1,sweet dominant
+42,Dom BéNéDictine,MIXER,4,1,4,3,1,1,2,1,1,2,1,3,1,1,1,"sweet, bitter, herbal dominant"
+43,Donn’S Mix*,MIXER,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+44,Drambuie,MIXER,4,1,4,3,1,1,2,1,1,2,1,3,1,1,1,"sweet, bitter, herbal dominant"
+45,Dry Gin,BASE,1,1,1,2,1,1,1,1,1,1,1,3,2,2,1,herbal dominant
+46,Dry Vermouth,MIXER,2,1,1,2,1,1,1,1,1,1,1,3,2,1,1,herbal dominant
+47,Dry White Wine,MIXER,1,1,1,1,2,1,1,1,2,1,1,1,2,1,1,"balanced, mild flavor"
+48,Egg White,MIXER,1,1,1,2,1,3,1,1,1,1,1,1,1,1,1,creamy dominant
+49,Egg Yolk,MIXER,1,1,1,3,1,4,1,1,1,1,1,1,1,1,1,creamy dominant
+50,Elderflower Cordial,SYRUP,5,1,1,3,1,1,1,1,1,1,1,1,4,1,1,"sweet, floral dominant"
+51,Espadin Mezcal,BASE,1,1,1,3,1,1,1,1,1,4,1,2,1,1,1,woody dominant
+52,Falernum,MIXER,4,1,1,2,1,1,2,2,1,1,1,1,1,2,1,sweet dominant
+53,Fernet,MIXER,3,1,5,3,1,1,1,1,1,1,1,5,1,1,2,"bitter, herbal, sweet dominant"
+54,Fernet Branca,MIXER,3,1,5,3,1,1,1,1,1,1,1,5,1,1,2,"bitter, herbal, sweet dominant"
+55,Gin,BASE,1,1,1,2,1,1,1,1,1,1,1,3,2,2,1,herbal dominant
+56,Ginger Ale,TOPPING,3,1,1,1,5,1,3,1,1,1,1,2,1,1,1,"fresh, sweet, spicy dominant"
+57,Ginger Beer,TOPPING,3,1,1,1,5,1,3,1,1,1,1,2,1,1,1,"fresh, sweet, spicy dominant"
+58,Gold Jamaican Rum,BASE,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+59,Gold Puerto Rican Rum,BASE,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+60,Goslings Rum,BASE,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+61,Grand Marnier,MIXER,4,1,1,3,1,1,1,1,3,1,1,1,1,5,1,"citrus, sweet, fruity dominant"
+62,Grapefruit Juice,JUICE,2,4,2,1,4,1,1,1,3,1,1,1,1,5,1,"citrus, sour, fresh dominant"
+63,Green Chartreuse,MIXER,3,1,3,3,1,1,1,1,1,1,1,5,3,1,1,"herbal, sweet, bitter dominant"
+64,Grenadine Syrup,SYRUP,5,1,1,3,1,1,1,1,1,1,1,1,1,1,1,sweet dominant
+65,Honey Mix,SYRUP,5,1,1,3,1,1,1,1,1,1,1,1,2,1,1,sweet dominant
+66,Honey Syrup,SYRUP,5,1,1,3,1,1,1,1,1,1,1,1,2,1,1,sweet dominant
+67,Hot Coffee,MIXER,1,1,2,2,1,1,1,1,1,1,5,1,1,1,1,coffee dominant
+68,Irish Whiskey,BASE,1,1,1,3,1,1,2,1,1,4,1,1,1,1,1,woody dominant
+69,Jamaica Overproof White Rum,BASE,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+70,Jamaican Dark Rum,BASE,1,1,1,3,1,1,1,1,1,3,1,1,1,1,1,woody dominant
+71,Jamaican Rum,BASE,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+72,Kahlúa,MIXER,4,1,2,3,1,1,1,1,1,1,5,1,1,1,1,"coffee, sweet dominant"
+73,Lagavulin 16Y,BASE,1,1,1,3,1,1,1,1,1,4,1,1,1,1,1,woody dominant
+74,Lemon Juice,JUICE,1,5,1,1,5,1,1,1,2,1,1,1,1,5,1,"sour, fresh, citrus dominant"
+75,Lemon Wheel,GARNISH,1,2,1,1,2,1,1,1,2,1,1,1,1,4,1,citrus dominant
+76,Licor Frangelico,MIXER,4,1,1,3,1,1,1,5,1,1,1,1,1,1,1,"nutty, sweet dominant"
+77,Lillet Blanc,MIXER,2,1,1,2,1,1,1,1,1,1,1,3,2,1,1,herbal dominant
+78,Lime,JUICE,1,5,1,1,5,1,1,1,2,1,1,1,1,5,1,"sour, fresh, citrus dominant"
+79,Lime Juice,JUICE,1,5,1,1,5,1,1,1,2,1,1,1,1,5,1,"sour, fresh, citrus dominant"
+80,London Dry Gin,BASE,1,1,1,2,1,1,1,1,1,1,1,3,2,2,1,herbal dominant
+81,Maraschino Luxardo,MIXER,4,1,1,3,1,1,1,1,4,1,1,1,1,1,1,"sweet, fruity dominant"
+82,Martinique Molasses Rhum*,BASE,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+83,Mezcal,BASE,1,1,1,3,1,1,1,1,1,4,1,2,1,1,1,woody dominant
+84,Mint,GARNISH,1,1,1,1,4,1,1,1,1,1,1,4,1,1,5,"minty, fresh, herbal dominant"
+85,Old Tom Gin,BASE,2,1,1,3,1,1,1,1,1,2,1,3,2,2,1,herbal dominant
+86,Orange Bitters,MIXER,3,1,5,3,1,1,2,1,1,1,1,4,1,3,1,"bitter, herbal, sweet dominant"
+87,Orange Curacao,MIXER,4,1,1,3,1,1,1,1,3,1,1,1,1,5,1,"citrus, sweet, fruity dominant"
+88,Orange Flower Water,MIXER,3,1,1,2,1,1,1,1,1,1,1,1,5,1,1,"floral, sweet dominant"
+89,Orange Juice,JUICE,3,3,1,1,4,1,1,1,4,1,1,1,1,5,1,"citrus, fresh, fruity dominant"
+90,Orange Wheel,GARNISH,2,4,1,1,2,1,1,1,2,1,1,1,1,4,1,"sour, citrus dominant"
+91,Orgeat Syrup,SYRUP,5,1,1,3,1,1,1,5,1,1,1,1,1,1,1,"sweet, nutty dominant"
+92,Palo Cortado,MIXER,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+93,Passion Fruit Liqueur,MIXER,4,3,1,3,1,1,1,1,5,1,1,1,2,1,1,"fruity, sweet, sour dominant"
+94,Passion Fruit Puree,JUICE,3,3,1,2,1,1,1,1,5,1,1,1,2,1,1,"fruity, sweet, sour dominant"
+95,Passion Fruit Syrup,SYRUP,4,3,1,3,1,1,1,1,5,1,1,1,2,1,1,"fruity, sweet, sour dominant"
+96,Gengibre Slice,GARNISH,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+97,Cloves,GARNISH,1,1,1,2,1,1,4,1,1,2,1,2,1,1,1,spicy dominant
+98,Italian Basil Leaves,GARNISH,1,1,1,2,3,1,1,1,1,1,1,5,1,1,1,"herbal, fresh dominant"
+99,Peach Brandy,BASE,3,1,1,3,1,1,1,1,4,3,1,1,2,1,1,"fruity, sweet, woody dominant"
+100,Peach Schnapps,MIXER,4,1,1,3,1,1,1,1,4,1,1,1,2,1,1,"sweet, fruity dominant"
+101,Pernod,MIXER,3,1,4,3,1,1,1,1,1,1,1,5,1,2,1,"herbal, bitter, sweet dominant"
+102,Peychaud’S Bitters,MIXER,3,1,5,3,1,1,2,1,1,1,1,4,1,1,1,"bitter, herbal, sweet dominant"
+103,Pinch Of Salt,GARNISH,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+104,Pineapple Juice,JUICE,4,2,1,1,3,1,1,1,5,1,1,1,1,1,1,"fruity, sweet, fresh dominant"
+105,Pink Grapefruit Soda,TOPPING,3,2,1,1,5,1,1,1,3,1,1,1,1,4,1,"fresh, citrus, sweet dominant"
+106,Pisco,BASE,1,1,1,2,1,1,1,1,2,1,1,1,2,1,1,"balanced, mild flavor"
+107,Powdered Sugar,SYRUP,5,1,1,3,1,1,1,1,1,1,1,1,1,1,1,sweet dominant
+108,Prosecco,TOPPING,1,2,1,1,5,1,1,1,2,1,1,1,2,1,1,fresh dominant
+109,Quarter Size Sliced Fresh Ginger,GARNISH,1,1,1,2,3,1,4,1,1,1,1,2,1,1,1,"spicy, fresh dominant"
+110,Raspberry Liqueur,MIXER,4,1,1,3,1,1,1,1,5,1,1,1,1,1,1,"fruity, sweet dominant"
+111,Raspberry Syrup,SYRUP,5,1,1,3,1,1,1,1,5,1,1,1,1,1,1,"sweet, fruity dominant"
+112,Raw Honey,SYRUP,5,1,1,3,1,1,1,1,1,1,1,1,2,1,1,sweet dominant
+113,Red Tawny Port Wine,MIXER,1,1,1,3,1,1,1,1,1,3,1,1,1,1,1,woody dominant
+114,Rhum Martinique Agricole,BASE,1,1,1,3,1,1,1,1,1,3,1,1,1,1,1,woody dominant
+115,Ron Profundo Havana Club,BASE,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+116,Ron Smoky Havana Club,BASE,1,1,1,3,1,1,1,1,1,4,1,2,1,1,1,woody dominant
+117,Rum,BASE,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+118,Rye Whiskey,BASE,1,1,1,3,1,1,2,1,1,4,1,1,1,1,1,woody dominant
+119,Scotch Whisky,BASE,1,1,1,3,1,1,1,1,1,4,1,1,1,1,1,woody dominant
+120,Simple Syrup,SYRUP,5,1,1,3,1,1,1,1,1,1,1,1,1,1,1,sweet dominant
+121,Soda Water,TOPPING,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,fresh dominant
+122,Sparkling Wine,TOPPING,1,2,1,1,5,1,1,1,2,1,1,1,2,1,1,fresh dominant
+123,Strong Espresso,MIXER,1,1,3,2,1,1,1,1,1,1,5,1,1,1,1,"coffee, bitter dominant"
+124,Sugar,SYRUP,5,1,1,3,1,1,1,1,1,1,1,1,1,1,1,sweet dominant
+125,Sugar Cane Juice,JUICE,3,2,1,1,3,1,1,1,4,1,1,1,1,1,1,"fruity, sweet, fresh dominant"
+126,Sugar Cube,GARNISH,5,1,1,3,1,1,1,1,1,1,1,1,1,1,1,sweet dominant
+127,Superfine Sugar,SYRUP,5,1,1,3,1,1,1,1,1,1,1,1,1,1,1,sweet dominant
+128,Sweet Red Vermouth,MIXER,3,1,1,2,1,1,1,1,1,1,1,3,2,1,1,"sweet, herbal dominant"
+129,Sweet Vermouth,MIXER,3,1,1,2,1,1,1,1,1,1,1,3,2,1,1,"sweet, herbal dominant"
+130,"Tabasco, Celery Salt, Pepper (Up )",GARNISH,1,1,1,2,1,1,5,1,1,1,1,1,1,1,1,spicy dominant
+131,Tequila,BASE,1,1,1,2,1,1,1,1,1,1,1,2,1,1,1,"balanced, mild flavor"
+132,Thin Slices Red Chili Pepper,GARNISH,1,1,1,2,1,1,5,1,1,1,1,1,1,1,1,spicy dominant
+133,Pineapple Chunks,GARNISH,4,2,1,2,3,1,1,1,5,1,1,1,1,1,1,"fruity, sweet, fresh dominant"
+134,Tomato Juice,JUICE,2,2,1,2,2,1,1,1,2,1,1,1,1,1,1,"balanced, mild flavor"
+135,Triple Sec,MIXER,4,1,1,3,1,1,1,1,3,1,1,1,1,5,1,"citrus, sweet, fruity dominant"
+136,Vanilla Extract,MIXER,2,1,1,2,1,2,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+137,Vanilla Sugar,SYRUP,5,1,1,3,1,2,1,1,1,1,1,1,1,1,1,sweet dominant
+138,Vanilla Vodka,BASE,2,1,1,2,1,2,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+139,Vodka,BASE,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+140,Vodka Citron,BASE,1,1,1,1,2,1,1,1,1,1,1,1,1,3,1,citrus dominant
+141,Water,MIXER,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+142,White Cane Sugar,SYRUP,5,1,1,3,1,1,1,1,1,1,1,1,1,1,1,sweet dominant
+143,White Crème De Menthe,MIXER,4,1,1,3,1,1,1,1,2,1,1,3,1,1,5,"minty, sweet, herbal dominant"
+144,White Peach Puree,JUICE,3,1,1,2,1,1,1,1,5,1,1,1,2,1,1,"fruity, sweet dominant"
+145,White Rum,BASE,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+146,Worcestershire Sauce,MIXER,2,2,2,2,1,1,2,1,1,1,1,1,1,1,1,"balanced, mild flavor"
+147,Yellow Chartreuse,MIXER,3,1,3,3,1,1,1,1,1,1,1,5,3,1,1,"herbal, sweet, bitter dominant"
+148,Maraschino Cherry,GARNISH,4,1,1,1,1,1,1,1,4,1,1,1,1,1,1,"fruity, sweet dominant"
+149,Celery Stick,GARNISH,1,1,1,1,4,1,1,1,1,1,1,3,1,1,1,"fresh, herbal dominant"

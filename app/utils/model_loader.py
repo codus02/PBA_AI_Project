@@ -6,7 +6,7 @@ from typing import Iterable, Literal, Tuple
 import torch
 from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-from app.utils.config import QWEN3_EMBED_MODEL, LLM_MODEL
+from app.utils.config import QWEN3_EMBED_MODEL, LLM_MODEL, LLM_BACKEND, OLLAMA_BASE_URL
 
 _CACHE: dict[str, Tuple] = {}
 
@@ -175,6 +175,54 @@ def build_chat_prompt(tokenizer, messages: list[dict], **kwargs) -> str:
     if "qwen3" not in LLM_MODEL.lower():
         kwargs.pop("enable_thinking", None)
     return tokenizer.apply_chat_template(messages, **kwargs)
+
+
+def llm_chat(
+    messages: list[dict],
+    max_new_tokens: int = 512,
+    temperature: float = 0.0,
+    top_p: float = 1.0,
+    repetition_penalty: float = 1.0,
+) -> str:
+    """백엔드(Ollama / HF)에 무관하게 chat completion → 텍스트 반환."""
+    if LLM_BACKEND == "ollama":
+        import requests
+        payload = {
+            "model": LLM_MODEL,
+            "messages": messages,
+            "stream": False,
+            "options": {
+                "num_predict": max_new_tokens,
+                "temperature": temperature,
+                "top_p": top_p,
+                "repeat_penalty": repetition_penalty,
+            },
+        }
+        resp = requests.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload, timeout=120)
+        resp.raise_for_status()
+        return resp.json()["message"]["content"].strip()
+
+    # HF backend
+    tokenizer, model = load_llm()
+    rendered = _apply_template(tokenizer, messages, add_generation_prompt=True)
+    inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
+    input_len = inputs["input_ids"].shape[-1]
+    do_sample = temperature > 0.0
+    with torch.no_grad():
+        out = model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=do_sample,
+            temperature=temperature if do_sample else 1.0,
+            top_p=top_p if do_sample else 1.0,
+            repetition_penalty=repetition_penalty,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+    raw = tokenizer.decode(out[0][input_len:], skip_special_tokens=True).strip()
+    if torch.cuda.is_available():
+        del inputs, out
+        torch.cuda.empty_cache()
+    return raw
 
 
 @torch.no_grad()

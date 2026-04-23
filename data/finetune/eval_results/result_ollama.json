@@ -1,0 +1,59 @@
+{
+  "backend": "ollama",
+  "n": 500,
+  "errors": 0,
+  "elapsed_s": 2071.2,
+  "aggregate": {
+    "party_purpose": {
+      "acc": 0.5266666666666666,
+      "hits": 237,
+      "denom": 450
+    },
+    "strength_preference": {
+      "acc": 0.3888888888888889,
+      "hits": 175,
+      "denom": 450
+    },
+    "current_mood": {
+      "acc": 0.5488888888888889,
+      "hits": 247,
+      "denom": 450
+    },
+    "taste_profile": {
+      "exact_match": 0.146,
+      "precision": 0.3384126984126984,
+      "recall": 0.7013157894736842,
+      "f1": 0.4565310492505353,
+      "tp": 533,
+      "fp": 1042,
+      "fn": 227
+    },
+    "aroma_profile": {
+      "exact_match": 0.378,
+      "precision": 0.4582043343653251,
+      "recall": 0.5834428383705651,
+      "f1": 0.5132947976878613,
+      "tp": 444,
+      "fp": 525,
+      "fn": 317
+    },
+    "disliked_bases": {
+      "exact_match": 0.738,
+      "precision": 0.9032258064516129,
+      "recall": 0.41025641025641024,
+      "f1": 0.5642317380352645,
+      "tp": 112,
+      "fp": 12,
+      "fn": 161
+    },
+    "favorite_drinks": {
+      "exact_match": 0.816,
+      "precision": 0.2972972972972973,
+      "recall": 0.09166666666666666,
+      "f1": 0.14012738853503184,
+      "tp": 11,
+      "fp": 26,
+      "fn": 109
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "backend": "adapter",
+  "n": 50,
+  "errors": 0,
+  "elapsed_s": 264.7,
+  "aggregate": {
+    "party_purpose": {
+      "acc": 0.65625,
+      "hits": 21,
+      "denom": 32
+    },
+    "strength_preference": {
+      "acc": 0.6363636363636364,
+      "hits": 21,
+      "denom": 33
+    },
+    "taste_profile": {
+      "exact_match": 0.06,
+      "precision": 0.1724137931034483,
+      "recall": 0.12195121951219512,
+      "f1": 0.14285714285714285,
+      "tp": 10,
+      "fp": 48,
+      "fn": 72
+    },
+    "aroma_profile": {
+      "exact_match": 0.16,
+      "precision": 0.2033898305084746,
+      "recall": 0.18461538461538463,
+      "f1": 0.19354838709677422,
+      "tp": 12,
+      "fp": 47,
+      "fn": 53
+    },
+    "disliked_bases": {
+      "exact_match": 0.58,
+      "precision": 1.0,
+      "recall": 0.045454545454545456,
+      "f1": 0.08695652173913045,
+      "tp": 1,
+      "fp": 0,
+      "fn": 21
+    },
+    "favorite_drinks": {
+      "exact_match": 0.98,
+      "precision": 0.0,
+      "recall": null,
+      "f1": null,
+      "tp": 0,
+      "fp": 1,
+      "fn": 0
+    }
+  }
+}

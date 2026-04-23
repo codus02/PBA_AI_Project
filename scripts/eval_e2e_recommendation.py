@@ -53,7 +53,7 @@ from app.db.crud import get_all_recipes_with_ingredients, get_available_ingredie
 from app.db.database import SessionLocal
 from scripts._eval_save import save_eval_result
 
-CSV_PATH = Path("data/eval/e2e_recommendation_eval_v2_2_500.csv")
+DEFAULT_CSV_PATH = Path("data/eval/e2e_recommendation_eval_v2_2_500.csv")
 RAG_RETRIEVE_N = 20
 
 
@@ -245,11 +245,17 @@ def _gold_to_profile(row) -> dict:
 # 메인 루프
 # ============================================================
 
-def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"):
+def run_eval(
+    limit: int | None = None,
+    tag: str | None = None,
+    mode: str = "e2e",
+    csv_path: str | Path | None = None,
+):
     if mode not in ("e2e", "oracle"):
         raise ValueError(f"mode must be 'e2e' or 'oracle', got {mode}")
 
-    df = pd.read_csv(CSV_PATH)
+    csv_path = Path(csv_path) if csv_path else DEFAULT_CSV_PATH
+    df = pd.read_csv(csv_path)
     if limit:
         df = df.head(limit)
     n = len(df)
@@ -436,7 +442,7 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
         per_dir.mkdir(parents=True, exist_ok=True)
         per_csv = per_dir / f"e2e_{tag}_{stamp}.csv"
         pd.DataFrame(per_item).to_csv(per_csv, index=False)
-        _log(f"[per-item] {len(per_item)} cases → {per_csv}  (model={model_name})")
+        _log(f"[per-item] {len(per_item)} cases → {per_csv}  (model={model_name}, csv={csv_path})")
 
     _log("\n" + "=" * 60)
     _log(f"E2E EVAL — mode={mode}  total_rows={n}  evaluable={rec_total}  "
@@ -490,6 +496,7 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
 
     return {
         "mode": mode,
+        "csv_path": str(csv_path),
         "n": n,
         "rec_n": rec_total,
         "unevaluable_skipped": unevaluable_skipped,
@@ -526,6 +533,8 @@ if __name__ == "__main__":
                          "이 값은 결과 파일명/메타에만 기록됨.")
     ap.add_argument("--mode", choices=["e2e", "oracle"], default="e2e",
                     help="e2e=user_text→LLM→추천 / oracle=gold 슬롯 직접 주입→추천 (추천 로직 천장)")
+    ap.add_argument("--csv", type=str, default=str(DEFAULT_CSV_PATH),
+                    help="평가에 사용할 CSV 경로")
     args = ap.parse_args()
 
     # --model 은 라벨 전용. 실제 모델과 라벨이 어긋나면 치명적이므로 경고.
@@ -538,7 +547,7 @@ if __name__ == "__main__":
         )
         time.sleep(5)
 
-    result = run_eval(limit=args.limit, tag=args.tag, mode=args.mode)
+    result = run_eval(limit=args.limit, tag=args.tag, mode=args.mode, csv_path=args.csv)
     if args.tag:
         summary_lines = result.pop("_summary_lines", [])
         json_path, txt_path = save_eval_result(

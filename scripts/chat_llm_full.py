@@ -544,7 +544,7 @@ def main() -> None:
     seeded = _seed_slots_from_initial_tags(tag_row)
     print(f"\n초기 태그 seed 결과: {json.dumps(seeded, ensure_ascii=False)}")
 
-    space = ask_space_image()
+    space = None  # ask_space_image()  # Gemini API 일일 제한으로 임시 비활성화
 
     slots = dialogue_loop(seeded, familiarity=tag_row.familiarity_tag)
     print("\n=== 최종 슬롯 ===")

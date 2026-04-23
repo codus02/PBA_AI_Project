@@ -700,30 +700,19 @@ def rerank_with_llm(
     if not candidates:
         return []
     try:
-        from app.utils.model_loader import load_llm, build_chat_prompt
-        import torch
+        from app.utils.model_loader import llm_chat
 
-        tokenizer, model = load_llm()
         user_content = (
             f"사용자 프로파일:\n{_format_profile_for_rerank(profile)}\n\n"
             f"후보 칵테일 (N={len(candidates)}):\n"
             f"{_format_candidates_for_rerank(candidates, recipe_ingredients)}\n\n"
             f"위 후보 중에서 사용자에게 가장 잘 맞는 상위 {k}개를 ranked로 JSON 반환해라."
         )
-        from app.utils.model_loader import render_chat
-        rendered = render_chat(tokenizer, _RERANK_SYSTEM_PROMPT, user_content)
-        inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
-        input_len = inputs["input_ids"].shape[-1]
-
-        with torch.no_grad():
-            out = model.generate(
-                **inputs,
-                max_new_tokens=max_new_tokens,
-                do_sample=False,
-                repetition_penalty=1.05,
-                pad_token_id=tokenizer.eos_token_id,
-            )
-        raw = tokenizer.decode(out[0][input_len:], skip_special_tokens=True).strip()
+        messages = [
+            {"role": "system", "content": _RERANK_SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+        ]
+        raw = llm_chat(messages, max_new_tokens=max_new_tokens, repetition_penalty=1.05)
         parsed = _extract_json_object(raw) or {}
 
         ranked_raw = parsed.get("ranked") or []
