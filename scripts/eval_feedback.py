@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pandas as pd
 
 from app.agents.preference_agent import analyze_feedback
-from scripts._eval_save import save_eval_result
+from scripts._eval_save import save_eval_result, short_model_name
 
 
 def eval_feedback(limit: int | None = None, tag: str | None = None) -> dict:
@@ -108,9 +108,9 @@ def eval_feedback(limit: int | None = None, tag: str | None = None) -> dict:
     if tag:
         stamp = datetime.now().strftime("%Y%m%d_%H%M")
         model_name = os.getenv("LLM_MODEL", "")
-        out_dir = Path("eval_results/per_item")
+        out_dir = Path("eval_results/cases/feedback")
         out_dir.mkdir(parents=True, exist_ok=True)
-        csv_path = out_dir / f"feedback_{tag}_{stamp}.csv"
+        csv_path = out_dir / f"{short_model_name(model_name)}_feedback_{tag}_{stamp}.csv"
         pd.DataFrame(per_item).to_csv(csv_path, index=False)
         _log(f"\n[per-item] {len(per_item)} cases → {csv_path}  (model={model_name})")
 
@@ -133,7 +133,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--tag", type=str, default=None,
-                    help="저장 라벨 (e.g. exaone, qwen). 지정 시 eval_results/quantitative/feedback_{tag}_{stamp}.{json,txt} 저장.")
+                    help="저장 라벨. 지정 시 eval_results/summary/feedback/{model}_feedback_{tag}_{stamp}.{json,txt} 저장.")
     ap.add_argument("--model", type=str, default=None,
                     help="결과 메타에 기록할 모델명 (미지정 시 env LLM_MODEL)")
     args = ap.parse_args()

@@ -6,8 +6,8 @@ eval_e2e_recommendation.py 가 저장한 per-item CSV 를 읽어서:
   - category miss 도 별도로 덤프
 
 사용:
-  python scripts/inspect_e2e_failures.py eval_results/per_item/e2e_oracle_smoke20_XXXX.csv
-  python scripts/inspect_e2e_failures.py eval_results/per_item/e2e_oracle_smoke20_XXXX.csv --only cat_miss
+  python scripts/inspect_e2e_failures.py eval_results/cases/e2e/gemma_e2e_oracle_smoke20_XXXX.csv
+  python scripts/inspect_e2e_failures.py eval_results/cases/e2e/gemma_e2e_oracle_smoke20_XXXX.csv --only cat_miss
 """
 from __future__ import annotations
 
@@ -111,6 +111,9 @@ def main():
             top_names = _parse_list(r.get("top3_names"))
             top_cats = _parse_list(r.get("top3_categories"))
             top_src = _parse_list(r.get("top3_sources"))
+            score_names = _parse_list(r.get("score_top3_names"))
+            retrieved_names = _parse_list(r.get("retrieved_names"))
+            survivor_names = _parse_list(r.get("survivor_names"))
             user_text = str(r.get("user_text", ""))[:80]
 
             print(f"\n  [case {case_id}] mode={mode}")
@@ -118,6 +121,13 @@ def main():
             print(f"    gold_slots: {_fmt_slots(r)}")
             print(f"    gold_ck   : {gold_ck}")
             print(f"    gold_cat  : {gold_cat}")
+            print(f"    retrieved?: gold={r.get('gold_in_retrieved', '')}  "
+                  f"survivor={r.get('gold_in_survivors', '')}  "
+                  f"score_top3={r.get('gold_in_score_top3', '')}  "
+                  f"final_ranker={r.get('final_ranker', '')}")
+            print(f"    retrieved : {retrieved_names[:5]}{'...' if len(retrieved_names) > 5 else ''}")
+            print(f"    survivors : {survivor_names[:5]}{'...' if len(survivor_names) > 5 else ''}")
+            print(f"    score_top3: {score_names}")
             print(f"    top3_name : {top_names}")
             print(f"    top3_cat  : {top_cats}")
             print(f"    top3_src  : {top_src}")

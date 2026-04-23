@@ -12,9 +12,9 @@
       --limit 100
 
 저장:
-  - 각 단계별: eval_results/quantitative/{kind}_{tag}_{stamp}.{json,txt}
+  - 각 단계별: eval_results/summary/{kind}/{model}_{kind}_{tag}_{stamp}.{json,txt}
     (feedback/slots/rec 개별 — _eval_save 헬퍼가 씀)
-  - 통합 요약: eval_results/quantitative/all_{tag}_{stamp}.{json,txt}
+  - 통합 요약: eval_results/summary/all/{model}_all_{tag}_{stamp}.{json,txt}
 """
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ def main(tag: str, model: str | None, limit: int | None = None):
     from scripts.eval_feedback import eval_feedback
     from scripts.eval_slots import run_eval as eval_slots_llm
     from scripts.eval_recommendation import eval_recommendation
-    from scripts._eval_save import save_eval_result
+    from scripts._eval_save import save_eval_result, short_model_name
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M")
     model_name = os.getenv("LLM_MODEL", "")
@@ -101,8 +101,9 @@ def main(tag: str, model: str | None, limit: int | None = None):
     summary = "\n".join(summary_lines)
     print("\n" + summary)
 
-    out_dir = Path("eval_results/quantitative")
+    out_dir = Path("eval_results/summary/all")
     out_dir.mkdir(parents=True, exist_ok=True)
+    model_short = short_model_name(model_name)
 
     all_payload = {
         "tag": tag,
@@ -113,8 +114,9 @@ def main(tag: str, model: str | None, limit: int | None = None):
         "slots": slots,
         "recommendation": rec,
     }
-    all_json = out_dir / f"all_{tag}_{stamp}.json"
-    all_txt = out_dir / f"all_{tag}_{stamp}.txt"
+    base = f"{model_short}_all_{tag}_{stamp}"
+    all_json = out_dir / f"{base}.json"
+    all_txt = out_dir / f"{base}.txt"
     all_json.write_text(json.dumps(all_payload, ensure_ascii=False, indent=2, default=str))
     all_txt.write_text(summary + "\n")
     print(f"\n저장: {all_json}")

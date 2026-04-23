@@ -24,7 +24,7 @@ from app.agents.orchestration_agent import (
     _is_unstockable,
     _has_zero_taste_conflict,
 )
-from scripts._eval_save import save_eval_result
+from scripts._eval_save import save_eval_result, short_model_name
 
 RAG_RETRIEVE_N = 20
 CSV_PATH = Path("data/eval/recommendation_eval_v2_500.csv")
@@ -244,9 +244,9 @@ def eval_recommendation(limit: int | None = None, tag: str | None = None):
     if tag:
         stamp = datetime.now().strftime("%Y%m%d_%H%M")
         model_name = os.getenv("LLM_MODEL", "")
-        per_dir = Path("eval_results/per_item")
+        per_dir = Path("eval_results/cases/rec")
         per_dir.mkdir(parents=True, exist_ok=True)
-        per_csv = per_dir / f"rec_{tag}_{stamp}.csv"
+        per_csv = per_dir / f"{short_model_name(model_name)}_rec_{tag}_{stamp}.csv"
         pd.DataFrame(per_item).to_csv(per_csv, index=False)
         _log(f"  [per-item] {len(per_item)} cases → {per_csv}  (model={model_name})")
 
@@ -267,7 +267,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--tag", type=str, default=None,
-                    help="저장 라벨. 지정 시 eval_results/quantitative/rec_{tag}_{stamp}.{json,txt} 저장.")
+                    help="저장 라벨. 지정 시 eval_results/summary/rec/{model}_rec_{tag}_{stamp}.{json,txt} 저장.")
     ap.add_argument("--model", type=str, default=None,
                     help="결과 메타에 기록할 모델명 (미지정 시 env LLM_MODEL)")
     args = ap.parse_args()

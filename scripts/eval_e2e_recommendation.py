@@ -20,8 +20,8 @@ oracle 은 1-2 단계 생략. 추천 로직 자체의 천장 측정.
 unevaluable (gold=[] AND cat=[]) 케이스는 추천 denominator 에서 자동 제외.
 
 출력:
-  per-item:  eval_results/per_item/e2e_{tag}_{stamp}.csv
-  summary:   eval_results/quantitative/e2e_{tag}_{stamp}.{json,txt}
+  cases:    eval_results/cases/e2e/{model}_e2e_{tag}_{stamp}.csv
+  summary:  eval_results/summary/e2e/{model}_e2e_{tag}_{stamp}.{json,txt}
 """
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ from app.agents.orchestration_agent import (
 )
 from app.db.crud import get_all_recipes_with_ingredients, get_available_ingredient_ids
 from app.db.database import SessionLocal
-from scripts._eval_save import save_eval_result
+from scripts._eval_save import save_eval_result, short_model_name
 
 CSV_PATH = Path("data/eval/e2e_recommendation_eval_v2_2_500.csv")
 RAG_RETRIEVE_N = 20
@@ -152,8 +152,29 @@ def _llm_top3(
     profile: dict,
     all_ri: dict,
     available_ids,
+    diagnostics: dict | None = None,
+    gold_cocktails: list | None = None,
+    gold_categories: list | None = None,
 ) -> list[dict]:
     merged = profile["merged_slots"]
+    gold_set = set(gold_cocktails or [])
+    cat_set = set(gold_categories or [])
+
+    def _names(cocktails) -> str:
+        return json.dumps([c.name_kr for c in cocktails], ensure_ascii=False)
+
+    def _categories(cocktails) -> str:
+        return json.dumps([c.category for c in cocktails], ensure_ascii=False)
+
+    def _gold_hit(cocktails):
+        if not gold_set:
+            return ""
+        return int(any(c.name_kr in gold_set for c in cocktails))
+
+    def _cat_hit(cocktails):
+        if not cat_set:
+            return ""
+        return int(any(c.category in cat_set for c in cocktails))
 
     query_text = synthesize_query(profile)
     retrieved = retrieve_candidates(
@@ -163,6 +184,14 @@ def _llm_top3(
         exclude_ids=None,
         strength_preference=merged.get("strength_preference"),
     )
+    retrieved_cocktails = [c for c, _ in retrieved]
+    if diagnostics is not None:
+        diagnostics["query_text"] = query_text
+        diagnostics["retrieved_count"] = len(retrieved_cocktails)
+        diagnostics["retrieved_names"] = _names(retrieved_cocktails)
+        diagnostics["retrieved_categories"] = _categories(retrieved_cocktails)
+        diagnostics["gold_in_retrieved"] = _gold_hit(retrieved_cocktails)
+        diagnostics["cat_in_retrieved"] = _cat_hit(retrieved_cocktails)
 
     survivors: list[tuple] = []
     for cocktail, dist in retrieved:
@@ -176,9 +205,49 @@ def _llm_top3(
         survivors.append((cocktail, dist))
 
     if not survivors:
+        if diagnostics is not None:
+            diagnostics["survivor_count"] = 0
+            diagnostics["survivor_names"] = "[]"
+            diagnostics["survivor_categories"] = "[]"
+            diagnostics["gold_in_survivors"] = _gold_hit([])
+            diagnostics["cat_in_survivors"] = _cat_hit([])
+            diagnostics["score_top3_names"] = "[]"
+            diagnostics["score_top3_categories"] = "[]"
+            diagnostics["score_top3_scores"] = "[]"
+            diagnostics["gold_in_score_top3"] = _gold_hit([])
+            diagnostics["cat_in_score_top3"] = _cat_hit([])
+            diagnostics["rerank_top3_names"] = ""
+            diagnostics["rerank_top3_categories"] = ""
+            diagnostics["final_ranker"] = "no_survivors"
         return []
 
     survivor_cocktails = [c for c, _ in survivors]
+    if diagnostics is not None:
+        diagnostics["survivor_count"] = len(survivor_cocktails)
+        diagnostics["survivor_names"] = _names(survivor_cocktails)
+        diagnostics["survivor_categories"] = _categories(survivor_cocktails)
+        diagnostics["gold_in_survivors"] = _gold_hit(survivor_cocktails)
+        diagnostics["cat_in_survivors"] = _cat_hit(survivor_cocktails)
+
+    scored = []
+    for c, _dist in survivors:
+        ri = all_ri.get(c.cocktail_id, [])
+        s = score_cocktail(c, profile, ri)
+        scored.append({
+            "name_kr": c.name_kr,
+            "category": c.category,
+            "score": s,
+            "source": "rag_fallback",
+        })
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    score_top3 = scored[:3]
+    if diagnostics is not None:
+        diagnostics["score_top3_names"] = json.dumps([t["name_kr"] for t in score_top3], ensure_ascii=False)
+        diagnostics["score_top3_categories"] = json.dumps([t["category"] for t in score_top3], ensure_ascii=False)
+        diagnostics["score_top3_scores"] = json.dumps([t["score"] for t in score_top3], ensure_ascii=False)
+        diagnostics["gold_in_score_top3"] = "" if not gold_set else int(any(t["name_kr"] in gold_set for t in score_top3))
+        diagnostics["cat_in_score_top3"] = "" if not cat_set else int(any(t["category"] in cat_set for t in score_top3))
+
     reranked = rerank_with_llm(profile, survivor_cocktails, k=3, recipe_ingredients=all_ri)
 
     if reranked:
@@ -194,20 +263,17 @@ def _llm_top3(
                 "source": "rag_llm",
             })
         if top3:
+            if diagnostics is not None:
+                diagnostics["final_ranker"] = "rag_llm"
+                diagnostics["rerank_top3_names"] = json.dumps([t["name_kr"] for t in top3[:3]], ensure_ascii=False)
+                diagnostics["rerank_top3_categories"] = json.dumps([t["category"] for t in top3[:3]], ensure_ascii=False)
             return top3[:3]
 
-    scored = []
-    for c, _dist in survivors:
-        ri = all_ri.get(c.cocktail_id, [])
-        s = score_cocktail(c, profile, ri)
-        scored.append({
-            "name_kr": c.name_kr,
-            "category": c.category,
-            "score": s,
-            "source": "rag_fallback",
-        })
-    scored.sort(key=lambda x: x["score"], reverse=True)
-    return scored[:3]
+    if diagnostics is not None:
+        diagnostics["final_ranker"] = "rag_fallback"
+        diagnostics["rerank_top3_names"] = ""
+        diagnostics["rerank_top3_categories"] = ""
+    return score_top3
 
 
 # ============================================================
@@ -365,7 +431,17 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
 
             # --- 3) 추천 ---
             profile = _extracted_to_profile(pred) if mode == "e2e" else _gold_to_profile(row)
-            top3 = _llm_top3(db, profile, all_ri, available_ids)
+            diag: dict = {}
+            top3 = _llm_top3(
+                db,
+                profile,
+                all_ri,
+                available_ids,
+                diagnostics=diag,
+                gold_cocktails=gold_cocktails,
+                gold_categories=gold_categories,
+            )
+            rec.update(diag)
 
             rec_total += 1
             if has_exact_gold:
@@ -432,9 +508,9 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
     if tag:
         stamp = datetime.now().strftime("%Y%m%d_%H%M")
         model_name = os.getenv("LLM_MODEL", "")
-        per_dir = Path("eval_results/per_item")
+        per_dir = Path("eval_results/cases/e2e")
         per_dir.mkdir(parents=True, exist_ok=True)
-        per_csv = per_dir / f"e2e_{tag}_{stamp}.csv"
+        per_csv = per_dir / f"{short_model_name(model_name)}_e2e_{tag}_{stamp}.csv"
         pd.DataFrame(per_item).to_csv(per_csv, index=False)
         _log(f"[per-item] {len(per_item)} cases → {per_csv}  (model={model_name})")
 
@@ -520,7 +596,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--tag", type=str, default=None,
-                    help="저장 라벨. 지정 시 eval_results/quantitative/e2e_{tag}_{stamp}.{json,txt} 저장.")
+                    help="저장 라벨. 지정 시 eval_results/summary/e2e/{model}_e2e_{tag}_{stamp}.{json,txt} 저장.")
     ap.add_argument("--model", type=str, default=None,
                     help="결과 메타 라벨 전용 — 실제 LLM 은 .env 의 LLM_MODEL 로 정해짐. "
                          "이 값은 결과 파일명/메타에만 기록됨.")
