@@ -273,6 +273,7 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
     cat_hit_labeled = 0
     cat_total_labeled = 0
     unevaluable_skipped = 0    # gold=[] AND cat=[] → denominator 에서 제외
+    unevaluable_reasons: dict[str, int] = {}
 
     per_item: list[dict] = []
     db: Session = SessionLocal()
@@ -294,9 +295,27 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
             # unevaluable skip — gold 도 category 도 없으면 추천 metric 측정 불가
             if not has_exact_gold and not has_cat_gold:
                 unevaluable_skipped += 1
+                reason = _s(getattr(row, "unlabelable_reason", None)) or "unknown"
+                unevaluable_reasons[reason] = unevaluable_reasons.get(reason, 0) + 1
                 continue
 
             rec: dict = {"case_id": case_id, "user_text": user_text, "mode": mode}
+
+            # --- gold slot 컬럼은 oracle/e2e 공통 (인스펙션 용) ---
+            g_mood = _s(getattr(row, "gold_current_mood", None))
+            g_party = _s(getattr(row, "gold_party_purpose", None))
+            g_strength = _s(getattr(row, "gold_strength_preference", None))
+            g_taste = _parse_json_dict(getattr(row, "gold_taste_profile", None))
+            g_aroma = _parse_json_dict(getattr(row, "gold_aroma_profile", None))
+            g_bases_list = _parse_json_list(getattr(row, "gold_disliked_bases", None))
+
+            rec["current_mood_gold"] = g_mood
+            rec["party_purpose_gold"] = g_party
+            rec["strength_preference_gold"] = g_strength
+            rec["taste_gold"] = json.dumps(g_taste, ensure_ascii=False)
+            rec["aroma_gold"] = json.dumps(g_aroma, ensure_ascii=False)
+            rec["bases_gold"] = json.dumps(sorted(g_bases_list), ensure_ascii=False)
+            rec["unlabelable_reason"] = _s(getattr(row, "unlabelable_reason", None)) or ""
 
             # --- 1~2) 슬롯 추출 + 슬롯 메트릭 (e2e 만) ---
             pred: dict = {}
@@ -306,14 +325,12 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
                 )
                 pred = result.get("extracted_slots") or {}
 
-                for csv_key, slot_key in [
-                    ("gold_current_mood", "current_mood"),
-                    ("gold_party_purpose", "party_purpose"),
-                    ("gold_strength_preference", "strength_preference"),
+                for slot_key, g in [
+                    ("current_mood", g_mood),
+                    ("party_purpose", g_party),
+                    ("strength_preference", g_strength),
                 ]:
-                    g = _s(getattr(row, csv_key))
                     p = pred.get(slot_key)
-                    rec[f"{slot_key}_gold"] = g
                     rec[f"{slot_key}_pred"] = p
                     if g is None:
                         rec[f"{slot_key}_hit"] = ""
@@ -322,9 +339,7 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
                     rec[f"{slot_key}_hit"] = int(ok)
                     enum_acc[slot_key].add(ok)
 
-                g_taste = _parse_json_dict(row.gold_taste_profile)
                 p_taste = pred.get("taste_profile") or {}
-                rec["taste_gold"] = json.dumps(g_taste, ensure_ascii=False)
                 rec["taste_pred"] = json.dumps(p_taste, ensure_ascii=False)
                 if g_taste or p_taste:
                     taste_key_prf.add(set(p_taste.keys()), set(g_taste.keys()))
@@ -333,9 +348,7 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
                         {(k, v) for k, v in g_taste.items()},
                     )
 
-                g_aroma = _parse_json_dict(row.gold_aroma_profile)
                 p_aroma = pred.get("aroma_profile") or {}
-                rec["aroma_gold"] = json.dumps(g_aroma, ensure_ascii=False)
                 rec["aroma_pred"] = json.dumps(p_aroma, ensure_ascii=False)
                 if g_aroma or p_aroma:
                     aroma_key_prf.add(set(p_aroma.keys()), set(g_aroma.keys()))
@@ -344,9 +357,8 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
                         {(k, v) for k, v in g_aroma.items()},
                     )
 
-                g_bases = set(_parse_json_list(row.gold_disliked_bases))
+                g_bases = set(g_bases_list)
                 p_bases = set(pred.get("disliked_bases") or [])
-                rec["bases_gold"] = json.dumps(sorted(g_bases), ensure_ascii=False)
                 rec["bases_pred"] = json.dumps(sorted(p_bases), ensure_ascii=False)
                 if g_bases or p_bases:
                     bases_prf.add(p_bases, g_bases)
@@ -429,6 +441,11 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
     _log("\n" + "=" * 60)
     _log(f"E2E EVAL — mode={mode}  total_rows={n}  evaluable={rec_total}  "
          f"unevaluable_skipped={unevaluable_skipped}  ({elapsed:.1f}s, {elapsed/max(n,1):.2f}s/case)")
+    if unevaluable_reasons:
+        reasons_fmt = ", ".join(
+            f"{k}={v}" for k, v in sorted(unevaluable_reasons.items(), key=lambda x: -x[1])
+        )
+        _log(f"  unevaluable breakdown: {reasons_fmt}")
     _log("=" * 60)
 
     # 슬롯 요약 (e2e only)
@@ -476,6 +493,7 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
         "n": n,
         "rec_n": rec_total,
         "unevaluable_skipped": unevaluable_skipped,
+        "unevaluable_reasons": unevaluable_reasons,
         "elapsed_sec": elapsed,
         # slot metrics (oracle 에선 0 으로 남지만 payload 구조는 유지)
         "scalar_avg": scalar_avg,
@@ -504,10 +522,21 @@ if __name__ == "__main__":
     ap.add_argument("--tag", type=str, default=None,
                     help="저장 라벨. 지정 시 eval_results/quantitative/e2e_{tag}_{stamp}.{json,txt} 저장.")
     ap.add_argument("--model", type=str, default=None,
-                    help="결과 메타에 기록할 모델명 (미지정 시 env LLM_MODEL)")
+                    help="결과 메타 라벨 전용 — 실제 LLM 은 .env 의 LLM_MODEL 로 정해짐. "
+                         "이 값은 결과 파일명/메타에만 기록됨.")
     ap.add_argument("--mode", choices=["e2e", "oracle"], default="e2e",
                     help="e2e=user_text→LLM→추천 / oracle=gold 슬롯 직접 주입→추천 (추천 로직 천장)")
     args = ap.parse_args()
+
+    # --model 은 라벨 전용. 실제 모델과 라벨이 어긋나면 치명적이므로 경고.
+    env_model = os.getenv("LLM_MODEL", "")
+    print(f"[env] LLM_MODEL={env_model or '(unset)'}")
+    if args.model and env_model and args.model.lower() not in env_model.lower():
+        print(
+            f"[WARN] --model='{args.model}' 가 env LLM_MODEL='{env_model}' 와 일치하지 않음. "
+            f"결과 라벨과 실제 실행 모델이 다를 수 있음. 계속하려면 5초 대기..."
+        )
+        time.sleep(5)
 
     result = run_eval(limit=args.limit, tag=args.tag, mode=args.mode)
     if args.tag:
