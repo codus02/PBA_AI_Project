@@ -316,8 +316,52 @@ def _rag_collect_profile(profile_dict: dict, label_map: dict[str, str]) -> list[
     return out
 
 
+_QUERY_STRUCTURED_INTENSITY = {
+    "high": "강함",
+    "medium": "중간",
+    "low": "은은함",
+    "zero": "배제",
+}
+
+
+def _structured_query_profile_bits(profile_dict: dict, label_map: dict[str, str]) -> tuple[list[str], list[str]]:
+    """구조화 질의 프로필용 anchor / constraint 라인 생성.
+
+    코퍼스 embedding text 의 [구조화 프로필] 블록과 최대한 비슷한 어휘를 사용한다.
+    - high / medium: dense retrieval 이 붙잡아야 할 positive anchor
+    - low / zero: 보조 constraint 로만 추가
+    """
+    anchors: list[str] = []
+    constraints: list[str] = []
+    for tag, intensity in (profile_dict or {}).items():
+        label = label_map.get(tag, tag)
+        if intensity in ("high", "medium"):
+            anchors.append(f"{label} {_QUERY_STRUCTURED_INTENSITY[intensity]}")
+        elif intensity == "low":
+            constraints.append(f"{label} 은은함 선호")
+        elif intensity == "zero":
+            constraints.append(f"{label} 배제")
+    return anchors, constraints
+
+
+def _structured_strength_phrase(strength: Optional[str]) -> Optional[str]:
+    if strength == "strong":
+        return "강한 도수"
+    if strength == "medium":
+        return "중간 도수"
+    if strength == "light":
+        return "가벼운 도수"
+    if strength == "zero":
+        return "무알콜"
+    return None
+
+
 def synthesize_query(profile: dict) -> str:
-    """build_user_profile 결과 → 자연어 쿼리 한 덩어리."""
+    """build_user_profile 결과 → 자연어 + 구조화 질의 블록.
+
+    코퍼스 쪽 embedding text 가 자유서술 + [구조화 프로필] 형태이므로,
+    retrieval query 도 같은 두 층위로 맞춰 query/corpus 비대칭을 줄인다.
+    """
     merged = profile.get("merged_slots") or {}
     space = profile.get("space")
     parts: list[str] = []
@@ -363,6 +407,43 @@ def synthesize_query(profile: dict) -> str:
         mood_str = ", ".join(k for k, _ in top_moods if k)
         if mood_str:
             parts.append(f"공간 무드: {mood_str}")
+
+    structured: list[str] = []
+    strength_phrase = _structured_strength_phrase(strength)
+    if strength_phrase:
+        structured.append(f"도수 프로필: {strength_phrase}")
+        structured.append(
+            "논알콜 여부: 무알콜" if strength == "zero" else "논알콜 여부: 알코올 포함"
+        )
+
+    taste_anchor, taste_constraints = _structured_query_profile_bits(
+        merged.get("taste_profile") or {},
+        _RAG_TASTE_KR,
+    )
+    if taste_anchor:
+        structured.append("대표 맛: " + ", ".join(taste_anchor))
+    if taste_constraints:
+        structured.append("맛 제약: " + ", ".join(taste_constraints))
+
+    aroma_anchor, aroma_constraints = _structured_query_profile_bits(
+        merged.get("aroma_profile") or {},
+        _RAG_AROMA_KR,
+    )
+    if aroma_anchor:
+        structured.append("대표 향: " + ", ".join(aroma_anchor))
+    if aroma_constraints:
+        structured.append("향 제약: " + ", ".join(aroma_constraints))
+
+    disliked_bases = merged.get("disliked_bases") or []
+    if disliked_bases:
+        structured.append("제외 베이스: " + ", ".join(disliked_bases[:4]))
+
+    favs = merged.get("favorite_drinks") or []
+    if favs:
+        structured.append("선호 참고 음료: " + ", ".join(favs[:3]))
+
+    if structured:
+        parts.append("[구조화 질의 프로필]\n" + "\n".join(structured))
 
     return "\n".join(parts) if parts else "일반적인 칵테일 추천"
 
