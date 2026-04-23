@@ -1044,7 +1044,8 @@ def score_cocktail(
 
 RAG_RETRIEVE_N = 20
 RERANK_REASON_POOL_N = 6
-AROMA_EXPANSION_LIMIT = 8
+AROMA_EXPANSION_LIMIT = 16
+AROMA_EXPANSION_PER_AXIS = {"high": 8, "medium": 5}
 
 
 def _score_survivors(
@@ -1097,7 +1098,13 @@ def _expand_retrieved_candidates(
     exclude_ids: Optional[list[int]] = None,
     limit: int = AROMA_EXPANSION_LIMIT,
 ) -> list[tuple[Cocktail, float]]:
-    """임베딩 검색이 aroma/high·medium 을 놓칠 때 향 기반 후보를 추가한다."""
+    """임베딩 검색이 aroma/high·medium 을 놓칠 때 향 기반 후보를 추가한다.
+
+    이전 버전은 여러 향 축을 단일 score 로 합쳐 top-N만 추가했다.
+    그러면 generic 후보가 상위권을 잠식해서 woody/high 같은 축의 대표 후보가
+    retrieve pool 에 못 들어오는 일이 생겼다. 여기서는 축별 top 후보를 먼저 뽑고
+    union 하여, 요청한 향 축이 각각 pool 에 반영되도록 만든다.
+    """
     aroma_profile = merged_slots.get("aroma_profile") or {}
     if not any(v in ("high", "medium") for v in aroma_profile.values()):
         return retrieved
@@ -1105,26 +1112,47 @@ def _expand_retrieved_candidates(
     strength_pref = merged_slots.get("strength_preference")
     existing_ids = {c.cocktail_id for c, _ in retrieved}
     candidates = get_candidate_cocktails(db, exclude_ids=exclude_ids)
-    extras: list[tuple[Cocktail, float, float]] = []
+    extras_by_id: dict[int, tuple[Cocktail, float]] = {}
 
-    for cocktail in candidates:
-        if cocktail.cocktail_id in existing_ids:
-            continue
-        if strength_pref == "zero":
-            if not cocktail.is_non_alcoholic:
+    requested_axes = [
+        (tag, intensity)
+        for tag, intensity in aroma_profile.items()
+        if intensity in ("high", "medium")
+    ]
+
+    for tag, intensity in requested_axes:
+        per_axis_rows: list[tuple[Cocktail, float]] = []
+        base_thr = _aroma_threshold(tag)
+        match_thr = base_thr if intensity == "high" else max(2.0, base_thr - 0.5)
+        take_n = AROMA_EXPANSION_PER_AXIS[intensity]
+
+        for cocktail in candidates:
+            if cocktail.cocktail_id in existing_ids:
                 continue
-        elif cocktail.is_non_alcoholic:
-            continue
+            if strength_pref == "zero":
+                if not cocktail.is_non_alcoholic:
+                    continue
+            elif cocktail.is_non_alcoholic:
+                continue
 
-        recipe_items = recipe_ingredients.get(cocktail.cocktail_id, [])
-        aroma_score = _aroma_focus_match_score(merged_slots, recipe_items)
-        if aroma_score <= 0:
-            continue
+            recipe_items = recipe_ingredients.get(cocktail.cocktail_id, [])
+            agg = _aggregate_aroma_from_ingredients(recipe_items)
+            val = float(agg.get(tag, 0.0) or 0.0)
+            if val < match_thr:
+                continue
 
-        extras.append((cocktail, -aroma_score, aroma_score))
+            # distance proxy: cosine distance 와 같은 방향(작을수록 좋음)으로 맞춘다.
+            # stronger aroma match 가 앞에 오게 음수로 저장.
+            per_axis_rows.append((cocktail, -val))
 
-    extras.sort(key=lambda x: (x[1], -x[2], x[0].cocktail_id))
-    return retrieved + [(c, dist) for c, dist, _ in extras[:limit]]
+        per_axis_rows.sort(key=lambda x: (x[1], x[0].cocktail_id))
+        for cocktail, dist in per_axis_rows[:take_n]:
+            prev = extras_by_id.get(cocktail.cocktail_id)
+            if prev is None or dist < prev[1]:
+                extras_by_id[cocktail.cocktail_id] = (cocktail, dist)
+
+    extras = sorted(extras_by_id.values(), key=lambda x: (x[1], x[0].cocktail_id))
+    return retrieved + extras[:limit]
 
 
 def recommend_top_k(
