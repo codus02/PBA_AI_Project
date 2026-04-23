@@ -908,22 +908,30 @@ def score_cocktail(
             elif val >= thr["high"]:
                 score -= 4
 
-    # 3. 향 프로파일 (intensity 가중)
+    # 3. 향 프로파일 (explicit slot 가중 강화)
     aroma_profile: dict = merged.get("aroma_profile") or {}
-    for _, ingredient in recipe_ingredients:
-        for tag, intensity in aroma_profile.items():
-            col = AROMA_TO_INGREDIENT.get(tag)
-            if not col:
-                continue
-            ing_val = getattr(ingredient, col, 0) or 0
-            ing_val = float(ing_val)
-            thresh = _aroma_threshold(tag)
-            if intensity == "high" and ing_val >= thresh:
-                score += 8
-            elif intensity == "medium" and ing_val >= thresh:
-                score += 3
-            elif intensity == "low" and ing_val >= (thresh + 1.0):
-                score -= 1
+    aroma_agg = _aggregate_aroma_from_ingredients(recipe_ingredients)
+    for tag, intensity in aroma_profile.items():
+        val = float(aroma_agg.get(tag, 0.0) or 0.0)
+        thresh = _aroma_threshold(tag)
+        if intensity == "high":
+            if val >= thresh:
+                score += 12
+            else:
+                score -= 8
+        elif intensity == "medium":
+            medium_thr = max(2.0, thresh - 0.5)
+            if val >= medium_thr:
+                score += 4
+        elif intensity == "low":
+            low_ok_max = max(1.5, thresh - 0.5)
+            if val <= low_ok_max:
+                score += 2
+            elif val >= thresh:
+                score -= 6
+        elif intensity == "zero":
+            if val >= thresh:
+                score -= 12
 
     # 4. 공간 무드 보너스 — cocktail.mood_tag 의 atom 확률 평균.
     if space and cocktail.mood_tag:
@@ -955,6 +963,7 @@ def score_cocktail(
 
 RAG_RETRIEVE_N = 20
 RERANK_REASON_POOL_N = 6
+AROMA_EXPANSION_LIMIT = 8
 
 
 def _score_survivors(
@@ -976,6 +985,65 @@ def _score_survivors(
         })
     scored.sort(key=lambda x: x["score"], reverse=True)
     return scored
+
+
+def _aroma_focus_match_score(merged_slots: dict, recipe_items: list[tuple]) -> float:
+    """explicit aroma 선호가 강한 후보를 retrieve pool에 추가하기 위한 점수."""
+    aroma_profile = (merged_slots or {}).get("aroma_profile") or {}
+    if not aroma_profile:
+        return 0.0
+
+    agg = _aggregate_aroma_from_ingredients(recipe_items)
+    score = 0.0
+    for tag, intensity in aroma_profile.items():
+        val = float(agg.get(tag, 0.0) or 0.0)
+        base_thr = _aroma_threshold(tag)
+        if intensity == "high":
+            if val >= base_thr:
+                score += 2.0 + val
+        elif intensity == "medium":
+            medium_thr = max(2.0, base_thr - 0.5)
+            if val >= medium_thr:
+                score += 0.8 + (0.4 * val)
+    return score
+
+
+def _expand_retrieved_candidates(
+    db: Session,
+    retrieved: list[tuple[Cocktail, float]],
+    merged_slots: dict,
+    recipe_ingredients: dict[int, list[tuple]],
+    exclude_ids: Optional[list[int]] = None,
+    limit: int = AROMA_EXPANSION_LIMIT,
+) -> list[tuple[Cocktail, float]]:
+    """임베딩 검색이 aroma/high·medium 을 놓칠 때 향 기반 후보를 추가한다."""
+    aroma_profile = merged_slots.get("aroma_profile") or {}
+    if not any(v in ("high", "medium") for v in aroma_profile.values()):
+        return retrieved
+
+    strength_pref = merged_slots.get("strength_preference")
+    existing_ids = {c.cocktail_id for c, _ in retrieved}
+    candidates = get_candidate_cocktails(db, exclude_ids=exclude_ids)
+    extras: list[tuple[Cocktail, float, float]] = []
+
+    for cocktail in candidates:
+        if cocktail.cocktail_id in existing_ids:
+            continue
+        if strength_pref == "zero":
+            if not cocktail.is_non_alcoholic:
+                continue
+        elif cocktail.is_non_alcoholic:
+            continue
+
+        recipe_items = recipe_ingredients.get(cocktail.cocktail_id, [])
+        aroma_score = _aroma_focus_match_score(merged_slots, recipe_items)
+        if aroma_score <= 0:
+            continue
+
+        extras.append((cocktail, -aroma_score, aroma_score))
+
+    extras.sort(key=lambda x: (x[1], -x[2], x[0].cocktail_id))
+    return retrieved + [(c, dist) for c, dist, _ in extras[:limit]]
 
 
 def recommend_top_k(
@@ -1001,6 +1069,13 @@ def recommend_top_k(
     retrieved = retrieve_candidates(
         db, query_text, top_k=RAG_RETRIEVE_N, exclude_ids=exclude_ids,
         strength_preference=merged_slots.get("strength_preference"),
+    )
+    retrieved = _expand_retrieved_candidates(
+        db,
+        retrieved,
+        merged_slots,
+        all_ri,
+        exclude_ids=exclude_ids,
     )
 
     # 2) 하드 필터 (비선호 베이스 / 재고 / 맛 축 zero)

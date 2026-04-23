@@ -41,6 +41,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.agents.preference_agent import analyze_user_turn
 from app.agents.orchestration_agent import (
+    _expand_retrieved_candidates,
     _has_disliked_base,
     _has_zero_taste_conflict,
     _is_unstockable,
@@ -56,6 +57,7 @@ from scripts._eval_save import save_eval_result, short_model_name
 
 CSV_PATH = Path("data/eval/e2e_recommendation_eval_v2_2_500.csv")
 RAG_RETRIEVE_N = 20
+ENABLE_RERANK_PREVIEW = os.getenv("EVAL_RERANK_PREVIEW", "").lower() in ("1", "true", "yes")
 
 
 # ============================================================
@@ -185,6 +187,13 @@ def _llm_top3(
         exclude_ids=None,
         strength_preference=merged.get("strength_preference"),
     )
+    retrieved = _expand_retrieved_candidates(
+        db,
+        retrieved,
+        merged,
+        all_ri,
+        exclude_ids=None,
+    )
     retrieved_cocktails = [c for c, _ in retrieved]
     if diagnostics is not None:
         diagnostics["query_text"] = query_text
@@ -250,29 +259,33 @@ def _llm_top3(
         diagnostics["gold_in_score_top3"] = "" if not gold_set else int(any(t["name_kr"] in gold_set for t in score_top3))
         diagnostics["cat_in_score_top3"] = "" if not cat_set else int(any(t["category"] in cat_set for t in score_top3))
 
-    rerank_pool_ids = [item["cocktail_id"] for item in scored[:max(3, RERANK_REASON_POOL_N)]]
-    id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
-    rerank_pool = [id_to_cocktail[cid] for cid in rerank_pool_ids if cid in id_to_cocktail]
-    reranked = rerank_with_llm(
-        profile,
-        rerank_pool,
-        k=len(rerank_pool),
-        recipe_ingredients=all_ri,
-    )
+    if ENABLE_RERANK_PREVIEW:
+        rerank_pool_ids = [item["cocktail_id"] for item in scored[:max(3, RERANK_REASON_POOL_N)]]
+        id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
+        rerank_pool = [id_to_cocktail[cid] for cid in rerank_pool_ids if cid in id_to_cocktail]
+        reranked = rerank_with_llm(
+            profile,
+            rerank_pool,
+            k=len(rerank_pool),
+            recipe_ingredients=all_ri,
+        )
 
-    if reranked and diagnostics is not None:
-        top3 = []
-        for item in reranked[:3]:
-            c = id_to_cocktail.get(item["cocktail_id"])
-            if c is None:
-                continue
-            top3.append({
-                "name_kr": c.name_kr,
-                "category": c.category,
-                "source": "rag_llm_preview",
-            })
-        diagnostics["rerank_top3_names"] = json.dumps([t["name_kr"] for t in top3], ensure_ascii=False)
-        diagnostics["rerank_top3_categories"] = json.dumps([t["category"] for t in top3], ensure_ascii=False)
+        if reranked and diagnostics is not None:
+            top3 = []
+            for item in reranked[:3]:
+                c = id_to_cocktail.get(item["cocktail_id"])
+                if c is None:
+                    continue
+                top3.append({
+                    "name_kr": c.name_kr,
+                    "category": c.category,
+                    "source": "rag_llm_preview",
+                })
+            diagnostics["rerank_top3_names"] = json.dumps([t["name_kr"] for t in top3], ensure_ascii=False)
+            diagnostics["rerank_top3_categories"] = json.dumps([t["category"] for t in top3], ensure_ascii=False)
+        elif diagnostics is not None:
+            diagnostics["rerank_top3_names"] = ""
+            diagnostics["rerank_top3_categories"] = ""
     elif diagnostics is not None:
         diagnostics["rerank_top3_names"] = ""
         diagnostics["rerank_top3_categories"] = ""

@@ -21,6 +21,7 @@ from app.agents.orchestration_agent import (
     rerank_with_llm,
     RERANK_REASON_POOL_N,
     score_cocktail,
+    _expand_retrieved_candidates,
     _has_disliked_base,
     _is_unstockable,
     _has_zero_taste_conflict,
@@ -29,6 +30,7 @@ from scripts._eval_save import save_eval_result, short_model_name
 
 RAG_RETRIEVE_N = 20
 CSV_PATH = Path("data/eval/recommendation_eval_v2_500.csv")
+ENABLE_RERANK_PREVIEW = os.getenv("EVAL_RERANK_PREVIEW", "").lower() in ("1", "true", "yes")
 
 
 def _parse_list(val):
@@ -101,6 +103,13 @@ def _llm_top3(
         exclude_ids=None,
         strength_preference=merged.get("strength_preference"),
     )
+    retrieved = _expand_retrieved_candidates(
+        db,
+        retrieved,
+        merged,
+        all_ri,
+        exclude_ids=None,
+    )
 
     survivors: list[tuple] = []
     for cocktail, dist in retrieved:
@@ -129,16 +138,17 @@ def _llm_top3(
         })
 
     scored.sort(key=lambda x: x["score"], reverse=True)
-    survivor_cocktails = [c for c, _ in survivors]
-    rerank_pool_ids = [item["cocktail_id"] for item in scored[:max(3, RERANK_REASON_POOL_N)]]
-    id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
-    rerank_pool = [id_to_cocktail[cid] for cid in rerank_pool_ids if cid in id_to_cocktail]
-    reranked = rerank_with_llm(profile, rerank_pool, k=len(rerank_pool), recipe_ingredients=all_ri)
-    if reranked:
-        llm_ids = {int(item["cocktail_id"]) for item in reranked if item.get("cocktail_id")}
-        for item in scored[:3]:
-            if item["cocktail_id"] in llm_ids:
-                item["source"] = "score_llm_reason"
+    if ENABLE_RERANK_PREVIEW:
+        survivor_cocktails = [c for c, _ in survivors]
+        rerank_pool_ids = [item["cocktail_id"] for item in scored[:max(3, RERANK_REASON_POOL_N)]]
+        id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
+        rerank_pool = [id_to_cocktail[cid] for cid in rerank_pool_ids if cid in id_to_cocktail]
+        reranked = rerank_with_llm(profile, rerank_pool, k=len(rerank_pool), recipe_ingredients=all_ri)
+        if reranked:
+            llm_ids = {int(item["cocktail_id"]) for item in reranked if item.get("cocktail_id")}
+            for item in scored[:3]:
+                if item["cocktail_id"] in llm_ids:
+                    item["source"] = "score_llm_reason"
     return scored[:3]
 
 
