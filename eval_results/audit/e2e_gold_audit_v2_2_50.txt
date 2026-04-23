@@ -1,0 +1,878 @@
+============================================================================
+[case_id=4]
+  user_text  : 프루티한 향이 또렷했으면 해요 꽃향은 적당하면 좋겠어요 커피 느낌은 약했으면 좋겠어요 산미가 또렷한 쪽이 좋아요 알코올 없는 쪽으로 보고 있어요 컨디션이 썩 좋진 않아요 지인들이랑 수다 떨면서 마실 거예요요.
+  slots      : strength=zero  taste={"sour": "high"}  aroma={"floral": "medium", "coffee": "low", "fruity": "high"}  bases=nan  favs=nan  mood=bad  purpose=hangout
+  pool       : base=5  hard_check_pass=0
+  gold       : []
+  categories : ['시트러스 사워']
+  unlabelable: zero_high_impossible
+  hard-check 통과 후보 top:
+    [없음]
+  탈락 후보 예시:
+    - 노지토  score=52.8  why=aroma.fruity: 2.0 < 3.0
+    - 버진 피냐 콜라다  score=45.9  why=taste.sour: 1.0 < 2.8
+    - 버진 모히토  score=44.25  why=aroma.fruity: 2.0 < 3.0
+    - 버진 메리  score=37.15  why=taste.sour: 2.4 < 2.8; aroma.fruity: 2.0 < 3.0
+    - 셜리 템플  score=37.0  why=taste.sour: 1.4 < 2.8
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=13]
+  user_text  : 같이 분위기 있게 마실 거예요 딱히 업다운 없는 상태예요. 커피 향이 확실했으면 좋겠어요 프루티한 향은 약했으면 좋겠어요 우디한 향은 적당하면 좋겠어요 단맛은 약했으면 좋겠어요 크리미한 느낌은 적당하면 좋겠어요 신맛은 중간 정도면 돼요 확실히 힘 있는 쪽이어도 돼요.
+  slots      : strength=strong  taste={"sweet": "low", "sour": "medium", "creamy": "medium"}  aroma={"fruity": "low", "woody": "medium", "coffee": "high"}  bases=nan  favs=nan  mood=soso  purpose=date
+  pool       : base=12  hard_check_pass=1
+  gold       : ['블랙 러시안']
+  categories : ['커피/디저트']
+  hard-check 통과 후보 top:
+    1. 블랙 러시안  score=49.65  cat=커피/디저트  알콜
+  탈락 후보 예시:
+    - 좀비  score=74.55  why=aroma.coffee: 1.0 < 3.0
+    - 브랜디 크러스타  score=67.33  why=aroma.fruity low conflict: 4.0 >= 3.0; aroma.coffee: 1.0 < 3.0
+    - 비트윈 더 시트  score=66.17  why=aroma.fruity low conflict: 3.0 >= 3.0; aroma.coffee: 1.0 < 3.0
+    - 사이드카  score=65.88  why=aroma.fruity low conflict: 3.0 >= 3.0; aroma.coffee: 1.0 < 3.0
+    - 화이트 레이디  score=64.1  why=aroma.fruity low conflict: 3.0 >= 3.0; aroma.coffee: 1.0 < 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=14]
+  user_text  : 민트 향이 확실했으면 좋겠어요 축하하는 자리에서 마실 거예요 확실히 힘 있는 쪽이어도 돼요. 단맛은 과하지 않게 적당하면 좋겠어요 좀 처진 느낌이에요 샴페인 칵테일 쪽을 좋아해요
+  slots      : strength=strong  taste={"sweet": "medium"}  aroma={"minty": "high"}  bases=nan  favs=["샴페인 칵테일"]  mood=bad  purpose=celebration
+  pool       : base=12  hard_check_pass=0
+  gold       : []
+  categories : ['리프레싱 하이볼']
+  unlabelable: no_candidates_passed_hard_check
+  hard-check 통과 후보 top:
+    [없음]
+  탈락 후보 예시:
+    - 브랜디 크러스타  score=70.33  why=aroma.minty: 1.0 < 2.5
+    - 좀비  score=68.55  why=aroma.minty: 1.0 < 2.5
+    - 마이타이  score=64.97  why=aroma.minty: 1.0 < 2.5
+    - 올드 패션드  score=62.25  why=aroma.minty: 1.0 < 2.5
+    - 사제락  score=61.5  why=aroma.minty: 1.0 < 2.5
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=16]
+  user_text  : 진 베이스는 빼고 싶어요 그냥 무난한 기분이에요. 플로럴한 느낌은 강하지 않았으면 해요 커피 향은 강하지 않게요 부담 없는 도수면 돼요.
+  slots      : strength=light  taste=nan  aroma={"floral": "low", "coffee": "low"}  bases=["gin"]  favs=nan  mood=soso  purpose=nan
+  pool       : base=57  hard_check_pass=51
+  gold       : ['정글 버드', '러시안 스프링 펀치', '페이퍼 플레인']
+  categories : ['비터/허벌', '스파클링', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 정글 버드  score=72.47  cat=티키/트로피컬  알콜
+    2. 러시안 스프링 펀치  score=63.17  cat=스파클링  알콜
+    3. 페이퍼 플레인  score=62.25  cat=비터/허벌  알콜
+  탈락 후보 예시:
+    - 네이키드 앤 페이머스  score=60.75  why=aroma.floral low conflict: 3.0 >= 2.5
+    - 샤르트뢰즈 스위즐  score=54.83  why=aroma.floral low conflict: 3.0 >= 2.5
+    - 아이리시 커피  score=48.75  why=aroma.coffee low conflict: 5.0 >= 3.0
+    - 스파이시 피프티  score=48.55  why=aroma.floral low conflict: 4.0 >= 2.5
+    - 에스프레소 마티니  score=35.8  why=aroma.coffee low conflict: 5.0 >= 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=17]
+  user_text  : 우디한 향이 분명했으면 좋겠어요 좀 처진 느낌이에요 부담 없이 균형 잡힌 도수면 좋겠어요 취향으로는 모스코 뮬가 잘 맞아요 무게감은 낮은 쪽이면 좋겠어요.
+  slots      : strength=medium  taste={"body": "low"}  aroma={"woody": "high"}  bases=nan  favs=["모스코 뮬"]  mood=bad  purpose=nan
+  pool       : base=86  hard_check_pass=23
+  gold       : ['페니실린', '쓰리 닷츠 앳 어 대시', '올드 쿠반']
+  categories : ['스파클링', '시트러스 사워', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 페니실린  score=82.88  cat=시트러스 사워  알콜
+    2. 쓰리 닷츠 앳 어 대시  score=80.38  cat=티키/트로피컬  알콜
+    3. 올드 쿠반  score=77.95  cat=스파클링  알콜
+  탈락 후보 예시:
+    - 샤르트뢰즈 스위즐  score=71.83  why=aroma.woody: 1.0 < 3.0
+    - 라스트 워드  score=69.17  why=aroma.woody: 1.0 < 3.0
+    - 싱가폴 슬링  score=68.17  why=aroma.woody: 2.0 < 3.0
+    - 가리발디  score=68.17  why=aroma.woody: 1.0 < 3.0
+    - 콥스 리바이버 No.2  score=67.78  why=aroma.woody: 1.0 < 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=45]
+  user_text  : 허브 향은 적당하면 좋겠어요 민트감은 강하지 않았으면 해요 나무 향은 강하지 않았으면 해요 도수는 중간 정도면 좋겠어요 기분은 보통이에요 신맛은 중간 정도면 돼요 많이 달지 않았으면 해요 산뜻한 느낌은 강하지 않아도 돼요 일 이야기하면서 마실 예정이에요.
+  slots      : strength=medium  taste={"freshness": "low", "sour": "medium", "sweet": "low"}  aroma={"woody": "low", "herbal": "medium", "minty": "low"}  bases=nan  favs=nan  mood=soso  purpose=business
+  pool       : base=86  hard_check_pass=35
+  gold       : ['콥스 리바이버 No.2', '라스트 워드', '샤르트뢰즈 스위즐']
+  categories : ['비터/허벌']
+  hard-check 통과 후보 top:
+    1. 콥스 리바이버 No.2  score=82.78  cat=비터/허벌  알콜
+    2. 라스트 워드  score=80.17  cat=비터/허벌  알콜
+    3. 샤르트뢰즈 스위즐  score=78.83  cat=비터/허벌  알콜
+  탈락 후보 예시:
+    - 서퍼링 바스타드  score=76.53  why=aroma.woody low conflict: 3.0 >= 3.0
+    - 올드 쿠반  score=74.95  why=taste.freshness low conflict: 3.7 >= 3.7; aroma.woody low conflict: 3.0 >= 3.0; aroma.minty low conflict: 5.0 >= 2.5
+    - 싱가폴 슬링  score=72.17  why=taste.sweet low conflict: 3.8 >= 3.1
+    - 위스키 사워  score=70.55  why=aroma.woody low conflict: 4.0 >= 3.0
+    - 페이퍼 플레인  score=70.25  why=aroma.woody low conflict: 4.0 >= 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=48]
+  user_text  : 컨디션이 썩 좋진 않아요 무알콜로 부탁드려요 부드럽고 진득한 질감은 약했으면 좋겠어요 산뜻함은 중간 정도면 돼요 같이 분위기 있게 마실 거예요 진 베이스만 아니면 좋겠어요 민트감은 강하지 않았으면 해요 꽃향이 확실했으면 좋겠어요
+  slots      : strength=zero  taste={"creamy": "low", "freshness": "medium"}  aroma={"minty": "low", "floral": "high"}  bases=["gin"]  favs=nan  mood=bad  purpose=date
+  pool       : base=5  hard_check_pass=0
+  gold       : []
+  categories : []
+  unlabelable: zero_high_impossible
+  hard-check 통과 후보 top:
+    [없음]
+  탈락 후보 예시:
+    - 버진 모히토  score=49.25  why=aroma.minty low conflict: 5.0 >= 2.5; aroma.floral: zero pool 에 해당 향 없음
+    - 노지토  score=47.8  why=aroma.minty low conflict: 5.0 >= 2.5; aroma.floral: zero pool 에 해당 향 없음
+    - 셜리 템플  score=42.0  why=aroma.floral: zero pool 에 해당 향 없음
+    - 버진 메리  score=38.15  why=aroma.floral: zero pool 에 해당 향 없음
+    - 버진 피냐 콜라다  score=37.9  why=taste.creamy low conflict: 3.1 >= 3.0; aroma.floral: zero pool 에 해당 향 없음
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=50]
+  user_text  : 꽃향은 적당하면 좋겠어요 평소랑 비슷한 컨디션이에요 부담 없는 도수면 돼요 단맛은 중간 정도면 돼요 럼 베이스는 빼고 싶어요
+  slots      : strength=light  taste={"sweet": "medium"}  aroma={"floral": "medium"}  bases=["rum"]  favs=nan  mood=soso  purpose=nan
+  pool       : base=66  hard_check_pass=66
+  gold       : ['포르노스타 마티니', '러시안 스프링 펀치', '피스코 펀치']
+  categories : ['스파클링', '시트러스 사워']
+  hard-check 통과 후보 top:
+    1. 포르노스타 마티니  score=76.1  cat=스파클링  알콜
+    2. 러시안 스프링 펀치  score=71.17  cat=스파클링  알콜
+    3. 피스코 펀치  score=69.05  cat=시트러스 사워  알콜
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=53]
+  user_text  : 편하게 모여서 마시려고요 허벌한 느낌은 강하지 않았으면 해요. 너무 약하거나 세지 않은 쪽이면 돼요 산미는 적당하면 좋겠어요 오늘은 좀 지쳐 있어요.
+  slots      : strength=medium  taste={"sour": "medium"}  aroma={"herbal": "low"}  bases=nan  favs=nan  mood=bad  purpose=hangout
+  pool       : base=86  hard_check_pass=41
+  gold       : ['토미스 마가리타', '일레갈', '페니실린']
+  categories : ['시트러스 사워', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 토미스 마가리타  score=72.28  cat=시트러스 사워  알콜
+    2. 일레갈  score=72.17  cat=티키/트로피컬  알콜
+    3. 페니실린  score=71.88  cat=시트러스 사워  알콜
+  탈락 후보 예시:
+    - 샤르트뢰즈 스위즐  score=74.83  why=aroma.herbal low conflict: 5.0 >= 3.0
+    - 라스트 워드  score=73.17  why=aroma.herbal low conflict: 5.0 >= 3.0
+    - 클로버 클럽  score=72.4  why=aroma.herbal low conflict: 3.0 >= 3.0
+    - 올드 쿠반  score=71.95  why=aroma.herbal low conflict: 4.0 >= 3.0
+    - 브램블  score=71.78  why=aroma.herbal low conflict: 3.0 >= 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=58]
+  user_text  : 약한 것보다는 도수가 있는 편이 좋아. 프루티한 느낌은 은은하면 돼! 오늘은 좀 지쳐 있어. 기념할 일이 있어서!
+  slots      : strength=strong  taste=nan  aroma={"fruity": "medium"}  bases=nan  favs=nan  mood=bad  purpose=celebration
+  pool       : base=12  hard_check_pass=12
+  gold       : ['브랜디 크러스타', '좀비', '마이타이']
+  categories : ['시트러스 사워', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 브랜디 크러스타  score=71.33  cat=시트러스 사워  알콜
+    2. 좀비  score=68.55  cat=티키/트로피컬  알콜
+    3. 마이타이  score=62.98  cat=티키/트로피컬  알콜
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=72]
+  user_text  : 좋은 일 있어서 분위기 내고 싶어요 나무 향은 은은하면 돼요 민트 향이 확실했으면 좋겠어요 쓴맛은 중간 정도로만 느껴지면 돼요. 평소에는 정글 버드 좋아해요 도수는 중간 정도면 좋겠어요 기분이 꽤 좋아요.
+  slots      : strength=medium  taste={"bitter": "medium"}  aroma={"woody": "medium", "minty": "high"}  bases=nan  favs=["정글 버드"]  mood=good  purpose=celebration
+  pool       : base=86  hard_check_pass=6
+  gold       : ['올드 쿠반', '사우스사이드', '미셔너리즈 다운폴']
+  categories : ['리프레싱 하이볼', '스파클링', '시트러스 사워', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 올드 쿠반  score=84.95  cat=스파클링  알콜
+    2. 사우스사이드  score=71.88  cat=시트러스 사워  알콜
+    3. 미셔너리즈 다운폴  score=68.97  cat=티키/트로피컬  알콜
+  탈락 후보 예시:
+    - 트리니다드 사워  score=77.03  why=aroma.minty: 1.0 < 2.5
+    - 샤르트뢰즈 스위즐  score=75.83  why=aroma.minty: 1.0 < 2.5
+    - 카지노  score=75.58  why=aroma.minty: 1.0 < 2.5
+    - 쓰리 닷츠 앳 어 대시  score=75.38  why=aroma.minty: 1.0 < 2.5
+    - 라스트 워드  score=74.17  why=aroma.minty: 1.0 < 2.5
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=80]
+  user_text  : 둘이 분위기 보면서 마시려고요. 오늘은 좀 지쳐 있어. 허브 향이 분명했으면 좋겠어요 과일 향은 적당하면 좋겠어. 확실히 힘 있는 쪽이어도 돼요.
+  slots      : strength=strong  taste=nan  aroma={"herbal": "high", "fruity": "medium"}  bases=nan  favs=nan  mood=bad  purpose=date
+  pool       : base=12  hard_check_pass=8
+  gold       : ['좀비', '브랜디 크러스타', '사제락']
+  categories : ['비터/허벌', '시트러스 사워', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 좀비  score=84.55  cat=티키/트로피컬  알콜
+    2. 브랜디 크러스타  score=79.33  cat=시트러스 사워  알콜
+    3. 사제락  score=72.5  cat=비터/허벌  알콜
+  탈락 후보 예시:
+    - 마이타이  score=62.98  why=aroma.herbal: 1.0 < 3.0
+    - 비트윈 더 시트  score=60.17  why=aroma.herbal: 1.0 < 3.0
+    - 사이드카  score=59.88  why=aroma.herbal: 1.0 < 3.0
+    - 블랙 러시안  score=41.65  why=aroma.herbal: 1.0 < 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=82]
+  user_text  : 컨디션이 괜찮은 날이에요 과일 향은 적당하면 좋겠어요 커피 느낌은 은은하면 돼요 무알콜로 부탁드려요 같이 분위기 있게 마실 거예요 크리미한 느낌은 거의 없었으면 해요 청량감은 적당하면 좋겠어요 데킬라 베이스는 빼고 싶어요
+  slots      : strength=zero  taste={"freshness": "medium", "creamy": "low"}  aroma={"fruity": "medium", "coffee": "medium"}  bases=["tequila"]  favs=nan  mood=good  purpose=date
+  pool       : base=5  hard_check_pass=4
+  gold       : ['버진 모히토', '노지토', '셜리 템플']
+  categories : ['리프레싱 하이볼', '스파클링']
+  hard-check 통과 후보 top:
+    1. 버진 모히토  score=50.25  cat=리프레싱 하이볼  무알콜
+    2. 노지토  score=48.8  cat=리프레싱 하이볼  무알콜
+    3. 셜리 템플  score=45.0  cat=스파클링  무알콜
+  탈락 후보 예시:
+    - 버진 피냐 콜라다  score=43.9  why=taste.creamy low conflict: 3.1 >= 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=102]
+  user_text  : 평소에는 플랜터즈 펀치 좋아해요 시트러스 느낌은 적당하면 돼요 프루티한 향이 또렷했으면 해요 플로럴한 느낌은 은은하면 돼요 산미가 또렷한 쪽이 좋아요 데이트 자리에서 마실 거예요 가볍게 마실 수 있으면 좋겠어요 기분이 꽤 좋아요요.
+  slots      : strength=light  taste={"sour": "high"}  aroma={"floral": "medium", "citrus": "medium", "fruity": "high"}  bases=nan  favs=["플랜터즈 펀치"]  mood=good  purpose=date
+  pool       : base=81  hard_check_pass=9
+  gold       : ['러시안 스프링 펀치', '헤밍웨이 스페셜', '시 브리즈']
+  categories : ['스파클링', '시트러스 사워']
+  hard-check 통과 후보 top:
+    1. 러시안 스프링 펀치  score=87.17  cat=스파클링  알콜
+    2. 헤밍웨이 스페셜  score=86.67  cat=시트러스 사워  알콜
+    3. 시 브리즈  score=83.12  cat=시트러스 사워  알콜
+  탈락 후보 예시:
+    - IBA Tiki  score=87.47  why=taste.sour: 2.9 < 3.1
+    - 정글 버드  score=86.47  why=taste.sour: 2.7 < 3.1
+    - 싱가폴 슬링  score=85.17  why=taste.sour: 2.7 < 3.1
+    - 미셔너리즈 다운폴  score=82.97  why=taste.sour: 2.7 < 3.1
+    - 네이키드 앤 페이머스  score=80.75  why=taste.sour: 3.0 < 3.1; aroma.fruity: 2.0 < 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=111]
+  user_text  : 세지 않은 쪽이면 좋겠어요 오늘은 좀 지쳐 있어요 쓴맛이 또렷했으면 좋겠어요 둘이 분위기 보면서 마시려고요 과일 향은 적당하면 좋겠어요 진는 피하고 싶어요.
+  slots      : strength=light  taste={"bitter": "high"}  aroma={"fruity": "medium"}  bases=["gin"]  favs=nan  mood=bad  purpose=date
+  pool       : base=57  hard_check_pass=7
+  gold       : ['페이퍼 플레인', '아메리카노', '가리발디']
+  categories : ['비터/허벌']
+  hard-check 통과 후보 top:
+    1. 페이퍼 플레인  score=72.25  cat=비터/허벌  알콜
+    2. 아메리카노  score=66.65  cat=비터/허벌  알콜
+    3. 가리발디  score=65.17  cat=비터/허벌  알콜
+  탈락 후보 예시:
+    - 정글 버드  score=85.47  why=taste.bitter: 2.6 < 2.7
+    - 샴페인 칵테일  score=74.0  why=taste.bitter: 2.2 < 2.7
+    - 네이키드 앤 페이머스  score=71.75  why=taste.bitter: 2.5 < 2.7
+    - 쓰리 닷츠 앳 어 대시  score=62.38  why=taste.bitter: 2.2 < 2.7
+    - 헤밍웨이 스페셜  score=60.67  why=taste.bitter: 0.8 < 2.7
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=112]
+  user_text  : 확실히 힘 있는 쪽이어도 돼요 컨디션이 괜찮은 날이에요 무게감은 낮은 쪽이면 좋겠어요 가볍게 어울리는 자리예요 허브 향은 약했으면 좋겠어요
+  slots      : strength=strong  taste={"body": "low"}  aroma={"herbal": "low"}  bases=nan  favs=nan  mood=good  purpose=hangout
+  pool       : base=12  hard_check_pass=4
+  gold       : ['마이타이', '비트윈 더 시트', '사이드카']
+  categories : ['시트러스 사워', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 마이타이  score=59.98  cat=티키/트로피컬  알콜
+    2. 비트윈 더 시트  score=57.17  cat=시트러스 사워  알콜
+    3. 사이드카  score=56.88  cat=시트러스 사워  알콜
+  탈락 후보 예시:
+    - 좀비  score=66.55  why=aroma.herbal low conflict: 5.0 >= 3.0
+    - 브랜디 크러스타  score=60.33  why=aroma.herbal low conflict: 4.0 >= 3.0
+    - 화이트 레이디  score=58.1  why=aroma.herbal low conflict: 3.0 >= 3.0
+    - 올드 패션드  score=52.25  why=taste.body low conflict: 2.5 >= 2.5; aroma.herbal low conflict: 4.0 >= 3.0
+    - 사제락  score=50.5  why=taste.body low conflict: 2.5 >= 2.5; aroma.herbal low conflict: 5.0 >= 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=113]
+  user_text  : 가볍게 마실 수 있으면 좋겠어요. 같이 분위기 있게 마실 거예요. 허브 향은 약했으면 좋겠어! 딱히 업다운 없는 상태예요. 크리미한 느낌은 적당하면 좋겠어요 산미는 적당하면 좋겠어요 무게감은 낮은 쪽이면 좋겠어!
+  slots      : strength=light  taste={"creamy": "medium", "sour": "medium", "body": "low"}  aroma={"herbal": "low"}  bases=nan  favs=nan  mood=soso  purpose=date
+  pool       : base=81  hard_check_pass=33
+  gold       : ['러시안 스프링 펀치', '포르노스타 마티니', '다이키리']
+  categories : ['스파클링', '시트러스 사워']
+  hard-check 통과 후보 top:
+    1. 러시안 스프링 펀치  score=69.17  cat=스파클링  알콜
+    2. 포르노스타 마티니  score=67.1  cat=스파클링  알콜
+    3. 다이키리  score=64.08  cat=시트러스 사워  알콜
+  탈락 후보 예시:
+    - 정글 버드  score=68.47  why=aroma.herbal low conflict: 3.0 >= 3.0
+    - 페이퍼 플레인  score=67.25  why=aroma.herbal low conflict: 3.0 >= 3.0
+    - 진 피즈  score=66.97  why=aroma.herbal low conflict: 3.0 >= 3.0
+    - 네이키드 앤 페이머스  score=65.75  why=aroma.herbal low conflict: 5.0 >= 3.0
+    - 클로버 클럽  score=62.4  why=aroma.herbal low conflict: 3.0 >= 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=115]
+  user_text  : 커피 향이 확실했으면 좋겠어요. 청량감이 확실했으면 좋겠어요 단맛은 약했으면 좋겠어! 부담 없는 도수면 돼요. 그냥 무난한 기분이에요. 둘이 분위기 보면서 마시려고.
+  slots      : strength=light  taste={"sweet": "low", "freshness": "high"}  aroma={"coffee": "high"}  bases=nan  favs=nan  mood=soso  purpose=date
+  pool       : base=81  hard_check_pass=0
+  gold       : []
+  categories : ['커피/디저트']
+  unlabelable: no_candidates_passed_hard_check
+  hard-check 통과 후보 top:
+    [없음]
+  탈락 후보 예시:
+    - 러시안 스프링 펀치  score=73.17  why=aroma.coffee: 1.0 < 3.0
+    - 진 피즈  score=71.97  why=aroma.coffee: 1.0 < 3.0
+    - 모히토  score=71.47  why=aroma.coffee: 1.0 < 3.0
+    - 샴페인 칵테일  score=71.0  why=aroma.coffee: 1.0 < 3.0
+    - 쿠바 리브레  score=70.15  why=aroma.coffee: 1.0 < 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=120]
+  user_text  : 부드럽고 진득한 질감은 약했으면 좋겠어요 청량감은 적당하면 좋겠어요 확실히 힘 있는 쪽이어도 돼요. 지인들이랑 수다 떨면서 마실 거예요 조금 다운된 상태예요 허벌한 느낌은 강하지 않았으면 해요 과일 향은 강하지 않아도 돼요
+  slots      : strength=strong  taste={"creamy": "low", "freshness": "medium"}  aroma={"herbal": "low", "fruity": "low"}  bases=nan  favs=nan  mood=bad  purpose=hangout
+  pool       : base=12  hard_check_pass=1
+  gold       : ['블랙 러시안']
+  categories : ['커피/디저트']
+  hard-check 통과 후보 top:
+    1. 블랙 러시안  score=42.65  cat=커피/디저트  알콜
+  탈락 후보 예시:
+    - 좀비  score=67.55  why=aroma.herbal low conflict: 5.0 >= 3.0
+    - 브랜디 크러스타  score=64.33  why=aroma.herbal low conflict: 4.0 >= 3.0; aroma.fruity low conflict: 4.0 >= 3.0
+    - 사이드카  score=62.88  why=aroma.fruity low conflict: 3.0 >= 3.0
+    - 마이타이  score=60.98  why=aroma.fruity low conflict: 3.0 >= 3.0
+    - 화이트 레이디  score=59.1  why=aroma.herbal low conflict: 3.0 >= 3.0; aroma.fruity low conflict: 3.0 >= 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=126]
+  user_text  : 기분은 보통이에! 민트 향은 약했으면 좋겠어요 허브 향은 약했으면 좋겠어. 데이트 자리에서 마실 거예. 시큼한 느낌은 거의 없었으면 해요 쓴맛은 중간 정도로만 느껴지면 돼요 단맛이 확실히 느껴졌으면 좋겠어. 진 베이스만 아니면 좋겠어!
+  slots      : strength=nan  taste={"sweet": "high", "sour": "low", "bitter": "medium"}  aroma={"herbal": "low", "minty": "low"}  bases=["gin"]  favs=nan  mood=soso  purpose=date
+  pool       : base=70  hard_check_pass=8
+  gold       : ['일레갈', '마이타이', '스파이시 피프티']
+  categories : ['시트러스 사워', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 일레갈  score=62.17  cat=티키/트로피컬  알콜
+    2. 마이타이  score=61.98  cat=티키/트로피컬  알콜
+    3. 스파이시 피프티  score=59.55  cat=시트러스 사워  알콜
+  탈락 후보 예시:
+    - 정글 버드  score=72.47  why=aroma.herbal low conflict: 3.0 >= 3.0
+    - 트리니다드 사워  score=68.03  why=aroma.herbal low conflict: 4.0 >= 3.0
+    - 쓰리 닷츠 앳 어 대시  score=64.38  why=aroma.herbal low conflict: 4.0 >= 3.0
+    - 브랜디 크러스타  score=61.33  why=taste.sweet: 3.0 < 3.1; aroma.herbal low conflict: 4.0 >= 3.0
+    - 샤르트뢰즈 스위즐  score=59.83  why=taste.sweet: 3.0 < 3.1; aroma.herbal low conflict: 5.0 >= 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=141]
+  user_text  : 씁쓸한 포인트가 분명했으면 해요. 부담 없는 도수면 돼요. 보드카 베이스만 아니면 좋겠어요. 오늘은 기분이 좋은 편이에! 업무 얘기 나누면서 마실 자리예! 시트러스 향은 은은하면 좋겠어.
+  slots      : strength=light  taste={"bitter": "high"}  aroma={"citrus": "medium"}  bases=["vodka"]  favs=nan  mood=good  purpose=business
+  pool       : base=69  hard_check_pass=8
+  gold       : ['페이퍼 플레인', '아메리카노', '가리발디']
+  categories : ['비터/허벌']
+  hard-check 통과 후보 top:
+    1. 페이퍼 플레인  score=78.25  cat=비터/허벌  알콜
+    2. 아메리카노  score=69.65  cat=비터/허벌  알콜
+    3. 가리발디  score=68.17  cat=비터/허벌  알콜
+  탈락 후보 예시:
+    - 정글 버드  score=88.47  why=taste.bitter: 2.6 < 2.7
+    - 네이키드 앤 페이머스  score=77.75  why=taste.bitter: 2.5 < 2.7
+    - 샴페인 칵테일  score=74.0  why=taste.bitter: 2.2 < 2.7
+    - 카지노  score=71.58  why=taste.bitter: 2.3 < 2.7
+    - 싱가폴 슬링  score=68.17  why=taste.bitter: 2.2 < 2.7
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=143]
+  user_text  : 업무 얘기 나누면서 마실 자리예요 세지 않은 쪽이면 좋겠어요 기분은 보통이에요 부드러운 질감이 살짝 있으면 좋겠어요 프루티한 향이 또렷했으면 해요.
+  slots      : strength=light  taste={"creamy": "medium"}  aroma={"fruity": "high"}  bases=nan  favs=nan  mood=soso  purpose=business
+  pool       : base=81  hard_check_pass=37
+  gold       : ['포르노스타 마티니', 'IBA Tiki', '정글 버드']
+  categories : ['스파클링', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 포르노스타 마티니  score=83.1  cat=스파클링  알콜
+    2. IBA Tiki  score=81.47  cat=티키/트로피컬  알콜
+    3. 정글 버드  score=80.47  cat=티키/트로피컬  알콜
+  탈락 후보 예시:
+    - 페이퍼 플레인  score=62.25  why=aroma.fruity: 2.0 < 3.0
+    - 네이키드 앤 페이머스  score=61.75  why=aroma.fruity: 2.0 < 3.0
+    - 진 피즈  score=60.98  why=aroma.fruity: 2.0 < 3.0
+    - 모히토  score=60.48  why=aroma.fruity: 2.0 < 3.0
+    - 쿠바 리브레  score=60.15  why=aroma.fruity: 2.0 < 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=173]
+  user_text  : 둘이 분위기 보면서 마시려고요 그냥 무난한 기분이에요 우디한 향이 분명했으면 좋겠어요 시트러스 느낌은 약했으면 좋겠어요 데킬라이랑 진 베이스는 빼고 싶어요 도수는 가볍게 가고 싶어요 일레갈 같은 스타일을 좋아하는 편이에요요.
+  slots      : strength=light  taste=nan  aroma={"woody": "high", "citrus": "low"}  bases=["tequila", "gin"]  favs=["일레갈"]  mood=soso  purpose=date
+  pool       : base=54  hard_check_pass=9
+  gold       : ['아이리시 커피', '러스티 네일', '홀시스 넥']
+  categories : ['리프레싱 하이볼', '스피릿포워드', '크리미']
+  hard-check 통과 후보 top:
+    1. 아이리시 커피  score=57.75  cat=크리미  알콜
+    2. 러스티 네일  score=49.0  cat=스피릿포워드  알콜
+    3. 홀시스 넥  score=46.85  cat=리프레싱 하이볼  알콜
+  탈락 후보 예시:
+    - 정글 버드  score=79.47  why=aroma.citrus low conflict: 5.0 >= 3.0
+    - 페이퍼 플레인  score=69.25  why=aroma.citrus low conflict: 5.0 >= 3.0
+    - 네이키드 앤 페이머스  score=68.75  why=aroma.citrus low conflict: 5.0 >= 3.0
+    - 샴페인 칵테일  score=68.0  why=aroma.citrus low conflict: 5.0 >= 3.0
+    - 페니실린  score=66.88  why=aroma.citrus low conflict: 5.0 >= 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=175]
+  user_text  : 꽃향은 약했으면 좋겠어요 무게감 있는 쪽이 좋아요 데킬라 쪽은 안 들어갔으면 좋겠어요. 오늘은 혼술용으로 보고 있어요 좀 처진 느낌이에요 세지 않은 쪽이면 좋겠어요.
+  slots      : strength=light  taste={"body": "high"}  aroma={"floral": "low"}  bases=["tequila"]  favs=nan  mood=bad  purpose=solo
+  pool       : base=77  hard_check_pass=7
+  gold       : ['아이리시 커피', '러스티 네일', '프렌치 커넥션']
+  categories : ['스피릿포워드', '크리미']
+  hard-check 통과 후보 top:
+    1. 아이리시 커피  score=59.75  cat=크리미  알콜
+    2. 러스티 네일  score=51.0  cat=스피릿포워드  알콜
+    3. 프렌치 커넥션  score=45.25  cat=스피릿포워드  알콜
+  탈락 후보 예시:
+    - 정글 버드  score=82.47  why=taste.body: 2.3 < 2.5
+    - 카지노  score=65.58  why=taste.body: 2.1 < 2.5
+    - 트리니다드 사워  score=64.03  why=taste.body: 2.2 < 2.5
+    - 페이퍼 플레인  score=62.25  why=taste.body: 2.0 < 2.5
+    - 포르노스타 마티니  score=62.1  why=taste.body: 1.8 < 2.5
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=184]
+  user_text  : 무알콜로 부탁드려요 일 이야기하면서 마실 예정이에요. 허벌한 느낌은 강하지 않았으면 해요 커피 느낌은 은은하면 돼요 꽃향은 적당하면 좋겠어요 컨디션이 썩 좋진 않아요
+  slots      : strength=zero  taste=nan  aroma={"floral": "medium", "coffee": "medium", "herbal": "low"}  bases=nan  favs=nan  mood=bad  purpose=business
+  pool       : base=5  hard_check_pass=2
+  gold       : ['버진 피냐 콜라다', '셜리 템플']
+  categories : ['스파클링', '크리미']
+  hard-check 통과 후보 top:
+    1. 버진 피냐 콜라다  score=41.9  cat=크리미  무알콜
+    2. 셜리 템플  score=41.0  cat=스파클링  무알콜
+  탈락 후보 예시:
+    - 버진 모히토  score=43.25  why=aroma.herbal low conflict: 4.0 >= 3.0
+    - 노지토  score=41.8  why=aroma.herbal low conflict: 4.0 >= 3.0
+    - 버진 메리  score=37.15  why=aroma.herbal low conflict: 3.0 >= 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=195]
+  user_text  : 오늘은 좀 지쳐 있어요 편하게 모여서 마시려고요. 스파이시 피프티 쪽을 좋아해요 바디감이 묵직했으면 좋겠어요 크리미한 느낌은 거의 없었으면 해요 허브 향은 적당하면 좋겠어요 커피 느낌은 약했으면 좋겠어요.
+  slots      : strength=nan  taste={"creamy": "low", "body": "high"}  aroma={"coffee": "low", "herbal": "medium"}  bases=nan  favs=["스파이시 피프티"]  mood=bad  purpose=hangout
+  pool       : base=96  hard_check_pass=6
+  gold       : ['사제락', '올드 패션드', '러스티 네일']
+  categories : ['비터/허벌', '스피릿포워드']
+  hard-check 통과 후보 top:
+    1. 사제락  score=58.5  cat=비터/허벌  알콜
+    2. 올드 패션드  score=56.25  cat=스피릿포워드  알콜
+    3. 러스티 네일  score=55.0  cat=스피릿포워드  알콜
+  탈락 후보 예시:
+    - 카지노  score=72.58  why=taste.body: 2.1 < 2.5
+    - 정글 버드  score=71.47  why=taste.body: 2.3 < 2.5
+    - 브랜디 크러스타  score=71.33  why=taste.body: 2.1 < 2.5
+    - 트리니다드 사워  score=68.03  why=taste.body: 2.2 < 2.5
+    - 콥스 리바이버 No.2  score=62.77  why=taste.body: 1.7 < 2.5
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=215]
+  user_text  : 페이퍼 플레인 같은 스타일을 좋아하는 편이에요. 신맛은 중간 정도면 돼요 부드러운 질감이 살짝 있으면 좋겠어. 오늘은 좀 지쳐 있어. 보드카 베이스만 아니면 좋겠어. 적당한 도수로 맞추고 싶어! 시원한 민트감이 또렷했으면 해요 시트러스 향은 강하지 않게! 데이트 자리에서 마실 거예!
+  slots      : strength=medium  taste={"sour": "medium", "creamy": "medium"}  aroma={"citrus": "low", "minty": "high"}  bases=["vodka"]  favs=["페이퍼 플레인"]  mood=bad  purpose=date
+  pool       : base=72  hard_check_pass=3
+  gold       : ['그래스호퍼', '민트 줄렙', '스팅어']
+  categories : ['리프레싱 하이볼', '스피릿포워드', '크리미', '클래식']
+  hard-check 통과 후보 top:
+    1. 그래스호퍼  score=63.15  cat=크리미  알콜
+    2. 민트 줄렙  score=60.05  cat=클래식  알콜
+    3. 스팅어  score=54.75  cat=스피릿포워드  알콜
+  탈락 후보 예시:
+    - 올드 쿠반  score=80.95  why=aroma.citrus low conflict: 5.0 >= 3.0
+    - 사우스사이드  score=80.88  why=aroma.citrus low conflict: 5.0 >= 3.0
+    - 클로버 클럽  score=76.4  why=aroma.citrus low conflict: 5.0 >= 3.0; aroma.minty: 1.0 < 2.5
+    - 일레갈  score=76.17  why=aroma.citrus low conflict: 5.0 >= 3.0; aroma.minty: 1.0 < 2.5
+    - 위스키 사워  score=75.55  why=aroma.citrus low conflict: 5.0 >= 3.0; aroma.minty: 1.0 < 2.5
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=217]
+  user_text  : 커피 느낌은 약했으면 좋겠어요 프루티한 느낌은 은은하면 돼요 신맛이 확실했으면 좋겠어요 단맛은 약했으면 좋겠어요 오늘은 좀 지쳐 있어요 너무 약하거나 세지 않은 쪽이면 돼요
+  slots      : strength=medium  taste={"sweet": "low", "sour": "high"}  aroma={"coffee": "low", "fruity": "medium"}  bases=nan  favs=nan  mood=bad  purpose=nan
+  pool       : base=86  hard_check_pass=16
+  gold       : ['콥스 리바이버 No.2', '레몬 드롭 마티니', '토미스 마가리타']
+  categories : ['비터/허벌', '시트러스 사워']
+  hard-check 통과 후보 top:
+    1. 콥스 리바이버 No.2  score=81.78  cat=비터/허벌  알콜
+    2. 레몬 드롭 마티니  score=77.38  cat=시트러스 사워  알콜
+    3. 토미스 마가리타  score=77.28  cat=시트러스 사워  알콜
+  탈락 후보 예시:
+    - 클로버 클럽  score=80.4  why=taste.sour: 3.0 < 3.1
+    - 돈스 스페셜 다이키리  score=75.17  why=taste.sweet low conflict: 3.2 >= 3.1
+    - 샤르트뢰즈 스위즐  score=73.83  why=taste.sour: 2.9 < 3.1
+    - 카지노  score=73.58  why=taste.sour: 2.7 < 3.1
+    - 페이퍼 플레인  score=73.25  why=taste.sour: 3.0 < 3.1
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=230]
+  user_text  : 커피 향이 확실했으면 좋겠어요 프루티한 향이 또렷했으면 해요 시트러스 느낌은 약했으면 좋겠어요 확실히 힘 있는 쪽이어도 돼요. 좀 처진 느낌이에요 오늘은 축하 자리예요 산미는 적당하면 좋겠어요 부드러운 질감이 살짝 있으면 좋겠어요요.
+  slots      : strength=strong  taste={"sour": "medium", "creamy": "medium"}  aroma={"citrus": "low", "coffee": "high", "fruity": "high"}  bases=nan  favs=nan  mood=bad  purpose=celebration
+  pool       : base=12  hard_check_pass=0
+  gold       : []
+  categories : ['커피/디저트']
+  unlabelable: no_candidates_passed_hard_check
+  hard-check 통과 후보 top:
+    [없음]
+  탈락 후보 예시:
+    - 브랜디 크러스타  score=79.33  why=aroma.citrus low conflict: 5.0 >= 3.0; aroma.coffee: 1.0 < 3.0
+    - 마이타이  score=70.97  why=aroma.citrus low conflict: 5.0 >= 3.0; aroma.coffee: 1.0 < 3.0
+    - 화이트 레이디  score=69.1  why=aroma.citrus low conflict: 5.0 >= 3.0; aroma.coffee: 1.0 < 3.0
+    - 비트윈 더 시트  score=68.17  why=aroma.citrus low conflict: 5.0 >= 3.0; aroma.coffee: 1.0 < 3.0
+    - 사이드카  score=67.88  why=aroma.citrus low conflict: 5.0 >= 3.0; aroma.coffee: 1.0 < 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=259]
+  user_text  : 단맛은 중간 정도면 돼요 무게감은 적당하면 좋겠어요 컨디션이 썩 좋진 않아요 가볍게 어울리는 자리예요. 적당한 도수로 맞추고 싶어요 진이랑 위스키 베이스만 아니면 좋겠어요 민트감은 은은하면 돼요 나무 향은 은은하면 돼요.
+  slots      : strength=medium  taste={"body": "medium", "sweet": "medium"}  aroma={"minty": "medium", "woody": "medium"}  bases=["gin", "whiskey"]  favs=nan  mood=bad  purpose=hangout
+  pool       : base=52  hard_check_pass=52
+  gold       : ['쓰리 닷츠 앳 어 대시', '일레갈', '올드 쿠반']
+  categories : ['스파클링', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 쓰리 닷츠 앳 어 대시  score=80.38  cat=티키/트로피컬  알콜
+    2. 일레갈  score=80.17  cat=티키/트로피컬  알콜
+    3. 올드 쿠반  score=79.95  cat=스파클링  알콜
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=280]
+  user_text  : 오늘은 축하 자리예요 무게감은 낮은 쪽이면 좋겠어요 신맛은 중간 정도면 돼요. 보드카이랑 진 베이스는 빼고 싶어요 조금 다운된 상태예요
+  slots      : strength=nan  taste={"body": "low", "sour": "medium"}  aroma=nan  bases=["vodka", "gin"]  favs=nan  mood=bad  purpose=celebration
+  pool       : base=58  hard_check_pass=49
+  gold       : ['샤르트뢰즈 스위즐', '올드 쿠반', '페이퍼 플레인']
+  categories : ['비터/허벌', '스파클링']
+  hard-check 통과 후보 top:
+    1. 샤르트뢰즈 스위즐  score=61.83  cat=비터/허벌  알콜
+    2. 올드 쿠반  score=59.95  cat=스파클링  알콜
+    3. 페이퍼 플레인  score=59.25  cat=비터/허벌  알콜
+  탈락 후보 예시:
+    - 올드 패션드  score=38.25  why=taste.body low conflict: 2.5 >= 2.5
+    - 사제락  score=37.5  why=taste.body low conflict: 2.5 >= 2.5
+    - 러스티 네일  score=37.0  why=taste.body low conflict: 2.5 >= 2.5
+    - 프렌치 커넥션  score=31.25  why=taste.body low conflict: 2.5 >= 2.5
+    - 그래스호퍼  score=31.15  why=taste.body low conflict: 3.3 >= 2.5
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=288]
+  user_text  : 데킬라이랑 럼 베이스는 빼고 싶어. 평소랑 비슷한 컨디션이에. 가볍게 어울리는 자리예요. 술은 안 들어갔으면 해요. 시트러스 느낌은 약했으면 좋겠어요.
+  slots      : strength=zero  taste=nan  aroma={"citrus": "low"}  bases=["tequila", "rum"]  favs=nan  mood=soso  purpose=hangout
+  pool       : base=5  hard_check_pass=1
+  gold       : ['버진 피냐 콜라다']
+  categories : ['크리미']
+  hard-check 통과 후보 top:
+    1. 버진 피냐 콜라다  score=41.9  cat=크리미  무알콜
+  탈락 후보 예시:
+    - 버진 모히토  score=43.25  why=aroma.citrus low conflict: 5.0 >= 3.0
+    - 노지토  score=41.8  why=aroma.citrus low conflict: 5.0 >= 3.0
+    - 셜리 템플  score=40.0  why=aroma.citrus low conflict: 5.0 >= 3.0
+    - 버진 메리  score=36.15  why=aroma.citrus low conflict: 5.0 >= 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=302]
+  user_text  : 가볍게 어울리는 자리예요 술은 안 들어갔으면 해요 바디감이 묵직했으면 좋겠어요 조금 다운된 상태예요 커피 향은 강하지 않게요.
+  slots      : strength=zero  taste={"body": "high"}  aroma={"coffee": "low"}  bases=nan  favs=nan  mood=bad  purpose=hangout
+  pool       : base=5  hard_check_pass=1
+  gold       : ['버진 피냐 콜라다']
+  categories : ['크리미']
+  hard-check 통과 후보 top:
+    1. 버진 피냐 콜라다  score=51.9  cat=크리미  무알콜
+  탈락 후보 예시:
+    - 버진 모히토  score=32.25  why=taste.body: 1.0 < 2.0
+    - 노지토  score=30.8  why=taste.body: 0.9 < 2.0
+    - 셜리 템플  score=29.0  why=taste.body: 1.0 < 2.0
+    - 버진 메리  score=25.15  why=taste.body: 1.2 < 2.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=303]
+  user_text  : 일 이야기하면서 마실 예정이에요 좀 처진 느낌이에요. 민트 향은 약했으면 좋겠어요 시트러스 느낌은 약했으면 좋겠어요 술은 안 들어갔으면 해요 무게감 있는 쪽이 좋아요 신맛은 중간 정도면 돼요.
+  slots      : strength=zero  taste={"body": "high", "sour": "medium"}  aroma={"minty": "low", "citrus": "low"}  bases=nan  favs=nan  mood=bad  purpose=business
+  pool       : base=5  hard_check_pass=1
+  gold       : ['버진 피냐 콜라다']
+  categories : ['크리미']
+  hard-check 통과 후보 top:
+    1. 버진 피냐 콜라다  score=51.9  cat=크리미  무알콜
+  탈락 후보 예시:
+    - 버진 모히토  score=35.25  why=taste.body: 1.0 < 2.0; aroma.minty low conflict: 5.0 >= 2.5; aroma.citrus low conflict: 5.0 >= 3.0
+    - 노지토  score=33.8  why=taste.body: 0.9 < 2.0; aroma.minty low conflict: 5.0 >= 2.5; aroma.citrus low conflict: 5.0 >= 3.0
+    - 셜리 템플  score=28.0  why=taste.body: 1.0 < 2.0; aroma.citrus low conflict: 5.0 >= 3.0
+    - 버진 메리  score=24.15  why=taste.body: 1.2 < 2.0; aroma.citrus low conflict: 5.0 >= 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=309]
+  user_text  : 혼자 마시기 좋은 걸 찾고 있어요 꽃향이 확실했으면 좋겠어요 무알콜로 부탁드려요. 달콤한 쪽이 좋아요 무게감은 적당하면 좋겠어요 오늘은 좀 지쳐 있어요 취향으로는 다크 앤 스토미가 잘 맞아요.
+  slots      : strength=zero  taste={"sweet": "high", "body": "medium"}  aroma={"floral": "high"}  bases=nan  favs=["다크 앤 스토미"]  mood=bad  purpose=solo
+  pool       : base=5  hard_check_pass=0
+  gold       : []
+  categories : []
+  unlabelable: zero_high_impossible
+  hard-check 통과 후보 top:
+    [없음]
+  탈락 후보 예시:
+    - 버진 피냐 콜라다  score=56.9  why=aroma.floral: zero pool 에 해당 향 없음
+    - 셜리 템플  score=51.0  why=aroma.floral: zero pool 에 해당 향 없음
+    - 버진 모히토  score=32.25  why=taste.sweet: 2.2 < 3.0; aroma.floral: zero pool 에 해당 향 없음
+    - 노지토  score=30.8  why=taste.sweet: 1.8 < 3.0; aroma.floral: zero pool 에 해당 향 없음
+    - 버진 메리  score=25.15  why=taste.sweet: 0.8 < 3.0; aroma.floral: zero pool 에 해당 향 없음
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=328]
+  user_text  : 무게감은 적당하면 좋겠어요 과일 향은 적당하면 좋겠어요 허브 향은 적당하면 좋겠어요. 기운이 떨어져 있어서요 친구들이랑 같이 마실 거예요 럼 베이스만 아니면 좋겠어요
+  slots      : strength=nan  taste={"body": "medium"}  aroma={"fruity": "medium", "herbal": "medium"}  bases=["rum"]  favs=nan  mood=bad  purpose=hangout
+  pool       : base=78  hard_check_pass=78
+  gold       : ['브랜디 크러스타', '싱가폴 슬링', '카지노']
+  categories : ['시트러스 사워']
+  hard-check 통과 후보 top:
+    1. 브랜디 크러스타  score=71.33  cat=시트러스 사워  알콜
+    2. 싱가폴 슬링  score=70.17  cat=시트러스 사워  알콜
+    3. 카지노  score=69.58  cat=시트러스 사워  알콜
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=333]
+  user_text  : 부드러운 질감이 살짝 있으면 좋겠어요 플로럴한 느낌은 강하지 않았으면 해요 프루티한 느낌은 은은하면 돼요 민트감은 은은하면 돼요. 컨디션이 썩 좋진 않아요 일 이야기하면서 마실 예정이에요 도수는 가볍게 가고 싶어요.
+  slots      : strength=light  taste={"creamy": "medium"}  aroma={"floral": "low", "fruity": "medium", "minty": "medium"}  bases=nan  favs=nan  mood=bad  purpose=business
+  pool       : base=81  hard_check_pass=74
+  gold       : ['정글 버드', '포르노스타 마티니', '미셔너리즈 다운폴']
+  categories : ['스파클링', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 정글 버드  score=75.47  cat=티키/트로피컬  알콜
+    2. 포르노스타 마티니  score=73.1  cat=스파클링  알콜
+    3. 미셔너리즈 다운폴  score=66.97  cat=티키/트로피컬  알콜
+  탈락 후보 예시:
+    - 네이키드 앤 페이머스  score=60.75  why=aroma.floral low conflict: 3.0 >= 2.5
+    - 샤르트뢰즈 스위즐  score=57.83  why=aroma.floral low conflict: 3.0 >= 2.5
+    - 라스트 워드  score=56.17  why=aroma.floral low conflict: 3.0 >= 2.5
+    - 라모스 피즈  score=53.67  why=aroma.floral low conflict: 5.0 >= 2.5
+    - 스파이시 피프티  score=53.55  why=aroma.floral low conflict: 4.0 >= 2.5
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=347]
+  user_text  : 바디감이 묵직했으면 좋겠어요 씁쓸한 느낌은 약했으면 해요 가볍게 어울리는 자리예요. 기운이 떨어져 있어서요 가볍게 마실 수 있으면 좋겠어요 허벌한 느낌은 강하지 않았으면 해요요.
+  slots      : strength=light  taste={"bitter": "low", "body": "high"}  aroma={"herbal": "low"}  bases=nan  favs=nan  mood=bad  purpose=hangout
+  pool       : base=81  hard_check_pass=4
+  gold       : ['아이리시 커피', '프렌치 커넥션', '알렉산더']
+  categories : ['스피릿포워드', '크리미']
+  hard-check 통과 후보 top:
+    1. 아이리시 커피  score=59.75  cat=크리미  알콜
+    2. 프렌치 커넥션  score=46.25  cat=스피릿포워드  알콜
+    3. 알렉산더  score=43.65  cat=크리미  알콜
+  탈락 후보 예시:
+    - 정글 버드  score=78.47  why=taste.body: 2.3 < 2.5; aroma.herbal low conflict: 3.0 >= 3.0
+    - 포르노스타 마티니  score=63.1  why=taste.body: 1.8 < 2.5
+    - 라모스 피즈  score=60.67  why=taste.body: 2.4 < 2.5; aroma.herbal low conflict: 3.0 >= 3.0
+    - 카지노  score=60.58  why=taste.body: 2.1 < 2.5; aroma.herbal low conflict: 4.0 >= 3.0
+    - 피나 콜라다  score=60.48  why=taste.body: 2.3 < 2.5
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=358]
+  user_text  : 프루티한 느낌은 은은하면 돼. 좋은 일 있어서 분위기 내고 싶어요. 세지 않은 쪽이면 좋겠어. 쓴맛은 적당히 있으면 좋겠어. 조금 다운된 상태예.
+  slots      : strength=light  taste={"bitter": "medium"}  aroma={"fruity": "medium"}  bases=nan  favs=nan  mood=bad  purpose=celebration
+  pool       : base=81  hard_check_pass=81
+  gold       : ['정글 버드', '샴페인 칵테일', '포르노스타 마티니']
+  categories : ['스파클링', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 정글 버드  score=80.47  cat=티키/트로피컬  알콜
+    2. 샴페인 칵테일  score=69.0  cat=스파클링  알콜
+    3. 포르노스타 마티니  score=68.1  cat=스파클링  알콜
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=360]
+  user_text  : 도수는 가볍게 가고 싶어. 산미는 적당하면 좋겠어요 바디감은 가벼웠으면 좋겠어요. 데이트 자리에서 마실 거예요. 기분이 꽤 좋아! 민트 향이 확실했으면 좋겠어.
+  slots      : strength=light  taste={"sour": "medium", "body": "low"}  aroma={"minty": "high"}  bases=nan  favs=nan  mood=good  purpose=date
+  pool       : base=81  hard_check_pass=5
+  gold       : ['모히토', '올드 쿠반', '미셔너리즈 다운폴']
+  categories : ['리프레싱 하이볼', '스파클링', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 모히토  score=69.47  cat=리프레싱 하이볼  알콜
+    2. 올드 쿠반  score=67.95  cat=스파클링  알콜
+    3. 미셔너리즈 다운폴  score=65.97  cat=티키/트로피컬  알콜
+  탈락 후보 예시:
+    - 러시안 스프링 펀치  score=69.17  why=aroma.minty: 1.0 < 2.5
+    - 정글 버드  score=68.47  why=aroma.minty: 1.0 < 2.5
+    - 페이퍼 플레인  score=67.25  why=aroma.minty: 1.0 < 2.5
+    - 진 피즈  score=66.97  why=aroma.minty: 1.0 < 2.5
+    - 네이키드 앤 페이머스  score=66.75  why=aroma.minty: 1.0 < 2.5
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=367]
+  user_text  : 시원한 민트감이 또렷했으면 해! 기분 좋게 한잔하고 싶어요. 진한 느낌으로 가도 괜찮아요. 혼자 천천히 마시려고.
+  slots      : strength=strong  taste=nan  aroma={"minty": "high"}  bases=nan  favs=nan  mood=good  purpose=solo
+  pool       : base=12  hard_check_pass=0
+  gold       : []
+  categories : ['리프레싱 하이볼']
+  unlabelable: no_candidates_passed_hard_check
+  hard-check 통과 후보 top:
+    [없음]
+  탈락 후보 예시:
+    - 좀비  score=68.55  why=aroma.minty: 1.0 < 2.5
+    - 브랜디 크러스타  score=65.33  why=aroma.minty: 1.0 < 2.5
+    - 마이타이  score=59.98  why=aroma.minty: 1.0 < 2.5
+    - 화이트 레이디  score=58.1  why=aroma.minty: 1.0 < 2.5
+    - 올드 패션드  score=57.25  why=aroma.minty: 1.0 < 2.5
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=378]
+  user_text  : 그냥 무난한 기분이에요 시트러스가 또렷하게 느껴졌으면 해요. 축하하는 자리에서 마실 거예요 산미가 또렷한 쪽이 좋아요 부드럽고 진한 질감이 확실했으면 해요 무알콜로 부탁드려요요.
+  slots      : strength=zero  taste={"sour": "high", "creamy": "high"}  aroma={"citrus": "high"}  bases=nan  favs=nan  mood=soso  purpose=celebration
+  pool       : base=5  hard_check_pass=0
+  gold       : []
+  categories : ['시트러스 사워', '크리미']
+  unlabelable: zero_high_impossible
+  hard-check 통과 후보 top:
+    [없음]
+  탈락 후보 예시:
+    - 노지토  score=48.8  why=taste.creamy: 0.0 < 2.5
+    - 버진 모히토  score=40.25  why=taste.creamy: 0.0 < 2.5
+    - 버진 피냐 콜라다  score=39.9  why=taste.sour: 1.0 < 2.8; aroma.citrus: 1.0 < 3.0
+    - 버진 메리  score=33.15  why=taste.sour: 2.4 < 2.8; taste.creamy: 0.0 < 2.5
+    - 셜리 템플  score=25.0  why=taste.sour: 1.4 < 2.8; taste.creamy: 0.0 < 2.5
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=380]
+  user_text  : 특별한 건 없고 담담해요 커피 느낌이 또렷했으면 해요. 부담 없는 도수면 돼요 친구들이랑 같이 마실 거예요 무게감은 낮은 쪽이면 좋겠어요 산뜻한 느낌은 강하지 않아도 돼요요.
+  slots      : strength=light  taste={"body": "low", "freshness": "low"}  aroma={"coffee": "high"}  bases=nan  favs=nan  mood=soso  purpose=hangout
+  pool       : base=81  hard_check_pass=1
+  gold       : ['에스프레소 마티니']
+  categories : ['커피/디저트']
+  hard-check 통과 후보 top:
+    1. 에스프레소 마티니  score=54.8  cat=커피/디저트  알콜
+  탈락 후보 예시:
+    - 정글 버드  score=68.47  why=aroma.coffee: 1.0 < 3.0
+    - 포르노스타 마티니  score=63.1  why=aroma.coffee: 1.0 < 3.0
+    - 페이퍼 플레인  score=62.25  why=aroma.coffee: 1.0 < 3.0
+    - 데킬라 선라이즈  score=62.05  why=aroma.coffee: 1.0 < 3.0
+    - 네이키드 앤 페이머스  score=61.75  why=aroma.coffee: 1.0 < 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=389]
+  user_text  : 무알콜로 부탁드려요 친구들이랑 같이 마실 거예요 쓴맛은 적당히 있으면 좋겠어요 무게감은 낮은 쪽이면 좋겠어요 꽃향은 적당하면 좋겠어요 기분은 보통이에요요.
+  slots      : strength=zero  taste={"bitter": "medium", "body": "low"}  aroma={"floral": "medium"}  bases=nan  favs=nan  mood=soso  purpose=hangout
+  pool       : base=5  hard_check_pass=5
+  gold       : ['버진 모히토', '노지토', '셜리 템플']
+  categories : ['리프레싱 하이볼', '스파클링']
+  hard-check 통과 후보 top:
+    1. 버진 모히토  score=45.25  cat=리프레싱 하이볼  무알콜
+    2. 노지토  score=43.8  cat=리프레싱 하이볼  무알콜
+    3. 셜리 템플  score=42.0  cat=스파클링  무알콜
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=391]
+  user_text  : 커피 향이 확실했으면 좋겠어! 특별한 건 없고 담담해. 청량감이 확실했으면 좋겠어! 부담 없이 균형 잡힌 도수면 좋겠어! 오늘은 혼술용으로 보고 있어.
+  slots      : strength=medium  taste={"freshness": "high"}  aroma={"coffee": "high"}  bases=nan  favs=nan  mood=soso  purpose=solo
+  pool       : base=86  hard_check_pass=0
+  gold       : []
+  categories : ['커피/디저트']
+  unlabelable: no_candidates_passed_hard_check
+  hard-check 통과 후보 top:
+    [없음]
+  탈락 후보 예시:
+    - 올드 쿠반  score=78.95  why=aroma.coffee: 1.0 < 3.0
+    - 비스 니즈  score=74.17  why=taste.freshness: 3.6 < 3.7; aroma.coffee: 1.0 < 3.0
+    - 사우스사이드  score=73.88  why=taste.freshness: 3.5 < 3.7; aroma.coffee: 1.0 < 3.0
+    - 존 콜린스  score=71.92  why=aroma.coffee: 1.0 < 3.0
+    - 롱 아일랜드 아이스 티  score=71.88  why=taste.freshness: 3.5 < 3.7; aroma.coffee: 1.0 < 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=413]
+  user_text  : 시트러스 향이 확실했으면 좋겠어요 오늘은 좀 지쳐 있어요. 바디감이 묵직했으면 좋겠어요 단맛은 중간 정도면 돼요 너무 약하거나 세지 않은 쪽이면 돼요 오늘은 축하 자리예요.
+  slots      : strength=medium  taste={"body": "high", "sweet": "medium"}  aroma={"citrus": "high"}  bases=nan  favs=nan  mood=bad  purpose=celebration
+  pool       : base=86  hard_check_pass=0
+  gold       : []
+  categories : []
+  unlabelable: no_candidates_passed_hard_check
+  hard-check 통과 후보 top:
+    [없음]
+  탈락 후보 예시:
+    - 카지노  score=96.58  why=taste.body: 2.1 < 2.5
+    - 정글 버드  score=96.47  why=taste.body: 2.3 < 2.5
+    - 브랜디 크러스타  score=96.33  why=taste.body: 2.1 < 2.5
+    - 트리니다드 사워  score=92.03  why=taste.body: 2.2 < 2.5
+    - 라모스 피즈  score=90.67  why=taste.body: 2.4 < 2.5
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=415]
+  user_text  : 민트감은 강하지 않았으면 해요 플로럴한 느낌은 강하지 않았으면 해요 데이트용으로 찾고 있어요. 단맛은 약했으면 좋겠어요 오늘은 좀 들뜬 편이에요 부담 없는 도수면 돼요.
+  slots      : strength=light  taste={"sweet": "low"}  aroma={"minty": "low", "floral": "low"}  bases=nan  favs=nan  mood=good  purpose=date
+  pool       : base=81  hard_check_pass=53
+  gold       : ['페이퍼 플레인', '러시안 스프링 펀치', '진 피즈']
+  categories : ['리프레싱 하이볼', '비터/허벌', '스파클링']
+  hard-check 통과 후보 top:
+    1. 페이퍼 플레인  score=63.25  cat=비터/허벌  알콜
+    2. 러시안 스프링 펀치  score=63.17  cat=스파클링  알콜
+    3. 진 피즈  score=61.98  cat=리프레싱 하이볼  알콜
+  탈락 후보 예시:
+    - 정글 버드  score=68.47  why=taste.sweet low conflict: 3.4 >= 3.1
+    - 네이키드 앤 페이머스  score=61.75  why=aroma.floral low conflict: 3.0 >= 2.5
+    - 모히토  score=60.48  why=aroma.minty low conflict: 5.0 >= 2.5
+    - 포르노스타 마티니  score=58.1  why=taste.sweet low conflict: 3.3 >= 3.1
+    - 데킬라 선라이즈  score=57.05  why=taste.sweet low conflict: 3.5 >= 3.1
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=446]
+  user_text  : 술은 안 들어갔으면 해요 꽃향이 확실했으면 좋겠어요 친구들이랑 같이 마실 거예요 쓴맛은 적당히 있으면 좋겠어요 단맛이 확실히 느껴졌으면 좋겠어요 크리미한 느낌은 적당하면 좋겠어요 그냥 무난한 기분이에요
+  slots      : strength=zero  taste={"sweet": "high", "bitter": "medium", "creamy": "medium"}  aroma={"floral": "high"}  bases=nan  favs=nan  mood=soso  purpose=hangout
+  pool       : base=5  hard_check_pass=0
+  gold       : []
+  categories : []
+  unlabelable: zero_high_impossible
+  hard-check 통과 후보 top:
+    [없음]
+  탈락 후보 예시:
+    - 버진 피냐 콜라다  score=56.9  why=aroma.floral: zero pool 에 해당 향 없음
+    - 셜리 템플  score=51.0  why=aroma.floral: zero pool 에 해당 향 없음
+    - 버진 모히토  score=32.25  why=taste.sweet: 2.2 < 3.0; aroma.floral: zero pool 에 해당 향 없음
+    - 노지토  score=30.8  why=taste.sweet: 1.8 < 3.0; aroma.floral: zero pool 에 해당 향 없음
+    - 버진 메리  score=25.15  why=taste.sweet: 0.8 < 3.0; aroma.floral: zero pool 에 해당 향 없음
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=457]
+  user_text  : 약한 것보다는 도수가 있는 편이 좋아. 산뜻한 느낌이 강했으면 좋겠어요. 같이 분위기 있게 마실 거예. 평소랑 비슷한 컨디션이에. 우디한 향이 분명했으면 좋겠어!
+  slots      : strength=strong  taste={"freshness": "high"}  aroma={"woody": "high"}  bases=nan  favs=nan  mood=soso  purpose=date
+  pool       : base=12  hard_check_pass=0
+  gold       : []
+  categories : []
+  unlabelable: no_candidates_passed_hard_check
+  hard-check 통과 후보 top:
+    [없음]
+  탈락 후보 예시:
+    - 좀비  score=72.55  why=taste.freshness: 2.6 < 3.7
+    - 비트윈 더 시트  score=65.17  why=taste.freshness: 2.9 < 3.7
+    - 사이드카  score=64.88  why=taste.freshness: 3.1 < 3.7
+    - 브랜디 크러스타  score=61.33  why=taste.freshness: 2.7 < 3.7
+    - 마이타이  score=59.98  why=taste.freshness: 2.9 < 3.7; aroma.woody: 1.0 < 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:
+
+============================================================================
+[case_id=491]
+  user_text  : 신맛은 약했으면 좋겠어요 무게감은 적당하면 좋겠어요. 허벌한 느낌은 강하지 않았으면 해. 그냥 무난한 기분이에! 같이 분위기 있게 마실 거예.
+  slots      : strength=nan  taste={"sour": "low", "body": "medium"}  aroma={"herbal": "low"}  bases=nan  favs=nan  mood=soso  purpose=date
+  pool       : base=96  hard_check_pass=31
+  gold       : ['일레갈', '마이타이', '페니실린']
+  categories : ['시트러스 사워', '티키/트로피컬']
+  hard-check 통과 후보 top:
+    1. 일레갈  score=57.17  cat=티키/트로피컬  알콜
+    2. 마이타이  score=56.98  cat=티키/트로피컬  알콜
+    3. 페니실린  score=56.88  cat=시트러스 사워  알콜
+  탈락 후보 예시:
+    - 정글 버드  score=62.48  why=aroma.herbal low conflict: 3.0 >= 3.0
+    - 브랜디 크러스타  score=61.33  why=aroma.herbal low conflict: 4.0 >= 3.0
+    - 카지노  score=59.58  why=aroma.herbal low conflict: 4.0 >= 3.0
+    - 라스트 워드  score=58.17  why=aroma.herbal low conflict: 5.0 >= 3.0
+    - 트리니다드 사워  score=58.02  why=aroma.herbal low conflict: 4.0 >= 3.0
+  판정: [ OK / NG / 애매 ]  코멘트:

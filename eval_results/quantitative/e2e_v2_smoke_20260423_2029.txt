@@ -1,0 +1,30 @@
+============================================================
+ E2E EVAL — tag=v2_smoke  model=google/gemma-2-9b-it  20260423_2029
+ limit=2
+============================================================
+[per-item] 2 cases → eval_results/per_item/e2e_v2_smoke_20260423_2029.csv  (model=google/gemma-2-9b-it)
+
+============================================================
+E2E EVAL — 2 cases (163.8s, 81.90s/case)
+============================================================
+
+[Slot Extraction]
+  scalar enums — exact match
+    current_mood          :    0/   2 =   0.0%
+    party_purpose         :    1/   2 =  50.0%
+    strength_preference   :    1/   2 =  50.0%
+  intensity dicts
+    taste_profile KEY presence      : P=100.0  R= 66.7  F1= 80.0  (tp=2 fp=0 fn=1)
+    taste_profile KEY+VALUE exact   : P=100.0  R= 66.7  F1= 80.0  (tp=2 fp=0 fn=1)
+    aroma_profile KEY presence      : P=100.0  R= 66.7  F1= 80.0  (tp=2 fp=0 fn=1)
+    aroma_profile KEY+VALUE exact   : P=100.0  R= 66.7  F1= 80.0  (tp=2 fp=0 fn=1)
+  list enum
+    disliked_bases                  : P=  0.0  R=  0.0  F1=  0.0  (tp=0 fp=0 fn=0)
+
+[Recommendation (extracted slots → top-3 vs gold)]
+  exact gold 있는 케이스      : 0/2 = 0.0%
+  Hit@1  (labeled)            : 0/0 = 0.0%
+  Hit@3  (labeled)            : 0/0 = 0.0%
+  카테고리 Hit@3 (all cases)  : 0/0 = 0.0%
+  카테고리 Hit@3 (labeled)    : 0/0 = 0.0%
+  후보 없음                   : 0/2 = 0.0%
