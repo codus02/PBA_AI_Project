@@ -1,0 +1,26 @@
+{
+  "kind": "e2e",
+  "tag": "exaone_smoke",
+  "model": "EXAONE",
+  "timestamp": "20260423_1444",
+  "limit": 20,
+  "n": 20,
+  "elapsed_sec": 33.150255838409066,
+  "scalar_avg": 0.0,
+  "scalar_per_slot": {
+    "current_mood": 0.0,
+    "party_purpose": 0.0,
+    "strength_preference": 0.0
+  },
+  "taste_key_f1": 0.0,
+  "taste_kv_f1": 0.0,
+  "aroma_key_f1": 0.0,
+  "aroma_kv_f1": 0.0,
+  "bases_f1": 0.0,
+  "favs_detected_pct": 0.0,
+  "hit@1": 0.1,
+  "hit@3": 0.3,
+  "cat_hit@3": 0.65,
+  "no_candidate_rate": 0.0,
+  "rec_n": 20
+}

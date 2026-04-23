@@ -7,8 +7,11 @@
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -19,13 +22,14 @@ from app.agents.preference_agent import analyze_feedback
 from scripts._eval_save import save_eval_result
 
 
-def eval_feedback(limit: int | None = None) -> dict:
+def eval_feedback(limit: int | None = None, tag: str | None = None) -> dict:
     df = pd.read_csv("data/eval/feedback_eval_v2_500.csv")
     if limit:
         df = df.head(limit)
 
     correct = 0
     errors = []
+    per_item: list[dict] = []
     adjust_with_deltas = 0
     adjust_total = 0
     per_class = {"ACCEPT": [0, 0], "ADJUST": [0, 0], "REJECT": [0, 0]}  # [correct, total]
@@ -38,7 +42,8 @@ def eval_feedback(limit: int | None = None) -> dict:
         gold = row.gold_intent
 
         per_class[gold][1] += 1
-        if pred == gold:
+        ok = (pred == gold)
+        if ok:
             correct += 1
             per_class[gold][0] += 1
         else:
@@ -54,6 +59,15 @@ def eval_feedback(limit: int | None = None) -> dict:
             adjust_total += 1
             if result["deltas"]:
                 adjust_with_deltas += 1
+
+        per_item.append({
+            "case_id": i,
+            "text": row.feedback_text,
+            "gold_intent": gold,
+            "pred_intent": pred,
+            "correct": ok,
+            "deltas": json.dumps(result["deltas"], ensure_ascii=False),
+        })
 
         if i % 25 == 0:
             dt = time.perf_counter() - t0
@@ -91,6 +105,15 @@ def eval_feedback(limit: int | None = None) -> dict:
         _log(f"  '{e['text'][:60]}' → 예측:{e['got']} / 정답:{e['expected']} "
              f"deltas={e['deltas']}")
 
+    if tag:
+        stamp = datetime.now().strftime("%Y%m%d_%H%M")
+        model_name = os.getenv("LLM_MODEL", "")
+        out_dir = Path("eval_results/per_item")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        csv_path = out_dir / f"feedback_{tag}_{stamp}.csv"
+        pd.DataFrame(per_item).to_csv(csv_path, index=False)
+        _log(f"\n[per-item] {len(per_item)} cases → {csv_path}  (model={model_name})")
+
     return {
         "accuracy_pct": acc,
         "correct": correct,
@@ -115,7 +138,7 @@ if __name__ == "__main__":
                     help="결과 메타에 기록할 모델명 (미지정 시 env LLM_MODEL)")
     args = ap.parse_args()
 
-    result = eval_feedback(limit=args.limit)
+    result = eval_feedback(limit=args.limit, tag=args.tag)
     if args.tag:
         summary_lines = result.pop("_summary_lines", [])
         json_path, txt_path = save_eval_result(

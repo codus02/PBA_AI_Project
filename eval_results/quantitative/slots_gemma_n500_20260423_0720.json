@@ -1,0 +1,21 @@
+{
+  "kind": "slots",
+  "tag": "gemma_n500",
+  "model": "google/gemma-2-9b-it",
+  "timestamp": "20260423_0720",
+  "limit": 500,
+  "n": 500,
+  "elapsed_sec": 12469.275931724813,
+  "scalar_avg": 65.25925925925925,
+  "scalar_per_slot": {
+    "current_mood": 62.66666666666667,
+    "party_purpose": 73.55555555555556,
+    "strength_preference": 59.55555555555555
+  },
+  "taste_key_f1": 81.61993769470405,
+  "taste_kv_f1": 74.29906542056075,
+  "aroma_key_f1": 52.804642166344294,
+  "aroma_kv_f1": 43.32688588007737,
+  "bases_f1": 92.93680297397768,
+  "favs_detected_pct": 28.000000000000004
+}

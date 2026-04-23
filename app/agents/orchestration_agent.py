@@ -66,8 +66,57 @@ STRENGTH_TARGET = {"light": 1.0, "medium": 2.5, "strong": 4.0}
 # intensity → 점수 스케일
 INTENSITY_WEIGHT = {"low": 0.2, "medium": 0.5, "high": 1.0}
 # low/medium/high 모두 "선호"로 취급(가점). zero만 하드 필터로 제외.
-HIGH_THRESHOLD_COL_VALUE = 3.5
 AROMA_ING_THRESHOLD = 3.0
+# minty/coffee/floral 은 DB 내 score>=3 재료가 희소해서(각 3~9개 칵테일만 매칭)
+# 3.0 유지 시 사용자가 이 향을 요청해도 변별력이 사실상 없음. 2.5 로 핀포인트 완화.
+_LOW_COVERAGE_AROMAS = {"minty", "coffee", "floral"}
+
+# taste 축별 동적 threshold — DB 분포 기반. creamy/nutty/spicy 처럼 희소한 축에
+# 고정 3.5 threshold 를 쓰면 영구히 qualify 0개 → user intent 가 score 에 반영 안 됨.
+# 상위 20%(HIGH) / 상위 40%(MEDIUM) / 상위 60% 경계(LOW_MAX) 로 축별 계산.
+_AXIS_THRESHOLDS: Optional[dict] = None
+_AXIS_THRESHOLD_DEFAULT = {"high": 3.5, "medium": 3.0, "low_max": 2.0}
+
+
+def _compute_axis_thresholds(db: Optional[Session] = None) -> dict:
+    global _AXIS_THRESHOLDS
+    if _AXIS_THRESHOLDS is not None:
+        return _AXIS_THRESHOLDS
+    from app.db.database import SessionLocal
+    owned = db is None
+    if owned:
+        db = SessionLocal()
+    try:
+        cocktails = db.query(Cocktail).filter(Cocktail.is_active.is_(True)).all()
+        thresholds: dict = {}
+        for tag, col in TASTE_TO_COCKTAIL.items():
+            vals = sorted(
+                (float(getattr(c, col)) for c in cocktails if getattr(c, col) is not None),
+                reverse=True,
+            )
+            n = len(vals)
+            if n == 0:
+                thresholds[tag] = dict(_AXIS_THRESHOLD_DEFAULT)
+                continue
+            p80 = vals[min(n - 1, int(n * 0.2))]
+            p60 = vals[min(n - 1, int(n * 0.4))]
+            p40 = vals[min(n - 1, int(n * 0.6))]
+            thresholds[tag] = {
+                "high": max(p80, 1.0),
+                "medium": max(p60, 0.5),
+                "low_max": max(p40, 0.5),
+            }
+        _AXIS_THRESHOLDS = thresholds
+        return thresholds
+    finally:
+        if owned:
+            db.close()
+
+
+def _aroma_threshold(aroma_key: str) -> float:
+    # DB 점수 분포가 {1.0, 3.0+} 에 몰려 있어서 2.5 로는 추가 매칭이 없다.
+    # 2.0 은 "은은하게 있는" 재료(Gin=floral 2.0, Fernet=minty 2.0 등)까지 포함.
+    return 2.0 if aroma_key in _LOW_COVERAGE_AROMAS else AROMA_ING_THRESHOLD
 
 # ============================================================
 # helper
@@ -122,12 +171,14 @@ def _build_reason_parts(
 
     taste_profile: dict = merged.get("taste_profile") or {}
     matched_tastes: list[str] = []
+    axis_thresholds = _compute_axis_thresholds()
     for tag, intensity in taste_profile.items():
         if intensity not in ("low", "medium", "high"):
             continue
         col = TASTE_TO_COCKTAIL.get(tag)
         if col and getattr(cocktail, col) is not None:
-            if float(getattr(cocktail, col)) >= HIGH_THRESHOLD_COL_VALUE:
+            thr = axis_thresholds.get(tag, _AXIS_THRESHOLD_DEFAULT)["high"]
+            if float(getattr(cocktail, col)) >= thr:
                 matched_tastes.append(tag)
     if matched_tastes:
         reasons.append(f"선호 맛과 일치: {', '.join(matched_tastes)}")
@@ -139,13 +190,13 @@ def _build_reason_parts(
             if intensity not in ("low", "medium", "high"):
                 continue
             col = AROMA_TO_INGREDIENT.get(tag)
-            if col and getattr(ingredient, col, 0) >= AROMA_ING_THRESHOLD and tag not in matched_aromas:
+            if col and getattr(ingredient, col, 0) >= _aroma_threshold(tag) and tag not in matched_aromas:
                 matched_aromas.append(tag)
     if matched_aromas:
         reasons.append(f"선호 향과 일치: {', '.join(matched_aromas)}")
 
     if space and cocktail.mood_tag:
-        mood_prob = (space.mood_tags_json or {}).get(cocktail.mood_tag, 0.0)
+        mood_prob = _mood_atom_mean(space.mood_tags_json, cocktail.mood_tag)
         if mood_prob >= 0.5:
             reasons.append(f"공간 무드와 어울림: {cocktail.mood_tag}")
 
@@ -428,7 +479,26 @@ _MOOD_TAG_KO = {
     "sophisticated": "세련된", "light": "가벼운", "subtle": "은은한",
     "vivid": "화려한", "calm": "차분한", "warm": "따뜻한",
     "celebration": "축하",
+    # DB atom 커버리지
+    "brunch": "브런치", "cool": "시원한", "lively": "활기찬",
+    "playful": "장난스러운", "private": "프라이빗한", "relaxing": "편안한",
+    "savory": "감칠맛", "social": "사교적인", "spacious": "넓은",
 }
+
+
+def _mood_atom_mean(mood_tags_json: Optional[dict], combo: str) -> float:
+    """cocktail.mood_tag("bright|playful|casual") 의 atom 평균 확률.
+
+    mood_agent 가 저장하는 mood_tags_json 은 atom → marginal prob.
+    각 atom 확률의 평균을 취해 부분 일치도 점수화한다.
+    """
+    if not combo or not mood_tags_json:
+        return 0.0
+    atoms = [a.strip() for a in str(combo).split("|") if a and a.strip()]
+    if not atoms:
+        return 0.0
+    probs = [float(mood_tags_json.get(a, 0.0) or 0.0) for a in atoms]
+    return sum(probs) / len(atoms)
 
 
 def _ko_mood_tag(tag: str) -> Optional[str]:
@@ -526,7 +596,12 @@ def _format_candidates_for_rerank(
                 if parts:
                     aroma_str = f" | 향(재료기준): {', '.join(parts)}"
 
-        mood_str = _ko_mood_tag(c.mood_tag) or "—"
+        # c.mood_tag = "bright|playful|casual" 조합 → atom별 한국어 변환 후 재결합
+        if c.mood_tag:
+            ko_atoms = [ko for ko in (_ko_mood_tag(a) for a in c.mood_tag.split("|")) if ko]
+            mood_str = ", ".join(ko_atoms) if ko_atoms else "—"
+        else:
+            mood_str = "—"
         desc = (c.description or "").replace("\n", " ")[:220]
         rows.append(
             f"- id={c.cocktail_id} | {c.name_kr} | {c.category} | "
@@ -635,13 +710,8 @@ def rerank_with_llm(
             f"{_format_candidates_for_rerank(candidates, recipe_ingredients)}\n\n"
             f"위 후보 중에서 사용자에게 가장 잘 맞는 상위 {k}개를 ranked로 JSON 반환해라."
         )
-        messages = [
-            {"role": "system", "content": _RERANK_SYSTEM_PROMPT},
-            {"role": "user", "content": user_content},
-        ]
-        rendered = build_chat_prompt(
-            tokenizer, messages, add_generation_prompt=True, tokenize=False, enable_thinking=False
-        )
+        from app.utils.model_loader import render_chat
+        rendered = render_chat(tokenizer, _RERANK_SYSTEM_PROMPT, user_content)
         inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
         input_len = inputs["input_ids"].shape[-1]
 
@@ -811,8 +881,9 @@ def score_cocktail(
             continue
         score += _normalize(float(user_s), float(cocktail_s), max_r) * weight
 
-    # 2. 맛 프로파일 (intensity 가중)
+    # 2. 맛 프로파일 (intensity 가중) — 축별 동적 threshold 사용
     taste_profile: dict = merged.get("taste_profile") or {}
+    axis_thresholds = _compute_axis_thresholds()
     for tag, intensity in taste_profile.items():
         col = TASTE_TO_COCKTAIL.get(tag)
         if not col:
@@ -821,19 +892,20 @@ def score_cocktail(
         if val is None:
             continue
         val = float(val)
+        thr = axis_thresholds.get(tag, _AXIS_THRESHOLD_DEFAULT)
         if intensity == "high":
-            if val >= 3.5:
+            if val >= thr["high"]:
                 score += 10
-            elif val <= 1.5:
+            elif val <= thr["low_max"]:
                 score -= 12
         elif intensity == "medium":
-            if val >= 3.0:
+            if val >= thr["medium"]:
                 score += 5
         elif intensity == "low":
             # 약하게 선호 → 은은하면 좋지만, 강하게 두드러지면 오히려 감점.
-            if 1.0 <= val <= 2.5:
+            if val <= thr["low_max"]:
                 score += 1
-            elif val >= 3.5:
+            elif val >= thr["high"]:
                 score -= 4
 
     # 3. 향 프로파일 (intensity 가중)
@@ -845,16 +917,17 @@ def score_cocktail(
                 continue
             ing_val = getattr(ingredient, col, 0) or 0
             ing_val = float(ing_val)
-            if intensity == "high" and ing_val >= AROMA_ING_THRESHOLD:
+            thresh = _aroma_threshold(tag)
+            if intensity == "high" and ing_val >= thresh:
                 score += 8
-            elif intensity == "medium" and ing_val >= AROMA_ING_THRESHOLD:
+            elif intensity == "medium" and ing_val >= thresh:
                 score += 3
-            elif intensity == "low" and ing_val >= (AROMA_ING_THRESHOLD + 1.0):
+            elif intensity == "low" and ing_val >= (thresh + 1.0):
                 score -= 1
 
-    # 4. 공간 무드 보너스
+    # 4. 공간 무드 보너스 — cocktail.mood_tag 의 atom 확률 평균.
     if space and cocktail.mood_tag:
-        mood_prob = (space.mood_tags_json or {}).get(cocktail.mood_tag, 0.0)
+        mood_prob = _mood_atom_mean(space.mood_tags_json, cocktail.mood_tag)
         score += mood_prob * 15
 
     # 7. 도수 선호 — 이상치(STRENGTH_TARGET) 와의 편차로 대칭 가중.

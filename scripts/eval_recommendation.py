@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -146,7 +148,7 @@ def _llm_top3(
     return scored[:3]
 
 
-def eval_recommendation(limit: int | None = None):
+def eval_recommendation(limit: int | None = None, tag: str | None = None):
     df = pd.read_csv(CSV_PATH)
     if limit:
         df = df.head(limit)
@@ -157,6 +159,7 @@ def eval_recommendation(limit: int | None = None):
     cat_hit = 0
     total = 0
     no_candidate = 0
+    per_item: list[dict] = []
 
     t0 = time.perf_counter()
 
@@ -173,22 +176,47 @@ def eval_recommendation(limit: int | None = None):
 
             profile = _make_mock_profile(row)
             top3 = _llm_top3(db, profile, all_ri, available_ids)
+            case_id = row.get("case_id", i)
+
             if not top3:
                 no_candidate += 1
                 total += 1
+                per_item.append({
+                    "case_id": case_id,
+                    "gold_cocktails": json.dumps(gold_cocktails, ensure_ascii=False),
+                    "gold_categories": json.dumps(gold_categories, ensure_ascii=False),
+                    "top3_names": "",
+                    "top3_categories": "",
+                    "top3_sources": "",
+                    "hit_1": 0,
+                    "hit_3": 0,
+                    "cat_hit_3": 0,
+                    "no_candidate": 1,
+                })
                 continue
 
             top1 = top3[:1]
             total += 1
 
-            if gold_cocktails and any(t["name_kr"] in gold_cocktails for t in top1):
-                hit_k1 += 1
+            h1 = int(bool(gold_cocktails and any(t["name_kr"] in gold_cocktails for t in top1)))
+            h3 = int(bool(gold_cocktails and any(t["name_kr"] in gold_cocktails for t in top3)))
+            ch = int(bool(gold_categories and any(t["category"] in gold_categories for t in top3)))
+            hit_k1 += h1
+            hit_k3 += h3
+            cat_hit += ch
 
-            if gold_cocktails and any(t["name_kr"] in gold_cocktails for t in top3):
-                hit_k3 += 1
-
-            if gold_categories and any(t["category"] in gold_categories for t in top3):
-                cat_hit += 1
+            per_item.append({
+                "case_id": case_id,
+                "gold_cocktails": json.dumps(gold_cocktails, ensure_ascii=False),
+                "gold_categories": json.dumps(gold_categories, ensure_ascii=False),
+                "top3_names": json.dumps([t["name_kr"] for t in top3], ensure_ascii=False),
+                "top3_categories": json.dumps([t["category"] for t in top3], ensure_ascii=False),
+                "top3_sources": json.dumps([t.get("source", "") for t in top3], ensure_ascii=False),
+                "hit_1": h1,
+                "hit_3": h3,
+                "cat_hit_3": ch,
+                "no_candidate": 0,
+            })
 
             if i % 25 == 0:
                 dt = time.perf_counter() - t0
@@ -213,6 +241,15 @@ def eval_recommendation(limit: int | None = None):
     _log(f"  후보 없음:                {no_candidate}/{total} = {no_candidate/denom*100:.1f}%")
     _log(f"  소요 시간:                {elapsed:.1f}s ({elapsed/denom:.2f}s/case)")
 
+    if tag:
+        stamp = datetime.now().strftime("%Y%m%d_%H%M")
+        model_name = os.getenv("LLM_MODEL", "")
+        per_dir = Path("eval_results/per_item")
+        per_dir.mkdir(parents=True, exist_ok=True)
+        per_csv = per_dir / f"rec_{tag}_{stamp}.csv"
+        pd.DataFrame(per_item).to_csv(per_csv, index=False)
+        _log(f"  [per-item] {len(per_item)} cases → {per_csv}  (model={model_name})")
+
     return {
         "hit@1": hit_k1 / denom,
         "hit@3": hit_k3 / denom,
@@ -235,7 +272,7 @@ if __name__ == "__main__":
                     help="결과 메타에 기록할 모델명 (미지정 시 env LLM_MODEL)")
     args = ap.parse_args()
 
-    result = eval_recommendation(limit=args.limit)
+    result = eval_recommendation(limit=args.limit, tag=args.tag)
     if args.tag:
         summary_lines = result.pop("_summary_lines", [])
         json_path, txt_path = save_eval_result(

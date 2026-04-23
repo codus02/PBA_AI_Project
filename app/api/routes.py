@@ -30,11 +30,14 @@ from app.agents.preference_agent import (
     generate_opening_question,
     merge_slots,
     should_move_to_recommendation,
+    transition_opener,
+    proceed_requires_force,
     _calc_effective_completion,
     _seed_slots_from_initial_tags,
 )
 from app.agents.orchestration_agent import run_recommendation, process_feedback, finalize_sample
 from app.agents.output_agent import generate_output_json
+from app.agents.mood_agent import analyze_space_image
 
 
 router = APIRouter()
@@ -146,7 +149,10 @@ def recommend_sample_endpoint(
     if not guest:
         raise HTTPException(status_code=404, detail="guest_session_id not found")
 
-    result = run_recommendation(db, gid, k=3, force=force)
+    # 대화 단계에서 사용자 STOP / 턴 상한으로 넘어온 경우 stage 가 READY_TO_RECOMMEND 로 박혀 있음.
+    # completion<80 이어도 이 경로는 이미 통과 의사가 확인된 것이니 force 로 강행한다.
+    effective_force = force or (guest.conversation_stage == "READY_TO_RECOMMEND")
+    result = run_recommendation(db, gid, k=3, force=effective_force)
 
     if result.get("status") == "ok":
         update_guest_stage(db, gid, "FEEDBACK_LOOP")
@@ -328,20 +334,13 @@ async def upload_space_image(
     with open(file_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    # TODO:
-    # 나중에 분위기 파악 에이전트(Qwen2-VL 등) 연결 시
-    # 아래 placeholder를 실제 분석 결과로 교체
-    mood_tags_json = {
-        "신나는": 0.91,
-        "네온": 0.74,
-    }
+    mood_result = analyze_space_image(file_path)
 
     analysis = save_space_analysis(
         db=db,
         party_session_id=guest.party_session_id,
         image_path=file_path,
-        mood_tags_json=mood_tags_json,
-        mood_weight=0.30,
+        mood_tags_json=mood_result["mood_tags_json"],
     )
 
     return {
@@ -351,8 +350,9 @@ async def upload_space_image(
             "party_session_id": str(analysis.party_session_id),
             "guest_session_id": gid,
             "image_path": analysis.image_path,
+            "caption_en": mood_result["caption_en"],
+            "best_mood_tag": mood_result["best_mood_tag"],
             "mood_tags_json": analysis.mood_tags_json,
-            "mood_weight": float(analysis.mood_weight),
             "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
         },
     }
@@ -461,10 +461,21 @@ def dialogue_endpoint(
 
     if should_proceed:
         update_guest_stage(db, gid, "READY_TO_RECOMMEND")
+        transition_msg = transition_opener(proceed_reason)
+        transition_turn = create_dialogue_turn(
+            db=db,
+            guest_session_id=gid,
+            speaker_role="LLM",
+            utterance_text=transition_msg,
+            extracted_slots_json=None,
+        )
         return {
             "status": "proceed_to_recommendation",
             "guest_session_id": gid,
             "reason": proceed_reason,
+            "transition_message": transition_msg,
+            "transition_turn": _serialize_dialogue_turn(transition_turn),
+            "force_required": proceed_requires_force(proceed_reason),
             "slot_state": _serialize_preference_slot(updated_slot_row),
             "completion": float(updated_slot_row.slot_completion_score),
             "should_proceed": True,

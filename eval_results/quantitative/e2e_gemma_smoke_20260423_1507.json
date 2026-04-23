@@ -1,0 +1,26 @@
+{
+  "kind": "e2e",
+  "tag": "gemma_smoke",
+  "model": "google/gemma-2-9b-it",
+  "timestamp": "20260423_1507",
+  "limit": 20,
+  "n": 20,
+  "elapsed_sec": 1329.8843276649714,
+  "scalar_avg": 66.33528265107212,
+  "scalar_per_slot": {
+    "current_mood": 57.89473684210527,
+    "party_purpose": 80.0,
+    "strength_preference": 61.111111111111114
+  },
+  "taste_key_f1": 88.52459016393442,
+  "taste_kv_f1": 81.9672131147541,
+  "aroma_key_f1": 56.00000000000001,
+  "aroma_kv_f1": 52.0,
+  "bases_f1": 71.42857142857143,
+  "favs_detected_pct": 10.0,
+  "hit@1": 0.3,
+  "hit@3": 0.4,
+  "cat_hit@3": 0.9,
+  "no_candidate_rate": 0.0,
+  "rec_n": 20
+}

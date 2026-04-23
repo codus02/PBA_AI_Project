@@ -30,6 +30,7 @@ from app.agents.preference_agent import (
     generate_opening_question,
     merge_slots,
     should_move_to_recommendation,
+    transition_opener,
     _calc_effective_completion,
     _seed_slots_from_initial_tags,
     SLOT_ASK_ORDER,
@@ -44,8 +45,11 @@ from app.agents.orchestration_agent import (
     _has_zero_taste_conflict,
     _build_reason_parts,
 )
+from app.agents.mood_agent import analyze_space_image
 from app.db.database import SessionLocal
 from app.db.crud import get_all_recipes_with_ingredients, get_available_ingredient_ids
+
+DEFAULT_SPACE_IMAGE = str(Path(__file__).resolve().parents[1] / "data" / "test.jpg")
 
 MAX_USER_TURNS = 10
 RAG_TOP_K = 20
@@ -99,8 +103,40 @@ def vec_to_profile_obj(vec: dict) -> SimpleNamespace:
     return SimpleNamespace(**{k: Decimal(str(v)) for k, v in vec.items()})
 
 
-def make_profile(slots: dict, vec: dict) -> dict:
-    return {"merged_slots": slots, "vector": vec_to_profile_obj(vec), "space": None}
+def make_profile(slots: dict, vec: dict, space: SimpleNamespace | None = None) -> dict:
+    return {"merged_slots": slots, "vector": vec_to_profile_obj(vec), "space": space}
+
+
+def ask_space_image() -> SimpleNamespace | None:
+    """공간 이미지 업로드 단계 — mood_agent 로 atom 분포 계산.
+
+    엔터만 누르면 기본값(data/test.jpg), "skip" 이면 무드 보정 없이 진행.
+    """
+    print("\n=== 공간 이미지 (분위기 분석) ===")
+    print(f"  엔터=기본 테스트 이미지 ({DEFAULT_SPACE_IMAGE})")
+    print("  경로 입력=해당 파일 사용")
+    print("  skip=공간 분석 건너뛰기")
+    raw = input("이미지 경로: ").strip()
+    if raw.lower() == "skip":
+        print("  → 공간 분석 생략")
+        return None
+    image_path = raw or DEFAULT_SPACE_IMAGE
+    if not Path(image_path).exists():
+        print(f"  [!] 파일 없음: {image_path} → 공간 분석 생략")
+        return None
+
+    print(f"  분석 중… ({image_path})")
+    result = analyze_space_image(image_path)
+    print(f"  caption_en   : {result['caption_en']}")
+    print(f"  best_mood_tag: {result['best_mood_tag']}")
+    top = sorted(result["mood_tags_json"].items(), key=lambda x: -x[1])[:5]
+    top_str = ", ".join(f"{k}:{v:.2f}" for k, v in top)
+    print(f"  top-5 atoms  : {top_str}")
+    return SimpleNamespace(
+        image_path=image_path,
+        mood_tags_json=result["mood_tags_json"],
+        best_mood_tag=result["best_mood_tag"],
+    )
 
 
 def _pick_one(prompt: str, choices: dict, required: bool = False) -> str | None:
@@ -234,6 +270,9 @@ def dialogue_loop(initial_slots: dict, familiarity: str | None = None) -> dict:
         )
         if proceed:
             print(f"\n[TERMINATE] {reason}")
+            opener = transition_opener(reason)
+            print(f"\nLLM: {opener}")
+            history.append({"speaker_role": "LLM", "utterance_text": opener})
             break
         reply = result["reply"]
         print(f"\nLLM: {reply}")
@@ -246,9 +285,10 @@ def dialogue_loop(initial_slots: dict, familiarity: str | None = None) -> dict:
 
 
 def recommend_once(
-    db, slots: dict, vec: dict, all_ri, available_ids, exclude_ids: list[int]
+    db, slots: dict, vec: dict, all_ri, available_ids, exclude_ids: list[int],
+    space: SimpleNamespace | None = None,
 ) -> list[dict]:
-    profile = make_profile(slots, vec)
+    profile = make_profile(slots, vec, space=space)
     query = synthesize_query(profile)
     print("\n=== RAG 쿼리 ===")
     print(query)
@@ -349,6 +389,7 @@ def feedback_round(
     db, slots: dict, vec: dict, all_ri, available_ids,
     top3: list[dict], excluded: list[int],
     preselected: dict | None = None,
+    space: SimpleNamespace | None = None,
 ) -> tuple[str, dict, list[int], list[dict], dict | None]:
     """preselected 가 있으면 그 음료에 대한 피드백만 받는다 (ADJUST 연속 라운드)."""
     if preselected is not None:
@@ -371,7 +412,7 @@ def feedback_round(
 
     # REJECT: 지금 음료 제외 + 새로 검색
     excluded = list(set(excluded + [picked["cocktail_id"]]))
-    next_top3 = recommend_once(db, slots, new_vec, all_ri, available_ids, excluded)
+    next_top3 = recommend_once(db, slots, new_vec, all_ri, available_ids, excluded, space=space)
     return intent, new_vec, excluded, next_top3, None
 
 
@@ -503,6 +544,8 @@ def main() -> None:
     seeded = _seed_slots_from_initial_tags(tag_row)
     print(f"\n초기 태그 seed 결과: {json.dumps(seeded, ensure_ascii=False)}")
 
+    space = ask_space_image()
+
     slots = dialogue_loop(seeded, familiarity=tag_row.familiarity_tag)
     print("\n=== 최종 슬롯 ===")
     print(json.dumps(slots, ensure_ascii=False, indent=2))
@@ -515,7 +558,7 @@ def main() -> None:
         vec = dict(DEFAULT_VEC)
         excluded: list[int] = []
 
-        top3 = recommend_once(db, slots, vec, all_ri, available_ids, excluded)
+        top3 = recommend_once(db, slots, vec, all_ri, available_ids, excluded, space=space)
         if not top3:
             print("\n추천 불가 — 후보 없음")
             return
@@ -529,6 +572,7 @@ def main() -> None:
             intent, vec, excluded, top3, picked = feedback_round(
                 db, slots, vec, all_ri, available_ids, top3, excluded,
                 preselected=preselected,
+                space=space,
             )
             if intent == "ACCEPT":
                 final_pick = picked

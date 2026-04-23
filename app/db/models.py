@@ -55,8 +55,7 @@ class PartySpaceAnalysis(Base):
         JSONB,
         nullable=False,
         server_default=text("'{}'::jsonb"),
-    )  # {"신나는": 0.91, ...}
-    mood_weight = Column(DECIMAL(3, 2), nullable=False, default=0.30)
+    )  # {"bright": 0.72, "casual": 0.61, ...} — atom 단위 marginal
     created_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
 
 
@@ -134,7 +133,6 @@ class PreferenceSlot(Base):
     # {woody|minty|fruity|citrus|floral|coffee|herbal: low|medium|high}
     aroma_profile_json = Column(JSONB, nullable=True)
     strength_preference = Column(String(10), nullable=True)
-    #finish_preference = Column(String(10), nullable=True)
     disliked_bases_json = Column(JSONB, nullable=True)
     favorite_drinks_json = Column(JSONB, nullable=True)
     slot_completion_score = Column(DECIMAL(5, 2), nullable=False, default=0.00)
