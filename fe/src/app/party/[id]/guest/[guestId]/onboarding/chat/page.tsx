@@ -1,12 +1,11 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePartyStore, useGuest } from '@/lib/store/partyStore';
-import { getInitialRecommendation } from '@/lib/mock/recommendations';
-import type { FollowUpAnswer } from '@/lib/types';
-import { now } from '@/lib/utils';
+import { getRecommendation, type RecommendationResponse } from '@/lib/api';
+import type { CocktailRecommendation } from '@/lib/types';
 import FollowUpQuestions from '@/components/onboarding/FollowUpQuestions';
 import StepIndicator from '@/components/ui/StepIndicator';
 
@@ -14,6 +13,18 @@ const STEPS = [
   { label: '취향', icon: '🎯' },
   { label: '추가질문', icon: '💬' },
 ];
+
+function mapApiToRecommendation(data: RecommendationResponse): CocktailRecommendation {
+  const top = data.top_k[0];
+  return {
+    id: String(top.cocktail_id),
+    name: top.name_kr,
+    reason: top.reason_parts.join('\n'),
+    imageEmoji: '🍹',
+    tags: [],
+    recipe: [],
+  };
+}
 
 export default function OnboardingChatPage({
   params,
@@ -24,6 +35,8 @@ export default function OnboardingChatPage({
   const router = useRouter();
   const guest = useGuest(id, guestId);
   const store = usePartyStore();
+  const [recommending, setRecommending] = useState(false);
+  const [recError, setRecError] = useState('');
 
   if (!guest) {
     return (
@@ -38,28 +51,37 @@ export default function OnboardingChatPage({
     );
   }
 
-  const handleFollowUpSubmit = (answers: FollowUpAnswer[]) => {
-    store.setFollowUpAnswers(id, guestId, answers);
-    answers.forEach((a) => {
-      store.addConversationEntry(id, guestId, {
-        timestamp: now(),
-        type: 'followup_a',
-        content: `${a.question} → ${a.answer}`,
-      });
-    });
+  if (!guest.dbId) {
+    return (
+      <main className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center">
+          <p className="text-zinc-400 mb-2">세션 정보가 없어요</p>
+          <Link href={`/party/${id}/guest/${guestId}/onboarding`} className="text-amber-400 text-sm">
+            처음부터 다시 시작하기
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
-    const prefs = store.getGuest(id, guestId)?.preferences;
-    if (prefs) {
-      const recommendation = getInitialRecommendation(prefs);
-      store.setTastingRecommendation(id, guestId, recommendation);
-      store.addRecommendationEntry(id, guestId, {
-        timestamp: now(),
-        stage: 'tasting',
-        cocktailId: recommendation.id,
-        cocktailName: recommendation.name,
-      });
+  const handleChatDone = async () => {
+    setRecommending(true);
+    setRecError('');
+    try {
+      const data = await getRecommendation(guest.dbId!);
+      if (data.status === 'ok' && data.top_k.length > 0) {
+        const rec = mapApiToRecommendation(data);
+        store.setTastingRecommendation(id, guestId, rec);
+        store.setSampleRecommendationId(id, guestId, data.sample_recommendation_id);
+        router.push(`/party/${id}/guest/${guestId}/tasting`);
+      } else {
+        setRecError('추천을 가져올 수 없어요. 다시 시도해주세요.');
+        setRecommending(false);
+      }
+    } catch {
+      setRecError('추천 서버 오류가 발생했어요. 다시 시도해주세요.');
+      setRecommending(false);
     }
-    router.push(`/party/${id}/guest/${guestId}/tasting`);
   };
 
   return (
@@ -82,7 +104,19 @@ export default function OnboardingChatPage({
         <StepIndicator steps={STEPS} current={1} />
       </div>
 
-      <FollowUpQuestions onSubmit={handleFollowUpSubmit} />
+      {recommending ? (
+        <div className="flex flex-col items-center justify-center gap-4 py-16">
+          <div className="text-5xl animate-pulse">🍹</div>
+          <p className="text-zinc-300 font-medium">취향에 맞는 칵테일을 찾고 있어요...</p>
+        </div>
+      ) : (
+        <>
+          <FollowUpQuestions gid={guest.dbId} onSubmit={handleChatDone} />
+          {recError && (
+            <p className="text-red-400 text-sm text-center mt-4">{recError}</p>
+          )}
+        </>
+      )}
     </main>
   );
 }

@@ -45,6 +45,12 @@ interface PartyStore {
   updateBrewState: (partyId: string, guestId: string, brewState: Partial<BrewState>) => void;
   setSatisfaction: (partyId: string, guestId: string, score: number) => void;
 
+  // DB ID actions
+  setPartyDbId: (partyId: string, dbId: string) => void;
+  setGuestDbId: (partyId: string, guestId: string, dbId: string) => void;
+  setSampleRecommendationId: (partyId: string, guestId: string, id: string) => void;
+  setFinalRecommendationId: (partyId: string, guestId: string, id: string) => void;
+
   // Log actions
   addConversationEntry: (partyId: string, guestId: string, entry: Omit<ConversationEntry, 'id'>) => void;
   addRecommendationEntry: (partyId: string, guestId: string, entry: Omit<RecommendationEntry, 'id'>) => void;
@@ -212,6 +218,29 @@ export const usePartyStore = create<PartyStore>()(
             satisfaction: score,
             logs: { ...g.logs, satisfaction: score },
           })),
+        })),
+
+      setPartyDbId: (partyId, dbId) =>
+        set((s) => ({
+          parties: {
+            ...s.parties,
+            [partyId]: { ...s.parties[partyId], dbId },
+          },
+        })),
+
+      setGuestDbId: (partyId, guestId, dbId) =>
+        set((s) => ({
+          parties: updateGuest(s.parties, partyId, guestId, (g) => ({ ...g, dbId })),
+        })),
+
+      setSampleRecommendationId: (partyId, guestId, id) =>
+        set((s) => ({
+          parties: updateGuest(s.parties, partyId, guestId, (g) => ({ ...g, sampleRecommendationId: id })),
+        })),
+
+      setFinalRecommendationId: (partyId, guestId, id) =>
+        set((s) => ({
+          parties: updateGuest(s.parties, partyId, guestId, (g) => ({ ...g, finalRecommendationId: id })),
         })),
 
       addConversationEntry: (partyId, guestId, entry) =>

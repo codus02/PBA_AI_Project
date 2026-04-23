@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────
 export interface Party {
   id: string;
+  dbId?: string;
   code: string;
   name: string;
   guests: Guest[];
@@ -24,15 +25,18 @@ export type GuestStep =
 
 export interface Guest {
   id: string;
+  dbId?: string;
   partyId: string;
   name: string;
   step: GuestStep;
   preferences?: GuestPreferences;
   followUpAnswers?: FollowUpAnswer[];
   tastingRecommendation?: CocktailRecommendation;
+  sampleRecommendationId?: string;
   feedback?: string;
   feedbackAnalysis?: FeedbackAnalysis;
   finalRecommendation?: CocktailRecommendation;
+  finalRecommendationId?: string;
   brewState?: BrewState;
   satisfaction?: number;
   logs: GuestLog;
@@ -56,6 +60,12 @@ export type AromaTag = 'fruity' | 'herbal' | 'mint' | 'citrus' | 'woody' | 'coff
 // Space Analysis
 // ─────────────────────────────────────────
 export interface SpaceAnalysis {
+  emotionTag: string;
+  visualTag: string;
+  spaceTag: string;
+  tags: string[];
+  caption: string;
+  summary: string;
   style: string;
   mood: string;
   colors: string[];
@@ -83,12 +93,12 @@ export interface FollowUpAnswer {
 export interface CocktailRecommendation {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   reason: string;
-  recipe: RecipeItem[];
+  recipe?: RecipeItem[];
   adjustments?: RecipeAdjustment[];
-  imageEmoji: string;
-  tags: string[];
+  imageEmoji?: string;
+  tags?: string[];
 }
 
 export interface RecipeItem {

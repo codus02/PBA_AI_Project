@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePartyStore, useGuest } from '@/lib/store/partyStore';
 import type { GuestPreferences } from '@/lib/types';
+import { saveInitialTags } from '@/lib/api';
 import { now } from '@/lib/utils';
 import TasteForm from '@/components/onboarding/TasteForm';
 import StepIndicator from '@/components/ui/StepIndicator';
@@ -37,13 +38,20 @@ export default function OnboardingPage({
     );
   }
 
-  const handleTasteSubmit = (prefs: GuestPreferences) => {
+  const handleTasteSubmit = async (prefs: GuestPreferences) => {
     store.setPreferences(id, guestId, prefs);
     store.addConversationEntry(id, guestId, {
       timestamp: now(),
       type: 'preference_input',
       content: `취향 입력 완료: 경험 ${prefs.experience}, 도수 ${prefs.alcoholTolerance}, 맛 [${prefs.tasteTags.join(', ')}], 향 [${prefs.aromaTags.join(', ')}]`,
     });
+    try {
+      if (guest.dbId) {
+        await saveInitialTags(guest.dbId, prefs);
+      }
+    } catch {
+      // DB 저장 실패해도 UI 흐름은 계속
+    }
     router.push(`/party/${id}/guest/${guestId}/onboarding/chat`);
   };
 

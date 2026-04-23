@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { SpaceAnalysis } from '@/lib/types';
 import { analyzeSpaceImage } from '@/lib/mock/spaceAnalysis';
 import Button from '@/components/ui/Button';
@@ -17,6 +17,8 @@ export default function SpaceUpload({ onComplete, onSkip }: SpaceUploadProps) {
   const [analysis, setAnalysis] = useState<SpaceAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(async (file: File) => {
     const reader = new FileReader();
@@ -55,29 +57,51 @@ export default function SpaceUpload({ onComplete, onSkip }: SpaceUploadProps) {
         </CardHeader>
         <CardBody>
           {!preview ? (
-            <label
-              className={`flex flex-col items-center justify-center h-40 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
+            <div
+              className={`flex flex-col items-center justify-center h-40 rounded-xl border-2 border-dashed transition-all ${
                 dragOver
                   ? 'border-amber-400 bg-amber-400/10'
-                  : 'border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800/50'
+                  : 'border-zinc-700 bg-zinc-900/40'
               }`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
             >
               <span className="text-4xl mb-2">📷</span>
-              <span className="text-sm text-zinc-400">이미지를 드래그하거나 클릭해서 업로드</span>
-              <span className="text-xs text-zinc-600 mt-1">JPG, PNG, WEBP 지원</span>
+              <span className="text-sm text-zinc-300">사진을 촬영하거나 갤러리에서 선택하세요</span>
+              <span className="text-xs text-zinc-500 mt-1">모바일에서는 카메라와 사진 보관함을 바로 열 수 있어요</span>
+              <div className="flex gap-3 mt-4">
+                <Button type="button" onClick={() => cameraInputRef.current?.click()}>
+                  사진 촬영
+                </Button>
+                <Button variant="secondary" type="button" onClick={() => galleryInputRef.current?.click()}>
+                  갤러리에서 선택
+                </Button>
+              </div>
               <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                capture="environment"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFile(file);
+                  e.currentTarget.value = '';
+                }}
+              />
+              <input
+                ref={galleryInputRef}
                 type="file"
                 accept="image/*"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleFile(file);
+                  e.currentTarget.value = '';
                 }}
               />
-            </label>
+            </div>
           ) : (
             <div className="flex flex-col gap-4">
               <div className="relative rounded-xl overflow-hidden h-40">
@@ -124,17 +148,17 @@ export default function SpaceUpload({ onComplete, onSkip }: SpaceUploadProps) {
           )}
         </CardBody>
       </Card>
-{/* 
+
       <div className="flex gap-3">
         <Button variant="secondary" className="flex-1" onClick={onSkip}>
-          건너뛰기
+          취소
         </Button>
         {analysis && preview && (
           <Button className="flex-1" onClick={() => onComplete(analysis, preview)}>
-            다음 단계로 →
+            이미지 적용하고 계속
           </Button>
         )}
-      </div> */}
+      </div>
     </div>
   );
 }

@@ -11,7 +11,7 @@ export default function CocktailCard({ cocktail, stage = 'tasting' }: CocktailCa
   return (
     <Card glow className="flex flex-col gap-4">
       <div className="flex items-start gap-4">
-        <div className="text-6xl">{cocktail.imageEmoji}</div>
+        <div className="text-6xl">{cocktail.imageEmoji ?? '🍹'}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             {stage === 'final' && (
@@ -22,34 +22,40 @@ export default function CocktailCard({ cocktail, stage = 'tasting' }: CocktailCa
             )}
           </div>
           <h2 className="text-xl font-bold text-zinc-100">{cocktail.name}</h2>
-          <p className="text-sm text-zinc-400 mt-1 leading-relaxed">{cocktail.description}</p>
+          {cocktail.description && (
+            <p className="text-sm text-zinc-400 mt-1 leading-relaxed">{cocktail.description}</p>
+          )}
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {cocktail.tags.map((tag) => (
-          <Badge key={tag} variant="default">#{tag}</Badge>
-        ))}
-      </div>
+      {cocktail.tags && cocktail.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {cocktail.tags.map((tag) => (
+            <Badge key={tag} variant="default">#{tag}</Badge>
+          ))}
+        </div>
+      )}
 
       <div className="bg-zinc-800/60 rounded-xl p-4">
         <p className="text-xs text-zinc-500 mb-1">추천 이유</p>
         <p className="text-sm text-zinc-300 leading-relaxed">{cocktail.reason}</p>
       </div>
 
-      <div>
-        <p className="text-xs text-zinc-500 mb-2">레시피</p>
-        <div className="flex flex-col gap-1.5">
-          {cocktail.recipe.map((item, i) => (
-            <div key={i} className="flex justify-between items-center py-1.5 border-b border-zinc-800 last:border-0">
-              <span className="text-sm text-zinc-300">{item.ingredient}</span>
-              <span className="text-sm text-amber-400 font-medium">
-                {item.amount} {item.unit}
-              </span>
-            </div>
-          ))}
+      {cocktail.recipe && cocktail.recipe.length > 0 && (
+        <div>
+          <p className="text-xs text-zinc-500 mb-2">레시피</p>
+          <div className="flex flex-col gap-1.5">
+            {cocktail.recipe.map((item, i) => (
+              <div key={i} className="flex justify-between items-center py-1.5 border-b border-zinc-800 last:border-0">
+                <span className="text-sm text-zinc-300">{item.ingredient}</span>
+                <span className="text-sm text-amber-400 font-medium">
+                  {item.amount} {item.unit}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {cocktail.adjustments && cocktail.adjustments.length > 0 && (
         <div className="bg-emerald-400/10 border border-emerald-400/20 rounded-xl p-4">

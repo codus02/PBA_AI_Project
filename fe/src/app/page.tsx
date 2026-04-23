@@ -3,25 +3,31 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePartyStore } from '@/lib/store/partyStore';
+import { createPartySession } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import Card, { CardBody } from '@/components/ui/Card';
 
 export default function HomePage() {
   const router = useRouter();
-  const createParty = usePartyStore((s) => s.createParty);
+  const store = usePartyStore();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sessionCode, setSessionCode] = useState('');
+  const [error, setError] = useState('');
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim()) return;
     setLoading(true);
-    const party = createParty(name.trim());
-    setSessionCode(party.code);
-    setTimeout(() => {
+    setError('');
+    try {
+      const party = store.createParty(name.trim());
+      const { party_session_id } = await createPartySession(name.trim());
+      store.setPartyDbId(party.id, party_session_id);
       router.push(`/party/${party.id}`);
-    }, 800);
+    } catch {
+      setError('서버 연결 실패. 백엔드 서버가 실행 중인지 확인해주세요.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -35,10 +41,10 @@ export default function HomePage() {
         <div className="text-center mb-10">
           <div className="text-6xl mb-4">🍸</div>
           <h1 className="text-4xl font-bold text-zinc-100 tracking-tight">
-            Bar<span className="text-amber-400">AI</span>
+            칵<span className="text-amber-400">맞춤</span>
           </h1>
           <p className="text-zinc-400 mt-2 text-sm leading-relaxed">
-            AI가 취향을 분석해<br />파티에 딱 맞는 칵테일을 추천해드려요
+            AI가 취향을 분석해<br />당신에게 딱 맞는 칵테일을 추천해드려요
           </p>
         </div>
 
@@ -66,6 +72,10 @@ export default function HomePage() {
               파티 시작하기
             </Button>
 
+            {error && (
+              <p className="text-red-400 text-xs text-center">{error}</p>
+            )}
+
             {/* {sessionCode && (
               <div className="flex items-center justify-center gap-2 bg-amber-400/10 border border-amber-400/20 rounded-xl py-2.5">
                 <span className="text-xs text-zinc-400">세션 코드</span>
@@ -80,7 +90,7 @@ export default function HomePage() {
         <div className="mt-6 grid grid-cols-3 gap-3">
           {[
             { emoji: '👥', label: '게스트 추가', desc: '여러 명 동시 진행' },
-            { emoji: '🎯', label: '취향 분석', desc: '20초 취향 입력' },
+            { emoji: '🎯', label: '취향 분석', desc: '채팅기반 취향 분석' },
             { emoji: '🍹', label: 'AI 추천', desc: '맞춤 칵테일 제조' },
           ].map((item) => (
             <div

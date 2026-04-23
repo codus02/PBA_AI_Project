@@ -4,9 +4,9 @@ import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePartyStore, useParty } from '@/lib/store/partyStore';
+import { createGuestSession } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
-import Badge from '@/components/ui/Badge';
 import GuestCard from '@/components/party/GuestCard';
 import { Input } from '@/components/ui/Input';
 import SpaceUpload from '@/components/onboarding/SpaceUpload';
@@ -20,6 +20,8 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
   const store = usePartyStore();
   const [guestName, setGuestName] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+  const [showSpaceUpload, setShowSpaceUpload] = useState(false);
+  const hasSpaceAnalysis = Boolean(party?.spaceAnalysis && party?.spaceImage);
 
   if (!party) {
     return (
@@ -35,16 +37,27 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
     );
   }
 
-  const handleAddGuest = () => {
+  const handleAddGuest = async () => {
+    if (!hasSpaceAnalysis) {
+      setShowAdd(false);
+      setShowSpaceUpload(true);
+      return;
+    }
     if (!guestName.trim()) return;
     const guest = addGuest(id, guestName.trim());
     setGuestName('');
     setShowAdd(false);
+    try {
+      if (party.dbId) {
+        const { guest_session_id } = await createGuestSession(party.dbId, guestName.trim());
+        store.setGuestDbId(id, guest.id, guest_session_id);
+      }
+    } catch {
+      // DB 저장 실패해도 UI 흐름은 계속
+    }
     router.push(`/party/${id}/guest/${guest.id}/onboarding`);
   };
-
   const completedGuests = party.guests.filter((g) => g.step === 'complete').length;
-  const [showSpaceUpload, setShowSpaceUpload] = useState(false);
 
   const handleSpaceComplete = (analysis: SpaceAnalysis, imageUrl: string) => {
     store.setSpaceAnalysis(id, analysis);
@@ -102,7 +115,7 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
         </div>
       ) : (
         <div className="mb-6">
-          {party.spaceAnalysis ? (
+          {hasSpaceAnalysis ? (
             <Card className="border-amber-400/20">
               <CardBody>
                 <div className="flex items-center gap-3">
@@ -115,8 +128,8 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-zinc-500 mb-0.5">파티 공간</p>
-                    <p className="text-sm font-semibold text-zinc-100">{party.spaceAnalysis.style}</p>
-                    <p className="text-xs text-zinc-400">{party.spaceAnalysis.mood} · {party.spaceAnalysis.colors.join(', ')}</p>
+                    <p className="text-sm font-semibold text-zinc-100">{party.spaceAnalysis?.style}</p>
+                    <p className="text-xs text-zinc-400">{party.spaceAnalysis?.mood} · {party.spaceAnalysis?.colors.join(', ')}</p>
                   </div>
                   <button
                     type="button"
@@ -129,17 +142,22 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
               </CardBody>
             </Card>
           ) : (
-            <button
-              type="button"
-              onClick={() => setShowSpaceUpload(true)}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-dashed border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800/50 transition-all text-left"
-            >
-              <span className="text-2xl">📷</span>
-              <div>
-                <p className="text-sm font-medium text-zinc-300">파티 공간 이미지 추가</p>
-                <p className="text-xs text-zinc-500">공간 분위기를 분석해 더 정확한 추천을 해드려요</p>
-              </div>
-            </button>
+            <Card className="border-zinc-800 bg-zinc-900/50">
+              <CardBody className="flex flex-col gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl shrink-0">📷</span>
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-100">파티 공간 이미지를 등록해 주세요</p>
+                    <p className="text-xs text-zinc-400 mt-1">
+                      공간 분위기 분석이 끝나면 그다음에 게스트를 추가할 수 있어요.
+                    </p>
+                  </div>
+                </div>
+                <Button variant="secondary" onClick={() => setShowSpaceUpload(true)}>
+                  이미지 등록하기
+                </Button>
+              </CardBody>
+            </Card>
           )}
         </div>
       )}
@@ -162,7 +180,7 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
       </div>
 
       {/* 게스트 추가 */}
-      {showAdd ? (
+      {showAdd && hasSpaceAnalysis ? (
         <Card glow>
           <CardBody className="flex flex-col gap-3">
             <p className="text-sm font-medium text-zinc-300">게스트 이름 입력</p>
@@ -187,10 +205,17 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
         <Button
           size="lg"
           className="w-full"
+          disabled={!hasSpaceAnalysis}
           onClick={() => setShowAdd(true)}
         >
           + 게스트 추가
         </Button>
+      )}
+
+      {!hasSpaceAnalysis && (
+        <p className="text-xs text-center text-zinc-500 mt-3">
+          공간 이미지 분석이 완료되면 게스트 추가 버튼이 활성화돼요.
+        </p>
       )}
     </main>
   );

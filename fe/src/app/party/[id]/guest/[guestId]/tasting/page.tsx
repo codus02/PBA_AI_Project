@@ -4,10 +4,23 @@ import { use, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { usePartyStore, useGuest } from '@/lib/store/partyStore';
-import { analyzeFeedback, getFinalRecommendation } from '@/lib/mock/recommendations';
+import { submitFeedback, getFinalOutput, type RecommendationResponse } from '@/lib/api';
+import type { CocktailRecommendation } from '@/lib/types';
 import { now } from '@/lib/utils';
 import CocktailCard from '@/components/recommendation/CocktailCard';
 import FeedbackInput from '@/components/recommendation/FeedbackInput';
+
+function mapApiToRecommendation(data: RecommendationResponse): CocktailRecommendation {
+  const top = data.top_k[0];
+  return {
+    id: String(top.cocktail_id),
+    name: top.name_kr,
+    reason: top.reason_parts.join('\n'),
+    imageEmoji: '🍹',
+    tags: [],
+    recipe: [],
+  };
+}
 
 export default function TastingPage({
   params,
@@ -19,6 +32,7 @@ export default function TastingPage({
   const guest = useGuest(id, guestId);
   const store = usePartyStore();
   const [analyzing, setAnalyzing] = useState(false);
+  const [feedbackError, setFeedbackError] = useState('');
 
   if (!guest) {
     return (
@@ -45,36 +59,64 @@ export default function TastingPage({
   }
 
   const handleFeedback = async (feedback: string) => {
+    if (!guest.dbId || !guest.sampleRecommendationId) return;
     setAnalyzing(true);
+    setFeedbackError('');
 
-    // 피드백 분석
-    const feedbackAnalysis = analyzeFeedback(feedback);
     store.setFeedback(id, guestId, feedback);
-    store.setFeedbackAnalysis(id, guestId, feedbackAnalysis);
-    store.addConversationEntry(id, guestId, {
-      timestamp: now(),
-      type: 'feedback',
-      content: feedback,
-    });
-    store.addFeedbackEntry(id, guestId, {
-      timestamp: now(),
-      rawFeedback: feedback,
-      adjustments: feedbackAnalysis.adjustments,
-    });
+    store.addConversationEntry(id, guestId, { timestamp: now(), type: 'feedback', content: feedback });
 
-    // 최종 추천 생성
-    const finalRec = getFinalRecommendation(guest.tastingRecommendation!, feedbackAnalysis);
-    store.setFinalRecommendation(id, guestId, finalRec);
-    store.addRecommendationEntry(id, guestId, {
-      timestamp: now(),
-      stage: 'final',
-      cocktailId: finalRec.id,
-      cocktailName: finalRec.name,
-    });
+    try {
+      const result = await submitFeedback(guest.dbId, guest.sampleRecommendationId, feedback);
 
-    await new Promise((r) => setTimeout(r, 600));
-    setAnalyzing(false);
-    router.push(`/party/${id}/guest/${guestId}/final`);
+      if (result.status === 'accepted' || result.status === 'force_finalized') {
+        // ACCEPT → 최종 확정, final output 가져오기
+        const finalId = result.final_recommendation_id!;
+        store.setFinalRecommendationId(id, guestId, finalId);
+
+        const output = await getFinalOutput(finalId);
+        const finalRec: CocktailRecommendation = {
+          id: String(output.cocktail_id),
+          name: output.cocktail_name,
+          reason: guest.tastingRecommendation!.reason,
+          imageEmoji: '🍹',
+          tags: [],
+          recipe: output.steps.map((s) => ({
+            ingredient: s.ingredient_name,
+            amount: s.amount_ml,
+            unit: 'ml',
+          })),
+        };
+        store.setFinalRecommendation(id, guestId, finalRec);
+        store.addRecommendationEntry(id, guestId, {
+          timestamp: now(),
+          stage: 'final',
+          cocktailId: String(output.cocktail_id),
+          cocktailName: output.cocktail_name,
+        });
+        router.push(`/party/${id}/guest/${guestId}/final`);
+
+      } else if (result.status === 're_recommended' && result.top_k && result.top_k.length > 0) {
+        // ADJUST/REJECT → 새 추천 표시
+        const newRec = mapApiToRecommendation(result as RecommendationResponse);
+        store.setTastingRecommendation(id, guestId, newRec);
+        store.setSampleRecommendationId(id, guestId, result.sample_recommendation_id!);
+        store.addRecommendationEntry(id, guestId, {
+          timestamp: now(),
+          stage: 'tasting',
+          cocktailId: newRec.id,
+          cocktailName: newRec.name,
+        });
+        setAnalyzing(false);
+
+      } else {
+        setFeedbackError('응답을 처리할 수 없어요. 다시 시도해주세요.');
+        setAnalyzing(false);
+      }
+    } catch {
+      setFeedbackError('서버 오류가 발생했어요. 다시 시도해주세요.');
+      setAnalyzing(false);
+    }
   };
 
   return (
@@ -90,6 +132,9 @@ export default function TastingPage({
       <div className="flex flex-col gap-5">
         <CocktailCard cocktail={guest.tastingRecommendation} stage="tasting" />
         <FeedbackInput onSubmit={handleFeedback} loading={analyzing} />
+        {feedbackError && (
+          <p className="text-red-400 text-sm text-center">{feedbackError}</p>
+        )}
       </div>
     </main>
   );

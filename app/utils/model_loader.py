@@ -80,6 +80,13 @@ def load_qwen3_embedding():
     return tokenizer, model
 
 
+def build_chat_prompt(tokenizer, messages: list[dict], **kwargs) -> str:
+    """apply_chat_template 래퍼 — 모델별 미지원 파라미터 자동 제거."""
+    if "qwen3" not in LLM_MODEL.lower():
+        kwargs.pop("enable_thinking", None)
+    return tokenizer.apply_chat_template(messages, **kwargs)
+
+
 @torch.no_grad()
 def embed_texts(
     texts: Iterable[str],

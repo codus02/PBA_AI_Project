@@ -625,7 +625,7 @@ def rerank_with_llm(
     if not candidates:
         return []
     try:
-        from app.utils.model_loader import load_llm
+        from app.utils.model_loader import load_llm, build_chat_prompt
         import torch
 
         tokenizer, model = load_llm()
@@ -639,8 +639,8 @@ def rerank_with_llm(
             {"role": "system", "content": _RERANK_SYSTEM_PROMPT},
             {"role": "user", "content": user_content},
         ]
-        rendered = tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, tokenize=False, enable_thinking=False
+        rendered = build_chat_prompt(
+            tokenizer, messages, add_generation_prompt=True, tokenize=False, enable_thinking=False
         )
         inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
         input_len = inputs["input_ids"].shape[-1]

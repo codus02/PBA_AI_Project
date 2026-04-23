@@ -652,7 +652,7 @@ def analyze_feedback(
        "raw": "<원문>"}
     """
     try:
-        from app.utils.model_loader import load_llm
+        from app.utils.model_loader import load_llm, build_chat_prompt
         import torch
 
         tokenizer, model = load_llm()
@@ -661,7 +661,8 @@ def analyze_feedback(
             {"role": "system", "content": _FEEDBACK_SYSTEM_PROMPT},
             {"role": "user", "content": f"USER 피드백: {feedback_text}\n\nJSON으로 답해라."},
         ]
-        rendered = tokenizer.apply_chat_template(
+        rendered = build_chat_prompt(
+            tokenizer,
             messages,
             add_generation_prompt=True,
             tokenize=False,
@@ -1588,7 +1589,7 @@ def _build_extract_user_prompt(history: list[dict], user_msg: str) -> str:
 def _extract_slots_llm(history: list[dict], user_msg: str) -> tuple[dict, str]:
     """Pass 1: 슬롯 추출 전용. 반환 = (extracted_slots_raw_dict, raw_text)."""
     try:
-        from app.utils.model_loader import load_llm
+        from app.utils.model_loader import load_llm, build_chat_prompt
         import torch
 
         tokenizer, model = load_llm()
@@ -1596,7 +1597,8 @@ def _extract_slots_llm(history: list[dict], user_msg: str) -> tuple[dict, str]:
             {"role": "system", "content": _EXTRACT_SYSTEM_PROMPT},
             {"role": "user", "content": _build_extract_user_prompt(history, user_msg)},
         ]
-        rendered = tokenizer.apply_chat_template(
+        rendered = build_chat_prompt(
+            tokenizer,
             messages,
             add_generation_prompt=True,
             tokenize=False,
@@ -1855,7 +1857,7 @@ def analyze_user_turn(
     user_turn_count: int = 0,
 ) -> dict:
     try:
-        from app.utils.model_loader import load_llm
+        from app.utils.model_loader import load_llm, build_chat_prompt
         import torch
 
         # ─── Pass 1 : 슬롯 추출 전용 LLM 호출 ───────────────────────
@@ -1879,7 +1881,8 @@ def analyze_user_turn(
                 extracted_this_turn=extracted,
             )},
         ]
-        rendered = tokenizer.apply_chat_template(
+        rendered = build_chat_prompt(
+            tokenizer,
             messages,
             add_generation_prompt=True,
             tokenize=False,
