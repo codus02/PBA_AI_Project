@@ -44,6 +44,7 @@ from app.agents.orchestration_agent import (
     _has_disliked_base,
     _has_zero_taste_conflict,
     _is_unstockable,
+    RERANK_REASON_POOL_N,
     rerank_with_llm,
     retrieve_candidates,
     score_cocktail,
@@ -234,10 +235,11 @@ def _llm_top3(
         ri = all_ri.get(c.cocktail_id, [])
         s = score_cocktail(c, profile, ri)
         scored.append({
+            "cocktail_id": c.cocktail_id,
             "name_kr": c.name_kr,
             "category": c.category,
             "score": s,
-            "source": "rag_fallback",
+            "source": "score_primary",
         })
     scored.sort(key=lambda x: x["score"], reverse=True)
     score_top3 = scored[:3]
@@ -248,31 +250,37 @@ def _llm_top3(
         diagnostics["gold_in_score_top3"] = "" if not gold_set else int(any(t["name_kr"] in gold_set for t in score_top3))
         diagnostics["cat_in_score_top3"] = "" if not cat_set else int(any(t["category"] in cat_set for t in score_top3))
 
-    reranked = rerank_with_llm(profile, survivor_cocktails, k=3, recipe_ingredients=all_ri)
+    rerank_pool_ids = [item["cocktail_id"] for item in scored[:max(3, RERANK_REASON_POOL_N)]]
+    id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
+    rerank_pool = [id_to_cocktail[cid] for cid in rerank_pool_ids if cid in id_to_cocktail]
+    reranked = rerank_with_llm(
+        profile,
+        rerank_pool,
+        k=len(rerank_pool),
+        recipe_ingredients=all_ri,
+    )
 
-    if reranked:
-        id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
+    if reranked and diagnostics is not None:
         top3 = []
-        for item in reranked:
+        for item in reranked[:3]:
             c = id_to_cocktail.get(item["cocktail_id"])
             if c is None:
                 continue
             top3.append({
                 "name_kr": c.name_kr,
                 "category": c.category,
-                "source": "rag_llm",
+                "source": "rag_llm_preview",
             })
-        if top3:
-            if diagnostics is not None:
-                diagnostics["final_ranker"] = "rag_llm"
-                diagnostics["rerank_top3_names"] = json.dumps([t["name_kr"] for t in top3[:3]], ensure_ascii=False)
-                diagnostics["rerank_top3_categories"] = json.dumps([t["category"] for t in top3[:3]], ensure_ascii=False)
-            return top3[:3]
-
-    if diagnostics is not None:
-        diagnostics["final_ranker"] = "rag_fallback"
+        diagnostics["rerank_top3_names"] = json.dumps([t["name_kr"] for t in top3], ensure_ascii=False)
+        diagnostics["rerank_top3_categories"] = json.dumps([t["category"] for t in top3], ensure_ascii=False)
+    elif diagnostics is not None:
         diagnostics["rerank_top3_names"] = ""
         diagnostics["rerank_top3_categories"] = ""
+
+    if diagnostics is not None:
+        diagnostics["final_ranker"] = "score_primary"
+    for row in score_top3:
+        row["source"] = "score_primary"
     return score_top3
 
 

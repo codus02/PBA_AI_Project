@@ -19,6 +19,7 @@ from app.agents.orchestration_agent import (
     synthesize_query,
     retrieve_candidates,
     rerank_with_llm,
+    RERANK_REASON_POOL_N,
     score_cocktail,
     _has_disliked_base,
     _is_unstockable,
@@ -115,36 +116,29 @@ def _llm_top3(
     if not survivors:
         return []
 
-    survivor_cocktails = [c for c, _ in survivors]
-    reranked = rerank_with_llm(profile, survivor_cocktails, k=3, recipe_ingredients=all_ri)
-
-    if reranked:
-        id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
-        top3 = []
-        for item in reranked:
-            c = id_to_cocktail.get(item["cocktail_id"])
-            if c is None:
-                continue
-            top3.append({
-                "name_kr": c.name_kr,
-                "category": c.category,
-                "source": "rag_llm",
-            })
-        if top3:
-            return top3[:3]
-
     scored = []
     for c, _dist in survivors:
         ri = all_ri.get(c.cocktail_id, [])
         s = score_cocktail(c, profile, ri)
         scored.append({
+            "cocktail_id": c.cocktail_id,
             "name_kr": c.name_kr,
             "category": c.category,
             "score": s,
-            "source": "rag_fallback",
+            "source": "score_primary",
         })
 
     scored.sort(key=lambda x: x["score"], reverse=True)
+    survivor_cocktails = [c for c, _ in survivors]
+    rerank_pool_ids = [item["cocktail_id"] for item in scored[:max(3, RERANK_REASON_POOL_N)]]
+    id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
+    rerank_pool = [id_to_cocktail[cid] for cid in rerank_pool_ids if cid in id_to_cocktail]
+    reranked = rerank_with_llm(profile, rerank_pool, k=len(rerank_pool), recipe_ingredients=all_ri)
+    if reranked:
+        llm_ids = {int(item["cocktail_id"]) for item in reranked if item.get("cocktail_id")}
+        for item in scored[:3]:
+            if item["cocktail_id"] in llm_ids:
+                item["source"] = "score_llm_reason"
     return scored[:3]
 
 

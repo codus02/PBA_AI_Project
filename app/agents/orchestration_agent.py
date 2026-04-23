@@ -954,6 +954,28 @@ def score_cocktail(
 # ============================================================
 
 RAG_RETRIEVE_N = 20
+RERANK_REASON_POOL_N = 6
+
+
+def _score_survivors(
+    survivors: list[tuple[Cocktail, float]],
+    profile: dict,
+    recipe_ingredients: dict[int, list[tuple]],
+) -> list[dict]:
+    """생존 후보를 deterministic score 기준으로 정렬한다."""
+    scored: list[dict] = []
+    for cocktail, dist in survivors:
+        ri = recipe_ingredients.get(cocktail.cocktail_id, [])
+        scored.append({
+            "cocktail_id": cocktail.cocktail_id,
+            "name_kr": cocktail.name_kr,
+            "score": score_cocktail(cocktail, profile, ri),
+            "retrieval_distance": dist,
+            "reason_parts": _build_reason_parts(cocktail, profile, ri),
+            "source": "score_primary",
+        })
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    return scored
 
 
 def recommend_top_k(
@@ -962,9 +984,11 @@ def recommend_top_k(
     k: int = 3,
     exclude_ids: Optional[list[int]] = None,
 ) -> list[dict]:
-    """RAG 파이프라인: 임베딩 검색 → 하드 필터 → LLM 리랭크.
+    """RAG 파이프라인: 임베딩 검색 → 하드 필터 → deterministic score → LLM reason 보강.
 
-    LLM 리랭크 실패 시 score_cocktail 기반으로 fallback.
+    순위는 score_cocktail 을 기준으로 고정하고, LLM 은 상위 후보에 대한
+    설명(reason)만 보강한다. 이렇게 하면 LLM 이 aroma/high 같은 명시 슬롯을
+    무시하며 순위를 뒤집는 문제를 줄일 수 있다.
     """
     profile = build_user_profile(db, guest_session_id)
     merged_slots = profile["merged_slots"]
@@ -996,45 +1020,41 @@ def recommend_top_k(
 
     survivor_cocktails = [c for c, _ in survivors]
     dist_map = {c.cocktail_id: d for c, d in survivors}
+    id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
 
-    # 3) LLM 리랭크 (실패 시 score_cocktail fallback)
-    reranked = rerank_with_llm(profile, survivor_cocktails, k=k, recipe_ingredients=all_ri)
+    # 3) deterministic score 기준 top-K 확정
+    scored = _score_survivors(survivors, profile, all_ri)
+    final_results = [dict(row) for row in scored[:k]]
+    if not final_results:
+        return []
 
+    # 4) LLM 은 상위 score 후보에 대한 reason 만 보강
+    rerank_pool_ids = [row["cocktail_id"] for row in scored[:max(k, RERANK_REASON_POOL_N)]]
+    rerank_pool = [id_to_cocktail[cid] for cid in rerank_pool_ids if cid in id_to_cocktail]
+    llm_reason_by_id: dict[int, str] = {}
+    reranked = rerank_with_llm(
+        profile,
+        rerank_pool,
+        k=len(rerank_pool),
+        recipe_ingredients=all_ri,
+    )
     if reranked:
-        id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
-        results = []
-        for item in reranked:
-            c = id_to_cocktail.get(item["cocktail_id"])
-            if c is None:
-                continue
-            ri = all_ri.get(c.cocktail_id, [])
-            score = score_cocktail(c, profile, ri)
-            results.append({
-                "cocktail_id": c.cocktail_id,
-                "name_kr": c.name_kr,
-                "score": score,
-                "retrieval_distance": dist_map.get(c.cocktail_id),
-                "reason_parts": [item["reason"]],
-                "source": "rag_llm",
-            })
-        if results:
-            return results[:k]
+        llm_reason_by_id = {
+            int(item["cocktail_id"]): str(item["reason"]).strip()
+            for item in reranked
+            if item.get("cocktail_id") and item.get("reason")
+        }
 
-    # Fallback: score_cocktail로 재정렬
-    results = []
-    for c, dist in survivors:
-        ri = all_ri.get(c.cocktail_id, [])
-        score = score_cocktail(c, profile, ri)
-        results.append({
-            "cocktail_id": c.cocktail_id,
-            "name_kr": c.name_kr,
-            "score": score,
-            "retrieval_distance": dist,
-            "reason_parts": _build_reason_parts(c, profile, ri),
-            "source": "rag_fallback",
-        })
-    results.sort(key=lambda x: x["score"], reverse=True)
-    return results[:k]
+    for row in final_results:
+        cid = row["cocktail_id"]
+        row["retrieval_distance"] = dist_map.get(cid)
+        if cid in llm_reason_by_id:
+            row["reason_parts"] = [llm_reason_by_id[cid]]
+            row["source"] = "score_llm_reason"
+        else:
+            row["source"] = "score_fallback_reason"
+
+    return final_results
 
 
 # ============================================================
