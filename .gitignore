@@ -7,9 +7,6 @@ __pycache__/
 *.pyc
 *.pyo
 
-# data (CSV 시딩 파일 - DB에만 보관)
-data/
-
 # uploads
 /tmp/
 uploads/
