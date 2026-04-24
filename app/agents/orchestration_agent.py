@@ -224,17 +224,9 @@ _RAG_TASTE_KR = {
     "sweet": "단맛", "sour": "신맛", "bitter": "쓴맛",
     "body": "바디감", "creamy": "크리미", "freshness": "청량감",
 }
-_CORPUS_TASTE_KR = {
-    "sweet": "단맛", "sour": "신맛", "bitter": "쓴맛",
-    "body": "바디감", "creamy": "크리미함", "freshness": "청량감",
-}
 _RAG_AROMA_KR = {
     "minty": "민트", "fruity": "과일 향", "citrus": "시트러스",
     "herbal": "허브", "coffee": "커피", "woody": "우디", "floral": "플로럴",
-}
-_CORPUS_AROMA_KR = {
-    "minty": "민트향", "fruity": "과일향", "citrus": "시트러스향",
-    "herbal": "허브향", "coffee": "커피향", "woody": "우디향", "floral": "꽃향",
 }
 _RAG_INTENSITY_KR = {
     "high": "강하게 선호",
@@ -324,52 +316,8 @@ def _rag_collect_profile(profile_dict: dict, label_map: dict[str, str]) -> list[
     return out
 
 
-_QUERY_STRUCTURED_INTENSITY = {
-    "high": "강함",
-    "medium": "뚜렷함",
-    "low": "은은함",
-    "zero": "배제",
-}
-
-
-def _structured_query_profile_bits(profile_dict: dict, label_map: dict[str, str]) -> tuple[list[str], list[str]]:
-    """구조화 질의 프로필용 anchor / constraint 라인 생성.
-
-    코퍼스 embedding text 의 [구조화 프로필] 블록과 최대한 비슷한 어휘를 사용한다.
-    - high / medium: dense retrieval 이 붙잡아야 할 positive anchor
-    - low / zero: 보조 constraint 로만 추가
-    """
-    anchors: list[str] = []
-    constraints: list[str] = []
-    for tag, intensity in (profile_dict or {}).items():
-        label = label_map.get(tag, tag)
-        if intensity in ("high", "medium"):
-            anchors.append(f"{label} {_QUERY_STRUCTURED_INTENSITY[intensity]}")
-        elif intensity == "low":
-            constraints.append(f"{label} 은은함 선호")
-        elif intensity == "zero":
-            constraints.append(f"{label} 배제")
-    return anchors, constraints
-
-
-def _structured_strength_phrase(strength: Optional[str]) -> Optional[str]:
-    if strength == "strong":
-        return "강한 도수"
-    if strength == "medium":
-        return "중간 도수"
-    if strength == "light":
-        return "가벼운 도수"
-    if strength == "zero":
-        return "무알콜"
-    return None
-
-
 def synthesize_query(profile: dict) -> str:
-    """build_user_profile 결과 → 자연어 + 구조화 질의 블록.
-
-    코퍼스 쪽 embedding text 가 자유서술 + [구조화 프로필] 형태이므로,
-    retrieval query 도 같은 두 층위로 맞춰 query/corpus 비대칭을 줄인다.
-    """
+    """build_user_profile 결과 → 자연어 쿼리 한 덩어리."""
     merged = profile.get("merged_slots") or {}
     space = profile.get("space")
     parts: list[str] = []
@@ -415,43 +363,6 @@ def synthesize_query(profile: dict) -> str:
         mood_str = ", ".join(k for k, _ in top_moods if k)
         if mood_str:
             parts.append(f"공간 무드: {mood_str}")
-
-    structured: list[str] = []
-    strength_phrase = _structured_strength_phrase(strength)
-    if strength_phrase:
-        structured.append(f"도수 프로필: {strength_phrase}")
-        structured.append(
-            "논알콜 여부: 무알콜" if strength == "zero" else "논알콜 여부: 알코올 포함"
-        )
-
-    taste_anchor, taste_constraints = _structured_query_profile_bits(
-        merged.get("taste_profile") or {},
-        _CORPUS_TASTE_KR,
-    )
-    if taste_anchor:
-        structured.append("대표 맛: " + ", ".join(taste_anchor))
-    if taste_constraints:
-        structured.append("맛 제약: " + ", ".join(taste_constraints))
-
-    aroma_anchor, aroma_constraints = _structured_query_profile_bits(
-        merged.get("aroma_profile") or {},
-        _CORPUS_AROMA_KR,
-    )
-    if aroma_anchor:
-        structured.append("대표 향: " + ", ".join(aroma_anchor))
-    if aroma_constraints:
-        structured.append("향 제약: " + ", ".join(aroma_constraints))
-
-    disliked_bases = merged.get("disliked_bases") or []
-    if disliked_bases:
-        structured.append("제외 베이스: " + ", ".join(disliked_bases[:4]))
-
-    favs = merged.get("favorite_drinks") or []
-    if favs:
-        structured.append("선호 참고 음료: " + ", ".join(favs[:3]))
-
-    if structured:
-        parts.append("[구조화 프로필]\n" + "\n".join(structured))
 
     return "\n".join(parts) if parts else "일반적인 칵테일 추천"
 
@@ -1052,8 +963,7 @@ def score_cocktail(
 
 RAG_RETRIEVE_N = 20
 RERANK_REASON_POOL_N = 6
-AROMA_EXPANSION_LIMIT = 16
-AROMA_EXPANSION_PER_AXIS = {"high": 8, "medium": 5}
+AROMA_EXPANSION_LIMIT = 8
 
 
 def _score_survivors(
@@ -1106,13 +1016,7 @@ def _expand_retrieved_candidates(
     exclude_ids: Optional[list[int]] = None,
     limit: int = AROMA_EXPANSION_LIMIT,
 ) -> list[tuple[Cocktail, float]]:
-    """임베딩 검색이 aroma/high·medium 을 놓칠 때 향 기반 후보를 추가한다.
-
-    이전 버전은 여러 향 축을 단일 score 로 합쳐 top-N만 추가했다.
-    그러면 generic 후보가 상위권을 잠식해서 woody/high 같은 축의 대표 후보가
-    retrieve pool 에 못 들어오는 일이 생겼다. 여기서는 축별 top 후보를 먼저 뽑고
-    union 하여, 요청한 향 축이 각각 pool 에 반영되도록 만든다.
-    """
+    """임베딩 검색이 aroma/high·medium 을 놓칠 때 향 기반 후보를 추가한다."""
     aroma_profile = merged_slots.get("aroma_profile") or {}
     if not any(v in ("high", "medium") for v in aroma_profile.values()):
         return retrieved
@@ -1120,47 +1024,26 @@ def _expand_retrieved_candidates(
     strength_pref = merged_slots.get("strength_preference")
     existing_ids = {c.cocktail_id for c, _ in retrieved}
     candidates = get_candidate_cocktails(db, exclude_ids=exclude_ids)
-    extras_by_id: dict[int, tuple[Cocktail, float]] = {}
+    extras: list[tuple[Cocktail, float, float]] = []
 
-    requested_axes = [
-        (tag, intensity)
-        for tag, intensity in aroma_profile.items()
-        if intensity in ("high", "medium")
-    ]
-
-    for tag, intensity in requested_axes:
-        per_axis_rows: list[tuple[Cocktail, float]] = []
-        base_thr = _aroma_threshold(tag)
-        match_thr = base_thr if intensity == "high" else max(2.0, base_thr - 0.5)
-        take_n = AROMA_EXPANSION_PER_AXIS[intensity]
-
-        for cocktail in candidates:
-            if cocktail.cocktail_id in existing_ids:
+    for cocktail in candidates:
+        if cocktail.cocktail_id in existing_ids:
+            continue
+        if strength_pref == "zero":
+            if not cocktail.is_non_alcoholic:
                 continue
-            if strength_pref == "zero":
-                if not cocktail.is_non_alcoholic:
-                    continue
-            elif cocktail.is_non_alcoholic:
-                continue
+        elif cocktail.is_non_alcoholic:
+            continue
 
-            recipe_items = recipe_ingredients.get(cocktail.cocktail_id, [])
-            agg = _aggregate_aroma_from_ingredients(recipe_items)
-            val = float(agg.get(tag, 0.0) or 0.0)
-            if val < match_thr:
-                continue
+        recipe_items = recipe_ingredients.get(cocktail.cocktail_id, [])
+        aroma_score = _aroma_focus_match_score(merged_slots, recipe_items)
+        if aroma_score <= 0:
+            continue
 
-            # distance proxy: cosine distance 와 같은 방향(작을수록 좋음)으로 맞춘다.
-            # stronger aroma match 가 앞에 오게 음수로 저장.
-            per_axis_rows.append((cocktail, -val))
+        extras.append((cocktail, -aroma_score, aroma_score))
 
-        per_axis_rows.sort(key=lambda x: (x[1], x[0].cocktail_id))
-        for cocktail, dist in per_axis_rows[:take_n]:
-            prev = extras_by_id.get(cocktail.cocktail_id)
-            if prev is None or dist < prev[1]:
-                extras_by_id[cocktail.cocktail_id] = (cocktail, dist)
-
-    extras = sorted(extras_by_id.values(), key=lambda x: (x[1], x[0].cocktail_id))
-    return retrieved + extras[:limit]
+    extras.sort(key=lambda x: (x[1], -x[2], x[0].cocktail_id))
+    return retrieved + [(c, dist) for c, dist, _ in extras[:limit]]
 
 
 def recommend_top_k(

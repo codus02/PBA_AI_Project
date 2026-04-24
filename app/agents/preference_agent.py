@@ -1383,6 +1383,67 @@ def _validate_free_list(raw: Any) -> list[str]:
     return out
 
 
+def _normalize_single_enum_like(raw: Any) -> Any:
+    if isinstance(raw, str):
+        return raw.strip().lower()
+    if isinstance(raw, list) and len(raw) == 1 and isinstance(raw[0], str):
+        return raw[0].strip().lower()
+    return raw
+
+
+def _normalize_current_mood_value(raw: Any) -> Any:
+    normalized = _normalize_single_enum_like(raw)
+    if normalized == "medium":
+        return "soso"
+    return normalized
+
+
+def _normalize_profile_key(raw_key: Any, aliases: dict[str, str]) -> Optional[str]:
+    if not isinstance(raw_key, str):
+        return None
+    key = raw_key.strip().lower()
+    return aliases.get(key, key)
+
+
+def _rescue_profile_misplacements(
+    raw_taste: Any,
+    raw_aroma: Any,
+) -> tuple[Any, Any, Optional[str]]:
+    taste = dict(raw_taste) if isinstance(raw_taste, dict) else raw_taste
+    aroma = dict(raw_aroma) if isinstance(raw_aroma, dict) else raw_aroma
+    rescued_strength: Optional[str] = None
+
+    if isinstance(taste, dict):
+        strength_candidate = _normalize_single_enum_like(taste.pop("strength_preference", None))
+        if isinstance(strength_candidate, str) and strength_candidate in STRENGTH_VALUES:
+            rescued_strength = strength_candidate
+        for raw_key in list(taste.keys()):
+            taste_key = _normalize_profile_key(raw_key, _TASTE_KEY_ALIASES)
+            aroma_key = _normalize_profile_key(raw_key, _AROMA_KEY_ALIASES)
+            if aroma_key not in AROMA_KEYS or taste_key in TASTE_KEYS:
+                continue
+            if not isinstance(aroma, dict):
+                aroma = {}
+            value = taste.pop(raw_key)
+            aroma.setdefault(aroma_key, value)
+
+    if isinstance(aroma, dict):
+        strength_candidate = _normalize_single_enum_like(aroma.pop("strength_preference", None))
+        if rescued_strength is None and isinstance(strength_candidate, str) and strength_candidate in STRENGTH_VALUES:
+            rescued_strength = strength_candidate
+        for raw_key in list(aroma.keys()):
+            aroma_key = _normalize_profile_key(raw_key, _AROMA_KEY_ALIASES)
+            taste_key = _normalize_profile_key(raw_key, _TASTE_KEY_ALIASES)
+            if taste_key not in TASTE_KEYS or aroma_key in AROMA_KEYS:
+                continue
+            if not isinstance(taste, dict):
+                taste = {}
+            value = aroma.pop(raw_key)
+            taste.setdefault(taste_key, value)
+
+    return taste, aroma, rescued_strength
+
+
 def validate_extracted_slots(raw: dict) -> dict:
     """LLM extracted_slots → enum/스키마 검증된 dict. 유효하지 않은 값은 제거하고 warning 로그.
 
@@ -1396,30 +1457,54 @@ def validate_extracted_slots(raw: dict) -> dict:
     cleaned: dict[str, Any] = {}
     dropped: list[str] = []
 
-    def _scalar(key: str, allowed: set[str]) -> None:
-        if key not in raw:
+    rescued_taste, rescued_aroma, rescued_strength = _rescue_profile_misplacements(
+        raw.get("taste_profile"),
+        raw.get("aroma_profile"),
+    )
+
+    _MISSING = object()
+
+    def _scalar(
+        key: str,
+        allowed: set[str],
+        *,
+        fallback: Any = _MISSING,
+        normalizer=None,
+    ) -> None:
+        if key not in raw and fallback is _MISSING:
             return
-        val = raw[key]
+        val = raw.get(key, _MISSING)
+        if val is _MISSING:
+            val = fallback
         if val is None:
             cleaned[key] = None
             return
+        if normalizer is not None:
+            val = normalizer(val)
         v = _validate_enum(val, allowed)
         if v:
             cleaned[key] = v
         else:
             dropped.append(f"{key}={val!r} (허용값: {sorted(allowed)})")
 
-    _scalar("current_mood", CURRENT_MOOD_VALUES)
+    _scalar("current_mood", CURRENT_MOOD_VALUES, normalizer=_normalize_current_mood_value)
     _scalar("party_purpose", PARTY_PURPOSE_VALUES)
-    _scalar("strength_preference", STRENGTH_VALUES)
+    _scalar(
+        "strength_preference",
+        STRENGTH_VALUES,
+        fallback=rescued_strength,
+        normalizer=_normalize_single_enum_like,
+    )
 
     for profile_key, allowed, aliases in (
         ("taste_profile", TASTE_KEYS, _TASTE_KEY_ALIASES),
         ("aroma_profile", AROMA_KEYS, _AROMA_KEY_ALIASES),
     ):
-        if profile_key not in raw:
+        raw_val = rescued_taste if profile_key == "taste_profile" else rescued_aroma
+        if raw_val is None:
+            raw_val = raw.get(profile_key)
+        if raw_val is None and profile_key not in raw:
             continue
-        raw_val = raw[profile_key]
         if not isinstance(raw_val, dict):
             dropped.append(f"{profile_key}: non-dict {raw_val!r}")
             continue
