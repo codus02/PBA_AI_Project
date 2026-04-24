@@ -28,19 +28,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.agents.preference_agent import (
     analyze_user_turn,
     analyze_feedback,
+    build_effective_vector,
     generate_opening_question,
     merge_slots,
     should_move_to_recommendation,
     transition_opener,
     _calc_effective_completion,
     _seed_slots_from_initial_tags,
+    _sanitize_user_text,
     SLOT_ASK_ORDER,
 )
 from app.agents.orchestration_agent import (
     synthesize_query,
     retrieve_candidates,
     rerank_with_llm,
-    score_cocktail,
+    score_cocktail_breakdown,
     _has_disliked_base,
     _is_unstockable,
     _has_zero_taste_conflict,
@@ -114,6 +116,11 @@ def _print_trace(result: dict) -> None:
     if not trace:
         return
     print("  trace:")
+    if trace.get("mode") == "relaxed":
+        for key in ("relaxed_parsed", "validated", "final"):
+            if key in trace:
+                print(f"    {key}: {json.dumps(trace[key], ensure_ascii=False)}")
+        return
     for key in (
         "validated",
         "guarded",
@@ -136,7 +143,12 @@ def vec_to_profile_obj(vec: dict) -> SimpleNamespace:
 
 
 def make_profile(slots: dict, vec: dict, space: SimpleNamespace | None = None) -> dict:
-    return {"merged_slots": slots, "vector": vec_to_profile_obj(vec), "space": space}
+    return {
+        "merged_slots": slots,
+        "vector": vec_to_profile_obj(vec),
+        "effective_vector": build_effective_vector(vec, slots),
+        "space": space,
+    }
 
 
 def ask_space_image() -> SimpleNamespace | None:
@@ -256,7 +268,7 @@ def dialogue_loop(initial_slots: dict, familiarity: str | None = None) -> dict:
 
     while turn < MAX_USER_TURNS:
         try:
-            user_msg = input("\n너: ").strip()
+            user_msg = _sanitize_user_text(input("\n너: ").strip())
         except (EOFError, KeyboardInterrupt):
             print("\n종료")
             sys.exit(0)
@@ -364,11 +376,18 @@ def recommend_once(
     context_embedding = _build_context_embedding(profile)
     for c, dist in survivors:
         ri = all_ri.get(c.cocktail_id, [])
+        breakdown = score_cocktail_breakdown(
+            c,
+            profile,
+            ri,
+            context_embedding=context_embedding,
+        )
         scored.append({
             "cocktail_id": c.cocktail_id,
             "name_kr": c.name_kr,
             "category": c.category,
-            "score": score_cocktail(c, profile, ri, context_embedding=context_embedding),
+            "score": breakdown["total"],
+            "score_breakdown": breakdown,
             "retrieval_distance": dist,
             "reason_parts": _build_reason_parts(c, profile, ri),
         })
@@ -402,6 +421,7 @@ def recommend_once(
             "category": row["category"],
             "reason": reason,
             "score": row["score"],
+            "score_breakdown": row.get("score_breakdown") or {},
             "retrieval_distance": dist_map.get(cid),
             "retrieval_label": (
                 "expanded_aroma"
@@ -421,6 +441,18 @@ def recommend_once(
         )
         if r["reason"]:
             print(f"      이유: {r['reason']}")
+        breakdown = r.get("score_breakdown") or {}
+        if breakdown:
+            print(
+                "      점수분해:"
+                f" vector={breakdown.get('vector_similarity', 0):.2f}"
+                f" taste={breakdown.get('taste_profile', 0):.2f}"
+                f" aroma={breakdown.get('aroma_profile', 0):.2f}"
+                f" strength={breakdown.get('strength', 0):.2f}"
+                f" context={breakdown.get('context', 0):.2f}"
+                f" favorite={breakdown.get('favorite_drinks', 0):.2f}"
+                f" space={breakdown.get('space_mood', 0):.2f}"
+            )
     return results
 
 
@@ -428,7 +460,7 @@ def _apply_feedback_on_drink(
     vec: dict, picked: dict,
 ) -> tuple[str, dict, dict | None]:
     """이미 선택된 picked 에 대해 피드백만 받아서 분석. ACCEPT/ADJUST/REJECT 반환."""
-    fb = input(f"피드백 (예: 좋아 이걸로 / 좀 달아 / 별로야 다른거 줘): ").strip()
+    fb = _sanitize_user_text(input(f"피드백 (예: 좋아 이걸로 / 좀 달아 / 별로야 다른거 줘): ").strip())
     if not fb:
         print("(피드백 비어있음 → ACCEPT 취급)")
         return "ACCEPT", vec, picked
@@ -605,6 +637,10 @@ def print_final_recommendation(
 
 def main() -> None:
     print("=== LLM 전체 플로우 시뮬레이터 (메모리 only) ===")
+    dialogue_mode = os.getenv("PBA_DIALOGUE_MODE", "").strip().lower() or "default"
+    if os.getenv("PBA_RELAXED_DIALOGUE", "").strip().lower() in {"1", "true", "yes", "on"} and dialogue_mode == "default":
+        dialogue_mode = "relaxed"
+    print(f"대화 모드: {dialogue_mode}")
     tag_row = ask_initial_tags()
     seeded = _seed_slots_from_initial_tags(tag_row)
     print(f"\n초기 태그 seed 결과: {json.dumps(seeded, ensure_ascii=False)}")

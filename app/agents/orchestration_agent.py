@@ -24,6 +24,7 @@ from app.agents.preference_agent import (
     analyze_feedback,
     build_user_profile,
     INTENSITY_PENDING,
+    _pending_intensity_keys,
 )
 from app.agents.output_agent import generate_recipe_snapshot
 from app.utils.model_loader import embed_texts
@@ -988,10 +989,33 @@ def score_cocktail(
     recipe_ingredients: list[tuple],
     context_embedding: Optional[list[float]] = None,
 ) -> float:
+    return score_cocktail_breakdown(
+        cocktail,
+        profile,
+        recipe_ingredients,
+        context_embedding=context_embedding,
+    )["total"]
+
+
+def score_cocktail_breakdown(
+    cocktail: Cocktail,
+    profile: dict,
+    recipe_ingredients: list[tuple],
+    context_embedding: Optional[list[float]] = None,
+) -> dict[str, float]:
     merged = profile["merged_slots"]
-    vector = profile["vector"]
+    vector = profile.get("effective_vector") or profile["vector"]
     space = profile["space"]
     score = 0.0
+    breakdown = {
+        "vector_similarity": 0.0,
+        "taste_profile": 0.0,
+        "aroma_profile": 0.0,
+        "space_mood": 0.0,
+        "context": 0.0,
+        "favorite_drinks": 0.0,
+        "strength": 0.0,
+    }
     aroma_agg = _aggregate_aroma_from_ingredients(recipe_ingredients)
     cocktail_strength = _get_cocktail_strength_value(cocktail)
 
@@ -1009,7 +1033,9 @@ def score_cocktail(
     for user_s, cocktail_s, max_r, weight in pairs:
         if cocktail_s is None:
             continue
-        score += _normalize(float(user_s), float(cocktail_s), max_r) * weight
+        component = _normalize(float(user_s), float(cocktail_s), max_r) * weight
+        score += component
+        breakdown["vector_similarity"] += component
 
     # 2. 맛 프로파일 (intensity 가중) — 축별 동적 threshold 사용
     taste_profile: dict = merged.get("taste_profile") or {}
@@ -1023,82 +1049,105 @@ def score_cocktail(
             continue
         val = float(val)
         thr = axis_thresholds.get(tag, _AXIS_THRESHOLD_DEFAULT)
+        component = 0.0
         if intensity == "high":
             if val >= thr["high"]:
-                score += 10
+                component += 10
             elif val <= thr["low_max"]:
-                score -= 12
+                component -= 12
         elif intensity == "medium":
             if val >= thr["medium"]:
-                score += 5
+                component += 5
         elif intensity == "low":
             # 약하게 선호 → 은은하면 좋지만, 강하게 두드러지면 오히려 감점.
             if val <= thr["low_max"]:
-                score += 1
+                component += 1
             elif val >= thr["high"]:
-                score -= 4
+                component -= 4
         elif intensity == INTENSITY_PENDING:
             # 초기 태그에서 고른 "관심 축" → medium 가중의 절반으로 반영.
             # 사용자가 이 축을 고른 건 "여긴 취향 있는 축" 이라는 soft 신호.
             if val >= thr["medium"]:
-                score += 2.5
+                component += 2.5
+        score += component
+        breakdown["taste_profile"] += component
 
     # 3. 향 프로파일 (explicit slot 가중 강화)
     aroma_profile: dict = merged.get("aroma_profile") or {}
     for tag, intensity in aroma_profile.items():
         val = float(aroma_agg.get(tag, 0.0) or 0.0)
         thresh = _aroma_threshold(tag)
+        component = 0.0
         if intensity == "high":
             if val >= thresh:
-                score += 12
+                component += 12
             else:
-                score -= 8
+                component -= 8
         elif intensity == "medium":
             medium_thr = max(2.0, thresh - 0.5)
             if val >= medium_thr:
-                score += 4
+                component += 4
         elif intensity == "low":
             low_ok_max = max(1.5, thresh - 0.5)
             if val <= low_ok_max:
-                score += 2
+                component += 2
             elif val >= thresh:
-                score -= 6
+                component -= 6
         elif intensity == "zero":
             if val >= thresh:
-                score -= 12
+                component -= 12
         elif intensity == INTENSITY_PENDING:
             # 초기 태그의 향 관심 축 → medium 의 절반 가중.
             medium_thr = max(2.0, thresh - 0.5)
             if val >= medium_thr:
-                score += 2
+                component += 2
+        score += component
+        breakdown["aroma_profile"] += component
 
     # 4. 공간 무드 보너스 — cocktail.mood_tag 의 atom 확률 평균.
     if space and cocktail.mood_tag:
         mood_prob = _mood_atom_mean(space.mood_tags_json, cocktail.mood_tag)
-        score += mood_prob * 15
+        component = mood_prob * 15
+        score += component
+        breakdown["space_mood"] += component
 
     # 5. 상황/기분/즐겨 마시는 술 — context slot을 deterministic score에도 직접 반영.
-    score += _score_context_similarity(cocktail, context_embedding)
+    context_component = _score_context_similarity(cocktail, context_embedding)
+    score += context_component
+    breakdown["context"] += context_component
     favorite_hits = _favorite_drink_hits(merged, cocktail, recipe_ingredients)
     if favorite_hits:
-        score += min(3.5 * len(favorite_hits), 7.0)
+        component = min(3.5 * len(favorite_hits), 7.0)
+        score += component
+        breakdown["favorite_drinks"] += component
 
     # 6. 도수 선호 — 이상치(STRENGTH_TARGET) 와의 편차로 대칭 가중.
     strength_pref = merged.get("strength_preference")
     if strength_pref in STRENGTH_TARGET and cocktail_strength is not None:
+        low, high = STRENGTH_RANGE.get(strength_pref, (0.0, 5.0))
         dev = abs(cocktail_strength - STRENGTH_TARGET[strength_pref])
-        if dev <= 0.5:
-            score += 15
-        elif dev <= 1.0:
-            score += 8
-        elif dev <= 1.5:
-            score += 0
-        elif dev <= 2.0:
-            score -= 8
+        component = 0.0
+        if low <= cocktail_strength <= high:
+            component += 4
         else:
-            score -= 15
+            component -= 4
+        if dev <= 0.5:
+            component += 15
+        elif dev <= 1.0:
+            component += 8
+        elif dev <= 1.5:
+            component += 0
+        elif dev <= 2.0:
+            component -= 8
+        else:
+            component -= 15
+        score += component
+        breakdown["strength"] += component
 
-    return round(score, 2)
+    breakdown["total"] = round(score, 2)
+    for key, value in list(breakdown.items()):
+        breakdown[key] = round(value, 2)
+    return breakdown
 
 
 # ============================================================
@@ -1120,10 +1169,17 @@ def _score_survivors(
     scored: list[dict] = []
     for cocktail, dist in survivors:
         ri = recipe_ingredients.get(cocktail.cocktail_id, [])
+        breakdown = score_cocktail_breakdown(
+            cocktail,
+            profile,
+            ri,
+            context_embedding=context_embedding,
+        )
         scored.append({
             "cocktail_id": cocktail.cocktail_id,
             "name_kr": cocktail.name_kr,
-            "score": score_cocktail(cocktail, profile, ri, context_embedding=context_embedding),
+            "score": breakdown["total"],
+            "score_breakdown": breakdown,
             "retrieval_distance": dist,
             "reason_parts": _build_reason_parts(cocktail, profile, ri),
             "source": "score_primary",
@@ -1303,12 +1359,22 @@ def run_recommendation(
                 "message": "선호 벡터가 없습니다. 초기 태그를 먼저 저장해주세요."}
 
     effective_completion = profile["effective_completion"]
+    pending_axes = _pending_intensity_keys(profile.get("merged_slots") or {})
+
+    if pending_axes and not force:
+        return {
+            "status": "need_more_info",
+            "completion": effective_completion,
+            "pending_axes": pending_axes,
+            "message": "아직 강도를 더 확인해야 하는 취향 축이 남아 있습니다.",
+        }
 
     # force=True이면 80% 미만이어도 진행
     if effective_completion < 80 and not force:
         return {
             "status": "need_more_info",
             "completion": effective_completion,
+            "pending_axes": pending_axes,
             "message": "아직 추천에 필요한 정보가 부족합니다.",
         }
     top_k = recommend_top_k(db, guest_session_id, k=k, exclude_ids=exclude_ids)

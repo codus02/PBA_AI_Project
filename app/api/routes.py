@@ -35,6 +35,7 @@ from app.agents.preference_agent import (
     proceed_requires_force,
     _calc_effective_completion,
     _seed_slots_from_initial_tags,
+    _sanitize_user_text,
 )
 from app.agents.orchestration_agent import run_recommendation, process_feedback, finalize_sample
 from app.agents.output_agent import generate_output_json
@@ -185,6 +186,7 @@ def feedback_endpoint(
     if not guest:
         raise HTTPException(status_code=404, detail="guest_session_id not found")
 
+    sanitized_feedback = _sanitize_user_text(req.feedback_text)
     current_round = (guest.feedback_round or 0) + 1
 
     # 4회차부터는 추가 피드백을 받지 않고 현재 sample을 강제 확정한다.
@@ -205,7 +207,7 @@ def feedback_endpoint(
             db=db,
             guest_session_id=gid,
             sample_recommendation_id=req.sample_recommendation_id,
-            feedback_text=req.feedback_text,
+            feedback_text=sanitized_feedback,
             feedback_round=current_round,
         )
     except ValueError as e:
@@ -216,7 +218,7 @@ def feedback_endpoint(
             db=db,
             guest_session_id=gid,
             speaker_role="USER",
-            utterance_text=req.feedback_text,
+            utterance_text=sanitized_feedback,
             extracted_slots_json=None,
         )
         update_feedback_round(db, gid, current_round)
@@ -432,11 +434,13 @@ def dialogue_endpoint(
         raise HTTPException(status_code=404, detail="guest_session_id not found")
 
     # 1) 사용자 턴 저장
+    sanitized_message = _sanitize_user_text(req.message)
+
     user_turn = create_dialogue_turn(
         db=db,
         guest_session_id=gid,
         speaker_role="USER",
-        utterance_text=req.message,
+        utterance_text=sanitized_message,
         extracted_slots_json=None,
     )
 
@@ -464,7 +468,7 @@ def dialogue_endpoint(
     agent_result = analyze_user_turn(
         history=history,
         slots=current_slots,
-        user_msg=req.message,
+        user_msg=sanitized_message,
         familiarity=getattr(tag_row, "familiarity_tag", None),
         user_turn_count=user_turn_count,
     )
@@ -483,7 +487,7 @@ def dialogue_endpoint(
     should_proceed, proceed_reason = should_move_to_recommendation(
         merged_slots=merged_slots,
         user_turn_count=user_turn_count,
-        user_msg=req.message,
+        user_msg=sanitized_message,
         llm_should_stop=agent_result["should_stop"],
         llm_stop_reason=agent_result["stop_reason"],
     )
