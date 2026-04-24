@@ -26,28 +26,82 @@ def _apply_feedback_adjustment(
     base_ratio: float,
     deltas: dict,
 ) -> float:
-    """재료 유형 + 감각 점수 기반으로 델타에 따른 배수를 곱해서 반환."""
+    """재료 유형 + 감각 점수 기반으로 델타에 따른 배수를 곱해서 반환.
+
+    여러 축이 동시에 해당되는 재료(예: 허브 + 알코올) 는 곱연산으로 누적된다.
+    """
     itype = getattr(ingredient, "ingredient_type", None)
     ratio = base_ratio
 
-    sweet_d = deltas.get("sweetness_delta") or 0.0
-    sour_d = deltas.get("sourness_delta") or 0.0
-    bitter_d = deltas.get("bitterness_delta") or 0.0
+    sweet_d     = deltas.get("sweetness_delta")  or 0.0
+    sour_d      = deltas.get("sourness_delta")   or 0.0
+    bitter_d    = deltas.get("bitterness_delta") or 0.0
+    body_d      = deltas.get("body_delta")       or 0.0
+    freshness_d = deltas.get("freshness_delta")  or 0.0
+    herbal_d    = deltas.get("herbal_delta")     or 0.0
+    citrus_d    = deltas.get("citrus_delta")     or 0.0
+    alcohol_d   = deltas.get("alcohol_delta")    or 0.0
+
+    def _score(attr: str) -> float:
+        return float(getattr(ingredient, attr, 0) or 0)
 
     # SYRUP: 단맛
     if itype == "SYRUP" and sweet_d:
         ratio *= _ratio_from_delta(sweet_d)
-    # JUICE (특히 시트러스): 신맛
-    if itype == "JUICE" and sour_d:
-        # 신맛 점수 3 이상인 주스만 조정 (lemon, lime 등)
-        if float(getattr(ingredient, "sour_score", 0) or 0) >= 3.0:
-            ratio *= _ratio_from_delta(sour_d)
+    # JUICE (특히 시트러스): 신맛 — sour_score 높은 주스만 (lemon/lime 등)
+    if itype == "JUICE" and sour_d and _score("sour_score") >= 3.0:
+        ratio *= _ratio_from_delta(sour_d)
     # MIXER/BASE: 쓴맛 (비터스나 쓴맛 높은 베이스)
-    if itype in ("MIXER", "BASE") and bitter_d:
-        if float(getattr(ingredient, "bitter_score", 0) or 0) >= 3.0:
-            ratio *= _ratio_from_delta(bitter_d)
+    if itype in ("MIXER", "BASE") and bitter_d and _score("bitter_score") >= 3.0:
+        ratio *= _ratio_from_delta(bitter_d)
+    # 바디감: 바디 점수 높은 재료 전반
+    if body_d and _score("body_score") >= 3.0:
+        ratio *= _ratio_from_delta(body_d)
+    # 상큼함: 신선도 점수 높은 재료 (민트, 토닉, 시트러스)
+    if freshness_d and _score("freshness_score") >= 3.0:
+        ratio *= _ratio_from_delta(freshness_d)
+    # 허브향: 허브 점수 높은 재료 (아마로, 샤르트뢰즈, 베르무트)
+    if herbal_d and _score("herbal_score") >= 3.0:
+        ratio *= _ratio_from_delta(herbal_d)
+    # 시트러스향: 시트러스 점수 높은 재료
+    if citrus_d and _score("citrus_score") >= 3.0:
+        ratio *= _ratio_from_delta(citrus_d)
+    # 도수: BASE 재료 전체 (스피릿)
+    if alcohol_d and itype == "BASE":
+        ratio *= _ratio_from_delta(alcohol_d)
 
     return ratio
+
+
+def _rebalance_recipe_amounts(recipe_items: list[dict], target_volume_ml: int) -> float:
+    """피드백 비율 조정 후 총량이 목표 용량과 다시 맞도록 재정규화한다."""
+    if not recipe_items:
+        return 0.0
+
+    total_raw = sum(float(item.get("_raw_amount_ml") or 0.0) for item in recipe_items)
+    if total_raw <= 0:
+        for item in recipe_items:
+            item["amount_ml"] = 0.0
+            item.pop("_raw_amount_ml", None)
+        return 0.0
+
+    normalize = float(target_volume_ml) / total_raw
+    for item in recipe_items:
+        item["amount_ml"] = round(float(item.get("_raw_amount_ml") or 0.0) * normalize, 1)
+
+    rounded_total = round(sum(float(item["amount_ml"]) for item in recipe_items), 1)
+    diff = round(float(target_volume_ml) - rounded_total, 1)
+    if abs(diff) >= 0.1:
+        for item in reversed(recipe_items):
+            candidate = round(float(item["amount_ml"]) + diff, 1)
+            if candidate >= 0:
+                item["amount_ml"] = candidate
+                rounded_total = round(sum(float(r["amount_ml"]) for r in recipe_items), 1)
+                break
+
+    for item in recipe_items:
+        item.pop("_raw_amount_ml", None)
+    return rounded_total
 
 
 def generate_recipe_snapshot(
@@ -73,22 +127,23 @@ def generate_recipe_snapshot(
     for recipe, ingredient in sorted(rows, key=lambda x: x[0].step_order):
         base_ml = float(recipe.amount_ml or 0) * scale
         ratio = _apply_feedback_adjustment(ingredient, 1.0, deltas) if is_adjusted else 1.0
-        scaled_ml = round(base_ml * ratio, 1)
         recipe_items.append(
             {
                 "ingredient_id": ingredient.ingredient_id,
                 "ingredient_name": _ingredient_name(ingredient),
-                "amount_ml": scaled_ml,
+                "_raw_amount_ml": base_ml * ratio,
                 "step_order": recipe.step_order,
                 "is_optional": bool(recipe.is_optional),
                 "adjusted": is_adjusted and abs(ratio - 1.0) > 0.01,
             }
         )
 
+    final_total_volume = _rebalance_recipe_amounts(recipe_items, volume_ml)
+
     return {
         "cocktail_id": cocktail.cocktail_id,
         "cocktail_name": cocktail.name_kr,
-        "total_volume_ml": volume_ml,
+        "total_volume_ml": final_total_volume,
         "recipe": recipe_items,
         "is_adjusted": is_adjusted,
         "applied_deltas": {k: float(v) for k, v in deltas.items() if v},

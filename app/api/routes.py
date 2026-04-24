@@ -10,6 +10,7 @@ from app.db.database import get_db
 from app.db.crud import (
     create_party_session,
     create_guest_session,
+    get_party_session,
     get_guest_session,
     upsert_initial_tags,
     save_space_analysis,
@@ -199,16 +200,6 @@ def feedback_endpoint(
             raise HTTPException(status_code=400, detail=str(e))
         return result
 
-    # 허용된 1~3회차 피드백만 저장/반영
-    create_dialogue_turn(
-        db=db,
-        guest_session_id=gid,
-        speaker_role="USER",
-        utterance_text=req.feedback_text,
-        extracted_slots_json=None,
-    )
-    update_feedback_round(db, gid, current_round)
-
     try:
         result = process_feedback(
             db=db,
@@ -219,6 +210,17 @@ def feedback_endpoint(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    if result.get("status") != "already_finalized":
+        user_turn = create_dialogue_turn(
+            db=db,
+            guest_session_id=gid,
+            speaker_role="USER",
+            utterance_text=req.feedback_text,
+            extracted_slots_json=None,
+        )
+        update_feedback_round(db, gid, current_round)
+        result["user_turn"] = _serialize_dialogue_turn(user_turn)
 
     # 재추천된 경우 "어떠세요?" LLM 턴 추가
     if result.get("status") == "re_recommended":
@@ -260,6 +262,10 @@ def create_party(req: PartySessionCreateRequest, db: Session = Depends(get_db)):
 
 @router.post("/sessions/guest")
 def create_guest(req: GuestSessionCreateRequest, db: Session = Depends(get_db)):
+    party = get_party_session(db, req.party_session_id)
+    if not party:
+        raise HTTPException(status_code=404, detail="party_session_id not found")
+
     row = create_guest_session(
         db=db,
         party_session_id=req.party_session_id,
@@ -505,7 +511,7 @@ def dialogue_endpoint(
         }
 
     # 7) LLM이 생성한 다음 질문 저장
-    question = agent_result["next_question"]
+    question = (agent_result["next_question"] or "").strip() or "좋아요. 흐름을 이어가게 한 가지만 더 여쭤볼게요."
     llm_turn = create_dialogue_turn(
         db=db,
         guest_session_id=gid,

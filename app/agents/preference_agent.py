@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from typing import Any, Optional
 
@@ -23,6 +24,27 @@ from app.db.crud import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _dialogue_trace_enabled() -> bool:
+    return os.getenv("PBA_TRACE_DIALOGUE", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _trace_clone(value):
+    try:
+        return json.loads(json.dumps(value, ensure_ascii=False))
+    except (TypeError, ValueError):
+        return value
+
+
+def _log_dialogue_trace(user_msg: str, trace: dict) -> None:
+    if not _dialogue_trace_enabled():
+        return
+    payload = {
+        "user_msg": user_msg,
+        "pipeline": trace,
+    }
+    logger.info("dialogue_trace=%s", json.dumps(payload, ensure_ascii=False))
 
 
 # ============================================================
@@ -272,6 +294,7 @@ def _drop_unchanged_slots(extracted: dict, current: dict) -> dict:
 
 MIN_FILLED_SLOTS_FOR_PROCEED = 4
 MAX_USER_TURNS = 10
+_PROFILE_COMPLETION_TAG_CAP = 2
 
 # 초기 태그에서 시드된 taste/aroma 강도를 "대화로 확정해야 할" 값으로 표시.
 # merge_slots 에서 LLM이 high/medium/low 를 넣으면 자연스럽게 덮어써진다.
@@ -314,14 +337,18 @@ def _calc_effective_completion(slots: dict) -> float:
     분모 구성:
       - party_purpose: 1단위 (scalar)
       - strength_preference: 1단위 (scalar)
-      - taste_profile 의 각 태그: 태그 1개당 1단위
-      - aroma_profile 의 각 태그: 태그 1개당 1단위
+      - taste_profile: 최대 2개 태그까지만 분모 반영
+      - aroma_profile: 최대 2개 태그까지만 분모 반영
 
-    분자 = 확정된 scalar 수 + 확정된 태그 수 (pending/null 제외).
+    분자 가중:
+      - 확정된 scalar = 1.0
+      - 확정된 강도 태그 = 1.0
+      - pending 태그 = 0.5 (초기 태그에서 고른 "관심 축" 이라는 약한 신호)
+      - null/empty = 0
     선택 슬롯(current_mood / disliked_bases / favorite_drinks)은 분모 제외.
 
     예: scalar 2 확정 + taste[freshness=high, body=pending] + aroma[fruity=high]
-      → denom=4, filled=3 → 75.0%
+      → denom=4, filled=3.5 → 87.5%
     """
     denom = 0.0
     filled = 0.0
@@ -336,10 +363,13 @@ def _calc_effective_completion(slots: dict) -> float:
         v = slots.get(k)
         if not isinstance(v, dict) or not v:
             continue  # 태그 0개면 축 자체 분모 제외
-        for val in v.values():
-            denom += 1.0
-            if val in INTENSITY_VALUES:
-                filled += 1.0
+        confirmed = sum(1 for val in v.values() if val in INTENSITY_VALUES)
+        pending = sum(1 for val in v.values() if val == INTENSITY_PENDING)
+        cap = min(len(v), _PROFILE_COMPLETION_TAG_CAP)
+        denom += float(cap)
+        # pending 은 0.5 가중, confirmed 는 1.0 가중 — 합계를 cap 으로 자름
+        weighted = float(confirmed) + 0.5 * float(pending)
+        filled += min(weighted, float(cap))
 
     if denom <= 0:
         return 0.0
@@ -355,6 +385,12 @@ def _has_pending_intensity(slots: dict) -> bool:
     return False
 
 
+# 초기 태그 기반 pending 슬롯 회수 하드 게이트 유지 턴 수.
+# 이 턴까지는 pending 남아 있으면 추천 차단하고 pending 축을 묻게 한다.
+# 이 턴 이후에는 pending 을 soft-medium 으로 간주하고 completion/추천 진행 허용.
+PENDING_HARD_GATE_TURNS = 3
+
+
 def should_move_to_recommendation(
     merged_slots: dict,
     user_turn_count: int,
@@ -364,21 +400,26 @@ def should_move_to_recommendation(
 ) -> tuple[bool, str]:
     """추천 단계 진입 하드 게이트.
 
-    우선순위:
+    우선순위 (하이브리드 N-턴 규칙):
       1) 사용자가 명시적으로 추천을 원함 → 즉시 통과
       2) 턴 상한 도달 → 즉시 통과
-      3) pending 강도 축이 남아 있음 → 차단 (completion/LLM 우회 금지)
-      4) completion 임계치 이상 → 통과
+      3) 초기 N 턴 내에 pending 강도 축이 남아 있으면 차단 (→ pending 회수 우선)
+      4) completion 임계치 이상 → 통과 (pending 은 이 시점 이후 soft-medium 으로 해석)
       5) LLM 이 충분하다고 판단 → 통과
     """
     if _explicit_user_stop(user_msg):
         return True, "user_requested"
     if user_turn_count >= MAX_USER_TURNS:
         return True, "turn_limit"
-    if _has_pending_intensity(merged_slots):
+    if (
+        user_turn_count < PENDING_HARD_GATE_TURNS
+        and _has_pending_intensity(merged_slots)
+    ):
         return False, "pending_intensity"
     if _calc_effective_completion(merged_slots) >= MIN_RECOMMEND_COMPLETION:
         return True, "completion_threshold"
+    if _has_pending_intensity(merged_slots):
+        return False, "pending_intensity"
     if llm_should_stop:
         return True, llm_stop_reason or "llm_recommend"
     return False, "keep_collecting"
@@ -785,11 +826,10 @@ def _infer_last_asked_slot(history: list[dict]) -> Optional[str]:
 
 
 _MOOD_KEYWORDS = {
-    "good": ["기분 좋", "기분좋", "너무 좋", "좋아", "좋네", "좋은데",
-             "신나", "신난",
+    "good": ["기분 좋", "기분좋", "신나", "신난", "설레", "들떠",
              "째진", "째져", "째짐", "째지", "쩐다", "쩔어",
-             "꿀잼", "들떠", "텐션", "업됐", "업됨"],
-    "bad": ["기분 별로", "별로야", "꿀꿀", "우울", "다운", "지쳐", "피곤", "쳐져", "안 좋", "안좋",
+             "텐션", "업됐", "업됨"],
+    "bad": ["기분 별로", "꿀꿀", "우울", "다운", "지쳐", "피곤", "쳐져", "안 좋", "안좋",
             "구리다", "구려", "구림", "구리네", "구려서", "꾸리다"],
     "soso": ["그냥 그래", "그냥그래", "쏘쏘", "그저 그래", "그저그래", "보통이", "그럭저럭", "무난"],
 }
@@ -810,6 +850,11 @@ _STRENGTH_EXPLICIT_PATTERNS = [
     "도수", "알콜", "알코올", "무알콜", "논알콜", "술 ",
     "술이", "술은", "술로", "취하고", "취하", "독한 거", "순한 거",
 ]
+_AFFIRMATIVE_PREFERENCE_PATTERNS = [
+    "좋아", "좋지", "좋네", "좋은", "원해", "원하지", "원하는",
+    "끌려", "끌리는", "맞아", "그렇지", "그쪽", "그 쪽", "느낌이지",
+    "느낌", "스타일", "취향", "가고 싶", "가고싶",
+]
 
 
 def _backfill_enum(user_msg: str, patterns: dict[str, list[str]]) -> Optional[str]:
@@ -819,6 +864,44 @@ def _backfill_enum(user_msg: str, patterns: dict[str, list[str]]) -> Optional[st
             if kw in text:
                 return enum_val
     return None
+
+
+def _has_explicit_strength_signal(user_msg: str) -> bool:
+    normalized = _normalize_text(user_msg)
+    if any(_normalize_text(p) in normalized for p in _STRENGTH_EXPLICIT_PATTERNS):
+        return True
+    for kws in _STRENGTH_KEYWORDS.values():
+        if any(_normalize_text(kw) in normalized for kw in kws):
+            return True
+    return False
+
+
+def _has_explicit_scalar_signal(user_msg: str, key: str) -> bool:
+    if key == "current_mood":
+        return _backfill_enum(user_msg, _MOOD_KEYWORDS) is not None or _contains_any(user_msg, ["기분"])
+    if key == "party_purpose":
+        return _backfill_enum(user_msg, _PURPOSE_KEYWORDS) is not None
+    if key == "strength_preference":
+        return _has_explicit_strength_signal(user_msg)
+    return False
+
+
+def _suppress_unanchored_scalar_overrides(current_slots: dict, user_msg: str, extracted: dict) -> dict:
+    """직접적인 근거 없이 기존 scalar 슬롯을 덮어쓰는 걸 막는다."""
+    fixed = dict(extracted or {})
+    for key in ("current_mood", "party_purpose", "strength_preference"):
+        if key not in fixed:
+            continue
+        current_val = (current_slots or {}).get(key)
+        next_val = fixed.get(key)
+        if current_val in (None, "", "null") or next_val in (None, "", "null") or current_val == next_val:
+            continue
+        if _has_correction_signal(user_msg):
+            continue
+        if _has_explicit_scalar_signal(user_msg, key):
+            continue
+        fixed.pop(key, None)
+    return fixed
 
 
 def _apply_rule_based_slot_guards(
@@ -856,14 +939,7 @@ def _apply_rule_based_slot_guards(
     # 단, 사용자가 도수-직결 키워드("독하게", "가볍게", "무알콜" 등)를 직접 말했으면 명시로 본다.
     if "strength_preference" in fixed:
         normalized = _normalize_text(user_msg)
-        explicit_strength = any(
-            _normalize_text(p) in normalized for p in _STRENGTH_EXPLICIT_PATTERNS
-        )
-        if not explicit_strength:
-            for kws in _STRENGTH_KEYWORDS.values():
-                if any(_normalize_text(kw) in normalized for kw in kws):
-                    explicit_strength = True
-                    break
+        explicit_strength = _has_explicit_strength_signal(user_msg)
         if last_slot != "strength_preference" and not explicit_strength:
             fixed.pop("strength_preference", None)
 
@@ -996,10 +1072,25 @@ _CORRECTION_PATTERNS = [
     "그게 아니",
 ]
 
+_REPEAT_ACK_PATTERNS = [
+    "아까 말했", "아까말했",
+    "이미 말했", "이미말했",
+    "방금 말했", "방금말했",
+    "위에서 말했", "위에서말했",
+    "앞에서 말했", "앞에서말했",
+    "벌써 말했", "벌써말했",
+    "다시 묻", "또 묻",
+]
+
 
 def _has_correction_signal(user_msg: str) -> bool:
     text = _normalize_text(user_msg)
     return any(_normalize_text(p) in text for p in _CORRECTION_PATTERNS)
+
+
+def _has_repeat_ack_signal(user_msg: str) -> bool:
+    text = _normalize_text(user_msg)
+    return any(_normalize_text(p) in text for p in _REPEAT_ACK_PATTERNS)
 
 
 def _guard_correction_null(user_msg: str, extracted: dict) -> dict:
@@ -1022,6 +1113,27 @@ def _guard_correction_null(user_msg: str, extracted: dict) -> dict:
                 fixed[key] = cleaned_sub
             else:
                 del fixed[key]
+    return fixed
+
+
+def _suppress_repeat_ack_slot_changes(
+    history: list[dict],
+    user_msg: str,
+    extracted: dict,
+) -> dict:
+    """'아까 말했어' 류 메타 응답에서는 직전 질문 슬롯의 변경을 막는다."""
+    if not _has_repeat_ack_signal(user_msg):
+        return extracted
+
+    fixed = dict(extracted or {})
+    last_slot = _infer_last_asked_slot(history)
+    if not last_slot:
+        return fixed
+
+    if last_slot in ("taste_profile", "aroma_profile"):
+        fixed.pop(last_slot, None)
+    else:
+        fixed.pop(last_slot, None)
     return fixed
 
 
@@ -1101,6 +1213,18 @@ _USER_INTENSITY_WORDS: list[tuple[str, list[str]]] = [
 ]
 
 
+def _has_explicit_intensity_hint(text: str) -> bool:
+    normalized = _normalize_text(text)
+    for _intensity, words in _USER_INTENSITY_WORDS:
+        if any(_normalize_text(word) in normalized for word in words):
+            return True
+    return False
+
+
+def _has_affirmative_preference_signal(text: str) -> bool:
+    return _contains_any(text, _AFFIRMATIVE_PREFERENCE_PATTERNS)
+
+
 def _nearest_intensity(text: str, kw_start: int, kw_end: int) -> Optional[str]:
     """축 키워드 기준 앞 10자 + 뒤 25자 양방향에서 가장 가까운 강도 단어.
 
@@ -1135,6 +1259,42 @@ def _nearest_intensity(text: str, kw_start: int, kw_end: int) -> Optional[str]:
                 best = intensity
 
     return best
+
+
+def _salvage_affirmed_pending_axes(
+    history: list[dict],
+    current_slots: dict,
+    user_msg: str,
+    extracted: dict,
+) -> dict:
+    """강도 단어가 없더라도, pending 축에 대한 명시적 긍정 답변은 high 로 보정한다."""
+    if not user_msg or _has_correction_signal(user_msg):
+        return extracted
+    if _has_explicit_intensity_hint(user_msg):
+        return extracted
+    if not _has_affirmative_preference_signal(user_msg):
+        return extracted
+
+    last_slot = _infer_last_asked_slot(history)
+    fixed = dict(extracted or {})
+
+    for axis in ("taste_profile", "aroma_profile"):
+        current = dict(fixed.get(axis) or {}) if isinstance(fixed.get(axis), dict) else {}
+        existing = dict((current_slots or {}).get(axis) or {})
+        for (candidate_axis, sub), keywords in _AXIS_SUBKEY_TO_KEYWORDS.items():
+            if candidate_axis != axis:
+                continue
+            if current.get(sub) in INTENSITY_VALUES:
+                continue
+            if existing.get(sub) != INTENSITY_PENDING and last_slot != axis:
+                continue
+            if not _contains_axis_keyword(user_msg, keywords):
+                continue
+            current[sub] = "high"
+        if current:
+            fixed[axis] = current
+
+    return fixed
 
 
 def _build_choice_trie(tokenizer, choices: tuple[str, ...]) -> dict:
@@ -1294,13 +1454,14 @@ def _salvage_taste_aroma_from_text(user_msg: str, extracted: dict) -> dict:
 
     for (axis, sub), kws in _AXIS_SUBKEY_TO_KEYWORDS.items():
         target = taste if axis == "taste_profile" else aroma
-        if sub in target and target[sub] not in (None, INTENSITY_PENDING):
-            continue
+        current_value = target.get(sub)
         for kw in kws:
             for m in re.finditer(re.escape(kw), text):
                 intensity = _nearest_intensity(text, m.start(), m.end())
                 if intensity:
-                    target[sub] = intensity
+                    if current_value in (None, INTENSITY_PENDING) or current_value != intensity:
+                        target[sub] = intensity
+                        current_value = intensity
                     break
             if sub in target and target[sub] not in (None, INTENSITY_PENDING):
                 break
@@ -1338,10 +1499,10 @@ def _drop_hallucinated_taste_aroma(
             if not kws:
                 kept[sub] = val  # 매핑 모르는 축은 일단 보존
                 continue
-            if any(kw in text_user for kw in kws):
+            if _contains_axis_keyword(text_user, kws):
                 kept[sub] = val
                 continue
-            if confirm_mode and any(kw in last_llm for kw in kws):
+            if confirm_mode and _contains_axis_keyword(last_llm, kws):
                 kept[sub] = val
                 continue
             logger.debug(
@@ -1783,7 +1944,7 @@ _EXTRACT_SYSTEM_PROMPT = """
 - taste: 단맛→sweet, 신맛/새콤→sour, 쓴맛/씁쓸→bitter, 바디감/묵직→body, 크리미/부드러움/우유/밀크→creamy, 청량감/상큼/시원함→freshness
 - aroma: 우디/나무/우디한 향→woody, 민트/민트감→minty, 과일/과일향/프루티/파인애플/망고→fruity, 시트러스/시트러스 향/레몬/자몽/라임→citrus, 꽃/플로럴/플로럴한 느낌→floral, 커피/커피향/커피 느낌→coffee, 허브/허브향/허벌한 느낌→herbal
 - purpose: 혼자/혼술→solo, 회식/거래처→business, 생일/기념/축하/돌잔치→celebration, 데이트/썸/둘이→date, 친구/모임/놀러→hangout
-- mood: 좋아/신나/설레→good, 별로/우울/힘들/안 좋→bad
+- mood: 기분 좋아/신나/설레→good, 기분 별로/우울/힘들/안 좋→bad
 - strength: 무알콜/논알콜→zero, 약하게/가볍게→light, 보통/적당히→medium, 세게/강하게→strong
 
 [예시]
@@ -1941,6 +2102,9 @@ A. **reply 는 [이번 턴 추출된 슬롯]과 [이미 확정된 슬롯]에 맞
    - 이번 턴에 확정되지 않은 축을 "이해했어요"라고 단정하지 마라.
    - party_purpose 만 확정됐는데 current_mood 까지 아는 척하면 안 된다.
    - strength_preference 가 이미 확정돼 있으면 사용자가 도수를 직접 정정하지 않는 한 다시 흔들지 마라.
+A3. **스키마 밖 새 질문 금지.** "격식 있는 분위기 / 편안한 느낌 / 텐션 / 무드 톤"처럼
+   party_purpose/current_mood/taste_profile/aroma_profile/strength_preference 로 바로 저장되지 않는
+   새 축을 만들어 묻지 마라. 이미 자리 정보가 잡혔으면 그 다음은 맛/향/도수처럼 실제 슬롯으로 이어져야 한다.
 A2. **[강도 미확정] 에 없는 향/맛 축은 손님이 먼저 언급하지 않은 이상 먼저 꺼내지 마라.**
    - 태그에 없는 축을 "이것도 좋아하세요?" 라고 새로 여는 건 금지.
    - 묻는 건 기본적으로 **[강도 미확정] 또는 [부족한 슬롯]에 있는 축**만.
@@ -1949,8 +2113,8 @@ B. 정정(CORRECTION) 발화면 사과하고, 그 축을 다시 확인하거나 
 C. 반복 금지: [직전에 네가 한 질문] 과 같은 주제·같은 구조·같은 선택지 질문을 다시 하지 마라. 손님이 답 못 하면 **다른 축으로 넘어가거나 바로 RECOMMEND**.
 C2. 손님이 "없어/괜찮아/없습니다/딱히/다 좋아" 류로 답했으면 **같은 축을 다시 묻는 것은 절대 금지**. 즉시 [부족한 슬롯] 목록의 다른 축으로 넘어가거나, 부족한 슬롯이 없으면 RECOMMEND 로 가라. "다른 수정사항 있으세요?" 같은 오픈 질문을 두 번 반복하지 마라.
 D. **[완성도]와 [강도 미확정]/[부족한 슬롯]을 이번 턴 질문의 1순위 기준으로 삼아라.**
-   - [완성도] < 80% 이면 action=ASK **우선**이고, 질문은 반드시 [부족한 슬롯] 또는 [강도 미확정] 중 하나를 타깃팅해야 한다. 엉뚱한 축(이미 high 로 확정된 걸 또 물음)이나 open 잡담으로 턴 낭비 금지.
-   - [강도 미확정] 목록에 있는 축은 "좋아하세요?" 금지 (선호는 이미 확정). **강도만** 물어라 ("확 쎄게 / 은은하게 / 적당히 중에?"). 한 턴에 2~3개 축을 묶어서 물어도 됨.
+   - [완성도] < 80% 이면 action=ASK 가 기본이지만, 이미 핵심 축(자리·도수·맛/향 방향)이 꽤 잡혔거나 손님이 반복 피로를 보이면 RECOMMEND 로 넘어가도 된다. 질문은 가능하면 [부족한 슬롯] 또는 [강도 미확정] 중 하나를 타깃팅하되, 엉뚱한 축(이미 high 로 확정된 걸 또 물음)으로 새지 마라.
+   - [강도 미확정] 목록에 있는 축은 "좋아하세요?" 금지 (선호는 이미 확정). **강도만** 물어라 ("확 쎄게 / 은은하게 / 적당히 중에?"). 다만 같은 축을 다시 캐묻기보다 자연스러운 반응 뒤에 짧게 확인하는 방식이 우선이다.
    - [이번 턴 추출된 슬롯] 에 이미 high/medium/low/zero 로 확정된 축은 **절대 다시 강도 질문하지 마라**. 예: 이번 턴에 fruity=high 가 뽑혔으면 "과일향 강도는요?" 다시 묻지 마라 — 이미 확정.
    - [완성도]가 충분히 높거나(80% 이상), 남은 턴이 적거나, 손님이 추천을 원하면 RECOMMEND 로 넘어가라. 비선호 확인은 **하면 좋지만 하드 게이트는 아니다.**
    - 손님이 "모르겠다"고 답하면 1회만 우회 질문(규칙 F) 후 포기하고 다음 축으로.
@@ -2101,8 +2265,8 @@ def _build_bartender_user_prompt(
         f"[지금까지 파악한 취향]\n{_summarize_slots_for_prompt(slots)}\n\n"
         f"[이번 턴 추출된 슬롯 — 이미 확정됨. reply 에서 이 내용을 짚어줘라]\n{this_turn}\n\n"
         f"[이미 확정된 슬롯 — 절대 다시 묻지 마라, 덮어쓰기 금지]\n{locked}\n\n"
-        f"[강도 미확정 — 이 축들만 물어라. 여기 없는 축은 묻지 마라]\n{pending}\n\n"
-        f"[부족한 슬롯 — 이 중 하나를 우선 물어라]\n{missing}\n\n"
+        f"[강도 미확정 — 가능하면 이 축들부터 확인. 이미 충분하면 다 캐묻지 않아도 됨]\n{pending}\n\n"
+        f"[부족한 슬롯 — 자연스럽게 이어갈 때 우선 참고]\n{missing}\n\n"
         f"[직전에 네가 한 질문]\n{last_q or '(없음 — 첫 턴)'}\n\n"
         f"[최근 대화]\n{_format_history(history)}\n\n"
         f"[손님의 방금 발화]\n{user_msg}\n\n"
@@ -2121,22 +2285,51 @@ def analyze_user_turn(
     familiarity: Optional[str] = None,
     user_turn_count: int = 0,
 ) -> dict:
+    trace: dict[str, Any] = {}
     try:
         from app.utils.model_loader import load_llm
         import torch
 
         # ─── Pass 1 : 슬롯 추출 전용 LLM 호출 ───────────────────────
         extracted_raw, extract_raw_text = _extract_slots_llm(history, user_msg)
+        trace["extract_raw"] = extract_raw_text
+        trace["extract_json"] = _trace_clone(extracted_raw)
+
         extracted = validate_extracted_slots(extracted_raw)
+        trace["validated"] = _trace_clone(extracted)
+
         extracted = _apply_rule_based_slot_guards(history, user_msg, extracted)
+        trace["guarded"] = _trace_clone(extracted)
+
+        extracted = _suppress_unanchored_scalar_overrides(slots, user_msg, extracted)
+        trace["scalar_guarded"] = _trace_clone(extracted)
+
         extracted = _apply_confirmation_from_proposal(history, user_msg, extracted)
+        trace["confirmed"] = _trace_clone(extracted)
+
         extracted = _salvage_taste_aroma_from_text(user_msg, extracted)
+        trace["salvaged"] = _trace_clone(extracted)
+
+        extracted = _salvage_affirmed_pending_axes(history, slots, user_msg, extracted)
+        trace["affirmed_pending_salvaged"] = _trace_clone(extracted)
+
         extracted = _drop_hallucinated_taste_aroma(history, user_msg, extracted)
+        trace["hallucination_dropped"] = _trace_clone(extracted)
+
         extracted = _apply_constrained_intensity_rescue(user_msg, extracted)
+        trace["constrained_rescue"] = _trace_clone(extracted)
+
         extracted = _guard_correction_null(user_msg, extracted)
+        trace["correction_guarded"] = _trace_clone(extracted)
+
+        extracted = _suppress_repeat_ack_slot_changes(history, user_msg, extracted)
+        trace["repeat_suppressed"] = _trace_clone(extracted)
+
         extracted = _drop_unchanged_slots(extracted, slots)
+        trace["final"] = _trace_clone(extracted)
 
         if not generate_next_question:
+            _log_dialogue_trace(user_msg, trace)
             return {
                 "extracted_slots": extracted,
                 "extracted_raw": extracted_raw,
@@ -2149,6 +2342,7 @@ def analyze_user_turn(
                 "source": "llm_extract_only",
                 "raw": "",
                 "extract_raw": extract_raw_text,
+                "trace": trace,
             }
 
         # ─── Pass 2 : reply/action 생성 (추출 결과 주입) ─────────────
@@ -2186,6 +2380,8 @@ def analyze_user_turn(
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         parsed = _extract_json_object(raw) or {}
+        trace["bartender_raw"] = raw
+        trace["bartender_parsed"] = _trace_clone(parsed)
 
         # Pass 2 는 이제 추출 담당이 아니다 — bartender 가 뽑은 extracted_slots 는 무시.
         # 단, reply/action/user_intent 를 extracted_slots 안에 중첩 출력한 legacy 포맷은 un-nest.
@@ -2208,19 +2404,20 @@ def analyze_user_turn(
         force_pending_ask_key: Optional[str] = None
         if not _explicit_user_stop(user_msg):
             merged_preview = merge_slots(slots, extracted)
-            if _has_pending_intensity(merged_preview):
-                force_pending_ask_key = _first_pending_key(merged_preview)
+            preview_completion = _calc_effective_completion(merged_preview)
+            if _has_pending_intensity(merged_preview) and preview_completion < MIN_RECOMMEND_COMPLETION:
                 if action == "RECOMMEND":
+                    force_pending_ask_key = _first_pending_key(merged_preview)
                     action = "ASK"
                     user_intent = user_intent or "SLOT"
-            elif action == "RECOMMEND" and _calc_effective_completion(merged_preview) < MIN_RECOMMEND_COMPLETION:
+            elif action == "RECOMMEND" and preview_completion < MIN_RECOMMEND_COMPLETION:
                 action = "ASK"
                 user_intent = user_intent or "SLOT"
         if user_intent not in ("SLOT", "QUESTION", "UNKNOWN", "CORRECTION", "STOP", "OTHER"):
             user_intent = "OTHER"
 
         reply = str(parsed.get("reply") or "").strip()
-        if force_pending_ask_key and not _reply_targets_axis(reply, force_pending_ask_key):
+        if force_pending_ask_key and (not reply or not _reply_targets_axis(reply, force_pending_ask_key)):
             reply = _pending_ask_template(force_pending_ask_key)
         if not reply and generate_next_question:
             reply = "네 알겠습니다. 조금만 더 여쭤볼게요."
@@ -2232,6 +2429,13 @@ def analyze_user_turn(
             should_stop = True
             stop_reason = "user_requested"
             action = "RECOMMEND"  # LLM 이 ASK 로 돌려놔도 사용자 STOP 이면 강제 RECOMMEND
+
+        trace["final_action"] = action
+        trace["final_user_intent"] = user_intent
+        trace["final_reply"] = reply
+        trace["final_should_stop"] = should_stop
+        trace["final_stop_reason"] = stop_reason
+        _log_dialogue_trace(user_msg, trace)
 
         return {
             "extracted_slots": extracted,
@@ -2245,20 +2449,25 @@ def analyze_user_turn(
             "source": "llm",
             "raw": raw,
             "extract_raw": extract_raw_text,
+            "trace": trace,
         }
 
     except Exception as e:
         logger.warning("LLM analyze_user_turn failed: %r", e, exc_info=True)
+        trace["error"] = repr(e)
+        _log_dialogue_trace(user_msg, trace)
+        fallback_reply = "좋아요. 흐름을 이어가게 한 가지만 더 여쭤볼게요."
         return {
             "extracted_slots": {},
             "should_stop": False,
             "stop_reason": "",
-            "next_question": "",
-            "reply": "",
+            "next_question": fallback_reply,
+            "reply": fallback_reply,
             "action": "ASK",
             "user_intent": "OTHER",
             "source": "fallback",
             "raw": "",
+            "trace": trace,
         }
 
 def generate_opening_question() -> str:

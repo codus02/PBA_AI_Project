@@ -17,6 +17,7 @@ party_purpose, current_mood 는 초기 태그에 없으므로 대화 루프에�
 from __future__ import annotations
 
 import json
+import os
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -43,7 +44,10 @@ from app.agents.orchestration_agent import (
     _has_disliked_base,
     _is_unstockable,
     _has_zero_taste_conflict,
+    _has_zero_aroma_conflict,
     _build_reason_parts,
+    _expand_retrieved_candidates,
+    _build_context_embedding,
 )
 from app.agents.mood_agent import analyze_space_image
 from app.db.database import SessionLocal
@@ -97,6 +101,34 @@ DEFAULT_VEC = {
     "citrus_score": 2.0,
     "alcohol_score": 3.0,
 }
+
+
+def _trace_stdout_enabled() -> bool:
+    return os.getenv("PBA_TRACE_DIALOGUE", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _print_trace(result: dict) -> None:
+    if not _trace_stdout_enabled():
+        return
+    trace = result.get("trace") or {}
+    if not trace:
+        return
+    print("  trace:")
+    for key in (
+        "validated",
+        "guarded",
+        "scalar_guarded",
+        "confirmed",
+        "salvaged",
+        "affirmed_pending_salvaged",
+        "hallucination_dropped",
+        "constrained_rescue",
+        "correction_guarded",
+        "repeat_suppressed",
+        "final",
+    ):
+        if key in trace:
+            print(f"    {key}: {json.dumps(trace[key], ensure_ascii=False)}")
 
 
 def vec_to_profile_obj(vec: dict) -> SimpleNamespace:
@@ -260,6 +292,7 @@ def dialogue_loop(initial_slots: dict, familiarity: str | None = None) -> dict:
         print(f"  llm_emitted: {json.dumps(result.get('extracted_raw', {}), ensure_ascii=False)}")
         print(f"  kept_after_diff: {json.dumps(extracted, ensure_ascii=False)}")
         print(f"  slots: {json.dumps(slots, ensure_ascii=False)}")
+        _print_trace(result)
 
         proceed, reason = should_move_to_recommendation(
             merged_slots=slots,
@@ -300,6 +333,13 @@ def recommend_once(
         exclude_ids=exclude_ids or None,
         strength_preference=slots.get("strength_preference"),
     )
+    retrieved = _expand_retrieved_candidates(
+        db,
+        retrieved,
+        slots,
+        all_ri,
+        exclude_ids=exclude_ids or None,
+    )
 
     survivors = []
     for c, dist in retrieved:
@@ -310,50 +350,75 @@ def recommend_once(
             continue
         if _has_zero_taste_conflict(slots, c):
             continue
+        if _has_zero_aroma_conflict(slots, ri):
+            continue
         survivors.append((c, dist))
 
     print(f"하드필터 후 생존 {len(survivors)}개")
     if not survivors:
         return []
 
-    survivor_cocktails = [c for c, _ in survivors]
-    reranked = rerank_with_llm(profile, survivor_cocktails, k=3, recipe_ingredients=all_ri)
+    scored = []
+    dist_map: dict[int, float] = {}
+    id_to_cocktail: dict[int, object] = {}
+    context_embedding = _build_context_embedding(profile)
+    for c, dist in survivors:
+        ri = all_ri.get(c.cocktail_id, [])
+        scored.append({
+            "cocktail_id": c.cocktail_id,
+            "name_kr": c.name_kr,
+            "category": c.category,
+            "score": score_cocktail(c, profile, ri, context_embedding=context_embedding),
+            "retrieval_distance": dist,
+            "reason_parts": _build_reason_parts(c, profile, ri),
+        })
+        dist_map[c.cocktail_id] = dist
+        id_to_cocktail[c.cocktail_id] = c
+    scored.sort(key=lambda x: x["score"], reverse=True)
+
+    rerank_pool_ids = [row["cocktail_id"] for row in scored[:6]]
+    rerank_pool = [id_to_cocktail[cid] for cid in rerank_pool_ids if cid in id_to_cocktail]
+    llm_reason_by_id: dict[int, str] = {}
+    reranked = rerank_with_llm(
+        profile,
+        rerank_pool,
+        k=len(rerank_pool),
+        recipe_ingredients=all_ri,
+    )
+    if reranked:
+        llm_reason_by_id = {
+            int(item["cocktail_id"]): str(item["reason"]).strip()
+            for item in reranked
+            if item.get("cocktail_id") and item.get("reason")
+        }
 
     results: list[dict] = []
-    if reranked:
-        id_to_c = {c.cocktail_id: c for c in survivor_cocktails}
-        for item in reranked[:3]:
-            c = id_to_c.get(item["cocktail_id"])
-            if c is None:
-                continue
-            results.append({
-                "cocktail_id": c.cocktail_id,
-                "name_kr": c.name_kr,
-                "category": c.category,
-                "reason": item.get("reason", ""),
-                "source": "rag_llm",
-            })
-
-    if not results:
-        scored = []
-        for c, _d in survivors:
-            ri = all_ri.get(c.cocktail_id, [])
-            scored.append((c, score_cocktail(c, profile, ri), ri))
-        scored.sort(key=lambda x: x[1], reverse=True)
-        for c, s, ri in scored[:3]:
-            reason_parts = _build_reason_parts(c, profile, ri)
-            results.append({
-                "cocktail_id": c.cocktail_id,
-                "name_kr": c.name_kr,
-                "category": c.category,
-                "reason": " · ".join(reason_parts),
-                "score": s,
-                "source": "rag_fallback",
-            })
+    for row in scored[:3]:
+        cid = row["cocktail_id"]
+        reason = llm_reason_by_id.get(cid) or " · ".join(row["reason_parts"])
+        results.append({
+            "cocktail_id": cid,
+            "name_kr": row["name_kr"],
+            "category": row["category"],
+            "reason": reason,
+            "score": row["score"],
+            "retrieval_distance": dist_map.get(cid),
+            "retrieval_label": (
+                "expanded_aroma"
+                if (dist_map.get(cid) is not None and dist_map.get(cid) < 0)
+                else f"{dist_map.get(cid, 0):.4f}"
+            ),
+            "source": "score_llm_reason" if cid in llm_reason_by_id else "score_fallback",
+        })
 
     print("\n=== 추천 TOP3 ===")
     for i, r in enumerate(results, 1):
-        print(f"  [{i}] {r['name_kr']} ({r['category']})  ← {r['source']}")
+        print(
+            f"  [{i}] {r['name_kr']} ({r['category']})"
+            f"  score={r.get('score', 0):.2f}"
+            f"  dist={r.get('retrieval_label', 'n/a')}"
+            f"  ← {r['source']}"
+        )
         if r["reason"]:
             print(f"      이유: {r['reason']}")
     return results
