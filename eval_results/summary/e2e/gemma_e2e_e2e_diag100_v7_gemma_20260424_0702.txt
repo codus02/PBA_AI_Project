@@ -1,0 +1,31 @@
+============================================================
+ E2E EVAL — model=Gemma  tag=e2e_diag100_v7_gemma  20260424_0702
+ limit=100
+============================================================
+[per-item] 92 cases → eval_results/cases/e2e/gemma_e2e_e2e_diag100_v7_gemma_20260424_0702.csv  (model=google/gemma-2-9b-it)
+
+============================================================
+E2E EVAL — mode=e2e  total_rows=100  evaluable=92  unevaluable_skipped=8  (2493.2s, 24.93s/case)
+  unevaluable breakdown: no_candidates_passed_hard_check=4, zero_high_impossible=4
+============================================================
+
+[Slot Extraction]
+  scalar enums — exact match
+    current_mood          :   51/  83 =  61.4%
+    party_purpose         :   54/  78 =  69.2%
+    strength_preference   :   54/  84 =  64.3%
+  intensity dicts
+    taste_profile KEY presence      : P=100.0  R= 72.0  F1= 83.7  (tp=103 fp=0 fn=40)
+    taste_profile KEY+VALUE exact   : P= 93.2  R= 67.1  F1= 78.0  (tp=96 fp=7 fn=47)
+    aroma_profile KEY presence      : P=100.0  R= 30.4  F1= 46.7  (tp=42 fp=0 fn=96)
+    aroma_profile KEY+VALUE exact   : P= 76.2  R= 23.2  F1= 35.6  (tp=32 fp=10 fn=106)
+  list enum
+    disliked_bases                  : P= 91.8  R= 93.8  F1= 92.8  (tp=45 fp=4 fn=3)
+
+[Recommendation (extracted slots → top-3 vs gold)]
+  exact gold 있는 케이스      : 72/92 = 78.3%
+  Hit@1  (labeled)            : 18/72 = 25.0%
+  Hit@3  (labeled)            : 28/72 = 38.9%
+  카테고리 Hit@3 (all cases)  : 65/92 = 70.7%
+  카테고리 Hit@3 (labeled)    : 57/72 = 79.2%
+  후보 없음                   : 0/92 = 0.0%
