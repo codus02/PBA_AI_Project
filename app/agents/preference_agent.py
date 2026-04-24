@@ -747,32 +747,21 @@ def should_move_to_recommendation(
     llm_should_stop: bool = False,
     llm_stop_reason: str = "",
 ) -> tuple[bool, str]:
-    """추천 단계 진입 게이트.
+    """추천 단계 진입 게이트 — 최소화된 3 조건.
 
-    원칙:
-      1) 사용자가 추천을 원하면 즉시 통과
-      2) taste/aroma 에 pending 축이 남아 있으면 추천 금지
-      3) 필수 축이 충분히 채워졌으면 completion 기준으로 통과
-      4) LLM 이 추천 가능하다고 봐도 pending 이 남아 있으면 보류
-      5) turn limit 은 무한루프 방지용이지만, pending 축이 남아 있으면 넘기지 않음
+    LLM 의 판단을 신뢰한다. completion/pending 같은 내부 메트릭으로 대화를
+    끊지 않는다 (사용자가 질문해도 completion 만 높으면 종료되던 문제 방지).
+
+      1) 사용자가 명시적으로 추천을 원함 → 즉시 통과
+      2) 대화 5턴 초과 → 강제 추천 (무한 루프 방지)
+      3) LLM 이 RECOMMEND 판단 → 통과
     """
     if _explicit_user_stop(user_msg):
         return True, "user_requested"
-
-    pending_axes = _pending_intensity_keys(merged_slots)
-    if pending_axes:
-        return False, "pending_axes"
-
-    completion = _calc_effective_completion(merged_slots)
-    if completion >= MIN_RECOMMEND_COMPLETION:
-        return True, "completion_threshold"
-
-    if llm_should_stop:
-        return True, llm_stop_reason or "llm_recommend"
-
     if user_turn_count >= 5:
         return True, "turn_limit"
-
+    if llm_should_stop:
+        return True, llm_stop_reason or "llm_recommend"
     return False, "keep_collecting"
 
 
@@ -2375,11 +2364,17 @@ def validate_extracted_slots(raw: dict) -> dict:
         fallback: Any = _MISSING,
         normalizer=None,
     ) -> None:
+        # 키가 raw 에 아예 없고, fallback 도 없으면 스킵.
         if key not in raw and fallback is _MISSING:
+            return
+        # 키가 raw 에 없고 fallback 이 None 이면 "정보 없음" 으로 간주 → 스킵.
+        # (과거엔 cleaned[key] = None 을 넣어서 merge_slots 가 기존 슬롯을 삭제하던 버그)
+        if key not in raw and fallback is None:
             return
         val = raw.get(key, _MISSING)
         if val is _MISSING:
             val = fallback
+        # 사용자가 raw 에 명시적으로 null 을 넣은 경우만 null 확정 (CORRECTION 의도).
         if val is None:
             cleaned[key] = None
             return
@@ -2670,9 +2665,8 @@ _BARTENDER_SYSTEM_PROMPT = """
 6. 한 턴에 질문 1개. "A / B / C 중에?" 선다형은 가끔만.
 
 [출력 언어 — 엄격]
-- 순수 한글 한국어만. 한자(柑橘/香/苦/家族/友人 등)·중국어·일본어·이모지·영어 단어 섞지 마라.
-- 맛: 단맛/신맛/쓴맛/바디감/크리미/청량감
-- 향: 우디향/민트향/과일향/시트러스향/꽃향/커피향/허브향
+- 순수 한글 한국어만. 한자·중국어·일본어·이모지·영어 단어 섞지 마라.
+- 축 이름은 내부에서 쓰는 용어일 뿐이다. 손님에게 메뉴처럼 나열하지 마라.
 
 [절대 금지]
 - ASK 단계에서 칵테일 이름 언급 (마티니/모히토 등 실재·가상 둘 다). 추천 고르기는 다음 단계가 한다.
@@ -2796,28 +2790,31 @@ def _build_bartender_user_prompt(
     remaining_turns: int,
     extracted_this_turn: Optional[dict] = None,
 ) -> str:
-    last_q = _last_llm_question(history)
-    # 이번 턴 추출을 반영한 preview 상태로 pending/missing/completion 계산 — 한 턴 지연 방지.
-    slots_preview = merge_slots(slots, extracted_this_turn or {})
-    locked = _locked_slots_description(slots_preview)
-    pending = _pending_intensity_description(slots_preview)
-    missing = _missing_slots_description(slots_preview)
-    completion = _calc_effective_completion(slots_preview)
+    """Bartender Pass2 프롬프트 — 메타 섹션 최소화.
+
+    과거 10 섹션 중 아래 4개만 유지:
+      - 친숙도 (대화 톤 결정)
+      - 지금까지 파악한 취향 (초기 태그 포함 전체 상태)
+      - 이번 턴 새로 파악된 것 (LLM 이 reply 에 짚어줄 것)
+      - 최근 대화 + 손님 발화
+    [완성도]/[강도 미확정]/[부족한 슬롯] 섹션은 제거 — LLM 이 메타 숫자 보고
+    슬롯 질문으로 직행하던 문제 차단.
+    """
     this_turn = _format_extracted_this_turn(extracted_this_turn or {})
     familiarity_line = _FAMILIARITY_HINT.get(familiarity or "", f"{familiarity or '알 수 없음'}")
+    # 이번 턴 추출 반영한 preview 로 summary 뽑기 — 한 턴 지연 방지.
+    slots_preview = merge_slots(slots, extracted_this_turn or {})
+    summary = _summarize_slots_for_prompt(slots_preview)
     return (
-        f"[손님 친숙도] {familiarity_line}\n"
-        f"[남은 대화 턴] {remaining_turns} (총 {MAX_USER_TURNS})\n"
-        f"[완성도] {completion}% (추천 임계치 {MIN_RECOMMEND_COMPLETION}%)\n\n"
-        f"[지금까지 파악한 취향]\n{_summarize_slots_for_prompt(slots)}\n\n"
-        f"[이번 턴 추출된 슬롯 — 이미 확정됨. reply 에서 이 내용을 짚어줘라]\n{this_turn}\n\n"
-        f"[이미 확정된 슬롯 — 다시 묻지 마라]\n{locked}\n\n"
-        f"[강도 미확정 — 가능하면 이 축들부터 확인]\n{pending}\n\n"
-        f"[부족한 슬롯 — 자연스럽게 이어갈 때 참고]\n{missing}\n\n"
-        f"[직전에 네가 한 질문]\n{last_q or '(없음 — 첫 턴)'}\n\n"
+        f"[손님 친숙도] {familiarity_line}\n\n"
+        f"[지금까지 파악한 취향 — 이미 확정된 정보, 다시 묻지 마라]\n{summary}\n\n"
+        f"[이번 턴 새로 파악된 것]\n{this_turn}\n\n"
         f"[최근 대화]\n{_format_history(history)}\n\n"
         f"[손님의 방금 발화]\n{user_msg}\n\n"
-        f"위 상황에서 바텐더로서 판단해라. extracted_slots 는 {{}} 로 비우고 reply/action/user_intent 만 채워라. JSON 한 덩어리만 출력."
+        f"위 발화에 바텐더로서 자연스럽게 반응해라. "
+        f"[지금까지 파악한 취향] 에 이미 있는 축은 **절대 다시 묻지 마라**. "
+        f"공감 한 마디 + (필요시) 아직 모르는 축 중 하나만 짧게 질문. "
+        f"extracted_slots 는 {{}} 로 비우고 reply/action/user_intent 만 채워라. JSON 한 덩어리만 출력."
     )
 
 
@@ -3302,14 +3299,14 @@ def _seed_slots_from_initial_tags(tag_row) -> dict:
     if getattr(tag_row, "strength_tag", None) in strength_map:
         seeded["strength_preference"] = strength_map[tag_row.strength_tag]
 
-    # 초기 태그는 손님이 체크한 선호 "축"일 뿐, 강도는 대화로 조정한다.
-    # 따라서 INTENSITY_PENDING 으로 시드해서 "seed-only" 와 "대화로 확정된 medium" 을
-    # 명확히 구분한다. LLM 은 대화에서 high/medium/low/zero 중 하나로 덮어쓴다.
+    # 초기 태그는 손님이 관심 있다고 체크한 축. 기본 강도 "medium" 으로 시드한다.
+    # 대화에서 high/low/zero 로 덮어쓰면 그 값 우선. pending 으로 두면 대화 내내
+    # "이미 고른 건데 왜 또 강도 물어?" 하게 되어 UX 가 깨진다.
     taste_profile: dict[str, str] = {}
     for tag in getattr(tag_row, "taste_tags_json", None) or []:
         mapped = taste_map.get(tag)
         if mapped:
-            taste_profile[mapped] = INTENSITY_PENDING
+            taste_profile[mapped] = "medium"
     if taste_profile:
         seeded["taste_profile"] = taste_profile
 
@@ -3317,7 +3314,7 @@ def _seed_slots_from_initial_tags(tag_row) -> dict:
     for tag in getattr(tag_row, "aroma_tags_json", None) or []:
         mapped = aroma_map.get(tag)
         if mapped:
-            aroma_profile[mapped] = INTENSITY_PENDING
+            aroma_profile[mapped] = "medium"
     if aroma_profile:
         seeded["aroma_profile"] = aroma_profile
 
