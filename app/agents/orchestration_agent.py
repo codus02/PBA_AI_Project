@@ -224,9 +224,17 @@ _RAG_TASTE_KR = {
     "sweet": "단맛", "sour": "신맛", "bitter": "쓴맛",
     "body": "바디감", "creamy": "크리미", "freshness": "청량감",
 }
+_CORPUS_TASTE_KR = {
+    "sweet": "단맛", "sour": "신맛", "bitter": "쓴맛",
+    "body": "바디감", "creamy": "크리미함", "freshness": "청량감",
+}
 _RAG_AROMA_KR = {
     "minty": "민트", "fruity": "과일 향", "citrus": "시트러스",
     "herbal": "허브", "coffee": "커피", "woody": "우디", "floral": "플로럴",
+}
+_CORPUS_AROMA_KR = {
+    "minty": "민트향", "fruity": "과일향", "citrus": "시트러스향",
+    "herbal": "허브향", "coffee": "커피향", "woody": "우디향", "floral": "꽃향",
 }
 _RAG_INTENSITY_KR = {
     "high": "강하게 선호",
@@ -318,7 +326,7 @@ def _rag_collect_profile(profile_dict: dict, label_map: dict[str, str]) -> list[
 
 _QUERY_STRUCTURED_INTENSITY = {
     "high": "강함",
-    "medium": "중간",
+    "medium": "뚜렷함",
     "low": "은은함",
     "zero": "배제",
 }
@@ -418,7 +426,7 @@ def synthesize_query(profile: dict) -> str:
 
     taste_anchor, taste_constraints = _structured_query_profile_bits(
         merged.get("taste_profile") or {},
-        _RAG_TASTE_KR,
+        _CORPUS_TASTE_KR,
     )
     if taste_anchor:
         structured.append("대표 맛: " + ", ".join(taste_anchor))
@@ -427,7 +435,7 @@ def synthesize_query(profile: dict) -> str:
 
     aroma_anchor, aroma_constraints = _structured_query_profile_bits(
         merged.get("aroma_profile") or {},
-        _RAG_AROMA_KR,
+        _CORPUS_AROMA_KR,
     )
     if aroma_anchor:
         structured.append("대표 향: " + ", ".join(aroma_anchor))
@@ -443,7 +451,7 @@ def synthesize_query(profile: dict) -> str:
         structured.append("선호 참고 음료: " + ", ".join(favs[:3]))
 
     if structured:
-        parts.append("[구조화 질의 프로필]\n" + "\n".join(structured))
+        parts.append("[구조화 프로필]\n" + "\n".join(structured))
 
     return "\n".join(parts) if parts else "일반적인 칵테일 추천"
 
