@@ -196,6 +196,60 @@ def _normalize_text(text: str) -> str:
     return re.sub(r"\s+", "", (text or "").strip().lower())
 
 
+# Gemma/Qwen 이 칵테일/대화 맥락에서 자주 튀어나오는 한자 → 한글 치환.
+# 단순 제거 시 "家族들이랑" → "들이랑" 처럼 문장이 깨지므로, 의미 유지 위해 치환을 우선한다.
+_HANJA_TO_HANGUL = {
+    "家族": "가족", "家": "집",
+    "友人": "친구", "友": "친구", "仲間": "동료",
+    "柑橘": "시트러스", "檸檬": "레몬", "萊姆": "라임", "葡萄柚": "자몽", "橙子": "오렌지",
+    "草莓": "딸기", "桃": "복숭아", "芒果": "망고", "蘋果": "사과", "鳳梨": "파인애플",
+    "水果": "과일", "果": "과일",
+    "香": "향", "味": "맛",
+    "酸": "신맛", "甘": "단맛", "甜": "단맛", "苦": "쓴맛", "辛": "매운맛",
+    "酒": "술", "飲料": "음료", "飲み物": "음료", "杯": "잔",
+    "薄荷": "민트", "花": "꽃", "草": "허브",
+    "中": "중간", "强": "강하게", "強": "강하게", "弱": "약하게",
+    "溫": "따뜻한", "冷": "차가운", "清爽": "상큼한", "新鮮": "신선한",
+    "今日": "오늘", "今晩": "오늘 밤", "晩": "저녁",
+}
+
+# 치환 대상 아닌 한자/일본어/이모지는 그냥 제거.
+_NON_KOREAN_CHAR_RE = re.compile(
+    r"[一-鿿"                  # CJK 통합 한자
+    r"㐀-䶿"                   # CJK 확장 A
+    r"぀-ゟ゠-ヿ"      # 히라가나 / 카타카나
+    r"\U0001F300-\U0001F9FF"           # 이모지 (symbols & pictographs)
+    r"\U0001FA00-\U0001FAFF"           # 추가 이모지
+    r"\U0001F600-\U0001F64F"           # 감정 이모지
+    r"\U0001F680-\U0001F6FF"           # 교통/기호 이모지
+    r"☀-⛿✀-➿"      # misc symbols / dingbats (✨ ☕ 등)
+    r"]+",
+    flags=re.UNICODE,
+)
+
+
+def _strip_non_korean_tokens(text: str) -> str:
+    """LLM reply 후처리: (1) 자주 튀어나오는 한자 단어는 한글로 치환,
+    (2) 나머지 한자/일본어/이모지/기호는 제거, (3) 공백 정리.
+
+    영어 단어는 유지. 단순 제거만 하면 "家族들이랑" → "들이랑" 처럼 어색해지므로
+    치환 사전을 먼저 적용한다.
+    """
+    if not text:
+        return text
+    cleaned = text
+    # 1. 긴 단어 먼저 (家族 > 家) 로 치환
+    for hanja, hangul in sorted(_HANJA_TO_HANGUL.items(), key=lambda x: -len(x[0])):
+        if hanja in cleaned:
+            cleaned = cleaned.replace(hanja, hangul)
+    # 2. 남은 한자/이모지/일본어 제거
+    cleaned = _NON_KOREAN_CHAR_RE.sub("", cleaned)
+    # 3. 공백 정리
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"\s+([,.!?~])", r"\1", cleaned)
+    return cleaned.strip()
+
+
 def _contains_any(text: str, patterns: list[str]) -> bool:
     normalized = _normalize_text(text)
     return any(_normalize_text(p) in normalized for p in patterns)
@@ -342,13 +396,19 @@ def _calc_effective_completion(slots: dict) -> float:
 
     분자 가중:
       - 확정된 scalar = 1.0
-      - 확정된 강도 태그 = 1.0
-      - pending 태그 = 0.5 (초기 태그에서 고른 "관심 축" 이라는 약한 신호)
+      - 확정된 강도 태그 (zero/low/medium/high) = 1.0
+      - pending 태그 = 0 (사용자가 아직 강도를 말 안 한 상태)
       - null/empty = 0
+
+    NOTE: pending 은 retrieval/score 에서는 soft-medium prior 로 반영하되,
+    completion 계산에는 포함하지 않는다. 사용자가 실제로 발화한 정보만이
+    "추천 준비 완료도" 의 정당한 근거이기 때문. pending 을 카운트하면 초기
+    태그만 선택한 상태에서도 완성도가 인위적으로 높아져 대화 유도가 깨진다.
+
     선택 슬롯(current_mood / disliked_bases / favorite_drinks)은 분모 제외.
 
     예: scalar 2 확정 + taste[freshness=high, body=pending] + aroma[fruity=high]
-      → denom=4, filled=3.5 → 87.5%
+      → denom=4, filled=3 → 75.0% (body pending 은 filled 에 안 들어감)
     """
     denom = 0.0
     filled = 0.0
@@ -364,12 +424,9 @@ def _calc_effective_completion(slots: dict) -> float:
         if not isinstance(v, dict) or not v:
             continue  # 태그 0개면 축 자체 분모 제외
         confirmed = sum(1 for val in v.values() if val in INTENSITY_VALUES)
-        pending = sum(1 for val in v.values() if val == INTENSITY_PENDING)
         cap = min(len(v), _PROFILE_COMPLETION_TAG_CAP)
         denom += float(cap)
-        # pending 은 0.5 가중, confirmed 는 1.0 가중 — 합계를 cap 으로 자름
-        weighted = float(confirmed) + 0.5 * float(pending)
-        filled += min(weighted, float(cap))
+        filled += float(min(confirmed, cap))
 
     if denom <= 0:
         return 0.0
@@ -705,6 +762,37 @@ def _validate_feedback_output(parsed: dict) -> tuple[str, dict[str, float]]:
     return intent, deltas
 
 
+# "맛없어/별로야" 처럼 축 정보 없는 부정 발화는 ADJUST 로 잡혀도 deltas 가 비어
+# 의미 있는 조정이 불가능하다. 이런 경우 REJECT 로 재분류해 다른 칵테일 추천으로 넘긴다.
+_GENERIC_NEGATIVE_PATTERNS = (
+    "맛없", "맛 없", "별로야", "별로네", "별로다", "별로인", "별로였",
+    "안 좋아", "안좋아", "안 좋네", "안좋네", "마음에 안", "마음에안",
+    "싫다", "싫네", "싫어졌", "끌리지 않", "끌리지않", "땡기지 않", "땡기지않",
+    "이건 아니", "이건아니", "별로 안", "별로안",
+)
+
+
+def _is_generic_negative_without_axis(text: str, deltas: dict) -> bool:
+    """축 언급 없는 일반적 부정 표현인지 판정.
+
+    - deltas 비어 있음 (구체 축/방향 추출 실패)
+    - 부정 표현 키워드 포함
+    - taste/aroma 축 키워드 **없음** (있으면 ADJUST 유지해서 LLM 재시도 가능)
+    """
+    if deltas:
+        return False
+    if not text:
+        return False
+    low = text.strip().lower()
+    if not any(p in low for p in _GENERIC_NEGATIVE_PATTERNS):
+        return False
+    # 축 키워드 하나라도 있으면 ADJUST 유지 (LLM 이 delta 잘못 뽑은 케이스는 별개 문제)
+    for kws in _AXIS_SUBKEY_TO_KEYWORDS.values():
+        if _contains_axis_keyword(text, kws):
+            return False
+    return True
+
+
 def analyze_feedback(
     before_vec: dict[str, float],
     feedback_text: str,
@@ -748,6 +836,16 @@ def analyze_feedback(
 
         if intent == "ADJUST":
             deltas = _apply_feedback_sign_rules(feedback_text, deltas)
+
+        # 축 없는 일반 부정("맛없어/별로야") 은 ADJUST deltas={} 로 잡혀도 의미가 없다.
+        # 그냥 다른 칵테일 추천으로 넘기게 REJECT 로 재분류.
+        if intent == "ADJUST" and _is_generic_negative_without_axis(feedback_text, deltas):
+            logger.info(
+                "feedback: reclassifying ADJUST → REJECT (generic negative without axis): %r",
+                feedback_text,
+            )
+            intent = "REJECT"
+            deltas = {}
 
         updated = dict(before_vec or {})
         for field, delta in deltas.items():
@@ -838,7 +936,8 @@ _PURPOSE_KEYWORDS = {
     "date": ["데이트", "여친", "남친", "썸녀", "썸남", "둘이"],
     "business": ["회식", "거래처", "직장 동료", "회사 동료", "비즈니스"],
     "solo": ["혼술", "혼자 마시", "혼자 왔", "나 혼자"],
-    "hangout": ["친구들이랑", "놀러", "모임", "캐주얼"],
+    "hangout": ["친구들이랑", "놀러", "모임", "캐주얼", "친구랑", "친구와",
+                "가족", "가족들", "가족이랑", "가족과", "가족분"],
 }
 _STRENGTH_KEYWORDS = {
     "strong": ["독하게", "세게", "쎄게", "강하게", "달리자", "달릴", "술고래", "취하고 싶"],
@@ -1170,25 +1269,52 @@ def _apply_confirmation_from_proposal(
 # 룰로 보정한다. `_PROPOSAL_WORD_TO_KEY` 를 역매핑해 재활용.
 
 # subkey -> [한국어 키워드]  (사용자 발화/LLM 제안 텍스트 매칭용)
+# NOTE: 사용자는 "과일향" 말고 "과일" 처럼 줄여 말하거나, "딸기/레몬" 같은 구체 과일명을
+# 던진다. _drop_hallucinated 가 키워드 매칭 실패로 정당한 추출을 떨어뜨리는 걸 막기 위해
+# 관대하게 확장한다.
 _AXIS_SUBKEY_TO_KEYWORDS: dict[tuple[str, str], list[str]] = {}
 for _kw, (_axis, _sub) in _PROPOSAL_WORD_TO_KEY.items():
     _AXIS_SUBKEY_TO_KEYWORDS.setdefault((_axis, _sub), []).append(_kw)
-# 몇 개 추가 키워드 — 사용자 발화 변이 흡수 (proposal 파서용보다 관대하게)
-# taste: "단 거/단 칵테일/달게" 같은 구어형 포함 (bare "단"은 false positive 위험으로 제외)
+# taste 구어형 (bare "단"은 false positive 위험으로 제외)
 _AXIS_SUBKEY_TO_KEYWORDS.setdefault(("taste_profile", "creamy"), []).extend(
-    ["우유", "유제품"]
+    ["우유", "유제품", "밀크", "부드러운", "크리미한"]
 )
 _AXIS_SUBKEY_TO_KEYWORDS.setdefault(("taste_profile", "sweet"), []).extend(
-    ["달달한", "달콤한", "달게", "단 거", "단 칵테일", "단 맛", "단 술"]
+    ["달달한", "달콤한", "달게", "단 거", "단 칵테일", "단 맛", "단 술", "달달"]
 )
 _AXIS_SUBKEY_TO_KEYWORDS.setdefault(("taste_profile", "sour"), []).extend(
-    ["새콤한", "시큼", "시게", "신 거", "신 칵테일", "신 맛", "신 술"]
+    ["새콤한", "시큼", "시게", "신 거", "신 칵테일", "신 맛", "신 술", "새콤", "톡 쏘는", "톡쏘는"]
 )
 _AXIS_SUBKEY_TO_KEYWORDS.setdefault(("taste_profile", "bitter"), []).extend(
-    ["쌉쌀", "씁쓰", "쓴 거", "쓴 칵테일", "쓴 맛"]
+    ["쌉쌀", "씁쓰", "쓴 거", "쓴 칵테일", "쓴 맛", "쌉싸름한", "쓰다"]
+)
+_AXIS_SUBKEY_TO_KEYWORDS.setdefault(("taste_profile", "freshness"), []).extend(
+    ["청량한", "상큼한", "시원한", "깔끔한", "개운한", "톡 쏘는 느낌", "탄산"]
+)
+_AXIS_SUBKEY_TO_KEYWORDS.setdefault(("taste_profile", "body"), []).extend(
+    ["묵직한", "진한", "깊은", "농밀", "무게감"]
+)
+# aroma: 사용자가 던지는 줄임말/구체 과일명/재료명 전부 수용
+_AXIS_SUBKEY_TO_KEYWORDS.setdefault(("aroma_profile", "fruity"), []).extend(
+    ["과일", "프루티한", "딸기", "복숭아", "망고", "파인애플", "사과", "배", "포도", "체리", "베리", "열대과일", "트로피컬"]
 )
 _AXIS_SUBKEY_TO_KEYWORDS.setdefault(("aroma_profile", "citrus"), []).extend(
-    ["오렌지향"]
+    ["오렌지향", "시트러스한", "레몬", "라임", "자몽", "오렌지", "유자", "귤"]
+)
+_AXIS_SUBKEY_TO_KEYWORDS.setdefault(("aroma_profile", "minty"), []).extend(
+    ["민트", "박하", "시원한 향", "청량한 향"]
+)
+_AXIS_SUBKEY_TO_KEYWORDS.setdefault(("aroma_profile", "herbal"), []).extend(
+    ["허브", "허벌", "허브향이", "로즈마리", "바질", "식물"]
+)
+_AXIS_SUBKEY_TO_KEYWORDS.setdefault(("aroma_profile", "woody"), []).extend(
+    ["나무", "우디한", "오크", "숲", "삼나무"]
+)
+_AXIS_SUBKEY_TO_KEYWORDS.setdefault(("aroma_profile", "floral"), []).extend(
+    ["꽃", "플로럴한", "장미", "라벤더", "자스민", "엘더플라워"]
+)
+_AXIS_SUBKEY_TO_KEYWORDS.setdefault(("aroma_profile", "coffee"), []).extend(
+    ["커피", "에스프레소", "모카"]
 )
 
 _CONSTRAINED_INTENSITY_CHOICES = ("zero", "low", "medium", "high", "null")
@@ -1197,15 +1323,20 @@ _CHOICE_TRIE_CACHE: dict[tuple[int, tuple[str, ...]], dict] = {}
 
 
 # salvage 전용 — _INTENSITY_WORDS 보다 구어체 강도 표현 포함.
-# ("좋아" 는 "preference=high" 로 간주 — 사용자가 그 축을 원한다는 명시 신호로 본다.)
+# NOTE: "좋아/좋네/좋음" 같은 generic 선호 표현은 **여기 포함시키지 마라**.
+# 사용자가 "은은한게 좋아" 라고 하면 low 를 원하는 건데, "좋아" 가 high 로
+# 매칭되면 nearest_intensity 가 low 대신 high 를 고른다 (실제 Turn 3 버그).
+# 선호 축이 pending 인지 확인하는 신호는 `_salvage_affirmed_pending_axes` 에서
+# 별도로 처리되므로, 여기서는 "강도 단어만" 엄격히 포함한다.
 _USER_INTENSITY_WORDS: list[tuple[str, list[str]]] = [
     ("high",   ["강하게", "세게", "쎄게", "확", "진하게", "짱", "듬뿍",
                 "엄청", "완전", "너무", "매우", "많이", "진짜",
-                "확실", "분명", "또렷", "뚜렷", "강했으면",
-                "좋아해", "좋아함", "좋아", "좋음", "좋지", "좋네"]),
-    ("low",    ["약하게", "살짝", "은은하게", "옅게", "연하게", "약간", "조금만",
-                "은은하면", "약했으면", "약한 편", "강하지 않게", "강하지 않게요",
-                "강하지 않았으면", "과하지 않게", "튀지 않게", "높지 않았으면"]),
+                "확실", "분명", "또렷", "뚜렷", "강했으면", "강한 편",
+                "세면", "강하면"]),
+    ("low",    ["약하게", "살짝", "은은하게", "은은한", "은은해", "옅게", "연하게",
+                "약간", "조금만", "은은하면", "약했으면", "약한 편",
+                "강하지 않게", "강하지 않게요", "강하지 않았으면",
+                "과하지 않게", "튀지 않게", "높지 않았으면"]),
     ("medium", ["적당히", "적당하게", "보통", "중간", "중간정도", "그냥",
                 "적당하면", "중간 정도", "균형 잡힌", "어느 정도"]),
     ("zero",   ["빼고", "없이", "질색", "싫어", "싫음", "별로",
@@ -1480,14 +1611,17 @@ def _drop_hallucinated_taste_aroma(
 ) -> dict:
     """사용자 발화에 근거가 없는 taste/aroma 축 드롭.
 
-    - 기본 원칙: 이번 사용자 발화에 축 키워드가 있어야 보존.
-    - 예외: 사용자가 confirm-only 발화("응/ㅇㅇ/그래")일 때만, 직전 LLM 발화에
-      그 축 키워드가 있으면 보존 (직전 제안 수락 케이스).
+    보존 조건 (하나라도 만족):
+      1) 사용자 발화에 그 축 키워드가 있음 (ex. "단맛", "과일", "딸기")
+      2) 사용자 발화가 **짧은 응답** (≤ 15자) 이고, 직전 LLM 질문에 해당 축
+         키워드가 있음 (ex. LLM "단맛 어느 정도?" → 사용자 "좋아해" → sweet=high 보존)
+      3) confirm-only 발화이고 직전 LLM 제안에 해당 축 있음
     """
     fixed = dict(extracted or {})
     last_llm = _last_llm_question(history) or ""
     text_user = user_msg or ""
     confirm_mode = _is_confirm_only(text_user)
+    short_reply = len(text_user.strip()) <= 15   # "좋아해", "응 좋아", "적당히" 같은 짧은 답
 
     for axis in ("taste_profile", "aroma_profile"):
         sub_dict = fixed.get(axis)
@@ -1502,12 +1636,16 @@ def _drop_hallucinated_taste_aroma(
             if _contains_axis_keyword(text_user, kws):
                 kept[sub] = val
                 continue
+            # 짧은 응답일 때: 직전 LLM 질문의 축을 그대로 받은 것으로 간주해 보존
+            if short_reply and _contains_axis_keyword(last_llm, kws):
+                kept[sub] = val
+                continue
             if confirm_mode and _contains_axis_keyword(last_llm, kws):
                 kept[sub] = val
                 continue
             logger.debug(
-                "drop hallucinated %s.%s=%r (no keyword in user msg; confirm_mode=%s)",
-                axis, sub, val, confirm_mode,
+                "drop hallucinated %s.%s=%r (no keyword in user msg; confirm=%s short=%s)",
+                axis, sub, val, confirm_mode, short_reply,
             )
         if kept:
             fixed[axis] = kept
@@ -1943,7 +2081,7 @@ _EXTRACT_SYSTEM_PROMPT = """
 [축 키워드 매핑]
 - taste: 단맛→sweet, 신맛/새콤→sour, 쓴맛/씁쓸→bitter, 바디감/묵직→body, 크리미/부드러움/우유/밀크→creamy, 청량감/상큼/시원함→freshness
 - aroma: 우디/나무/우디한 향→woody, 민트/민트감→minty, 과일/과일향/프루티/파인애플/망고→fruity, 시트러스/시트러스 향/레몬/자몽/라임→citrus, 꽃/플로럴/플로럴한 느낌→floral, 커피/커피향/커피 느낌→coffee, 허브/허브향/허벌한 느낌→herbal
-- purpose: 혼자/혼술→solo, 회식/거래처→business, 생일/기념/축하/돌잔치→celebration, 데이트/썸/둘이→date, 친구/모임/놀러→hangout
+- purpose: 혼자/혼술→solo, 회식/거래처→business, 생일/기념/축하/돌잔치→celebration, 데이트/썸/둘이→date, 친구/모임/놀러/가족/가족들→hangout
 - mood: 기분 좋아/신나/설레→good, 기분 별로/우울/힘들/안 좋→bad
 - strength: 무알콜/논알콜→zero, 약하게/가볍게→light, 보통/적당히→medium, 세게/강하게→strong
 
@@ -2069,106 +2207,77 @@ def _extract_slots_llm(history: list[dict], user_msg: str) -> tuple[dict, str]:
 # ============================================================
 
 _BARTENDER_SYSTEM_PROMPT = """
-너는 경력 10년차 한국인 바텐더다. 바 테이블에서 손님과 가볍게 대화하며 취향을 파악해 오늘의 칵테일을 추천하는 게 일이다.
-목표는 "슬롯 채우기"가 아니라 "자연스러운 티키타카"다. 슬롯은 대화의 부산물일 뿐이다.
+너는 10년차 한국인 바텐더다. 바 카운터에서 손님과 진짜 대화를 나누며 오늘의 취향을 자연스럽게 파악한다.
 
-[★ 스몰톡 톤 — 이 감도 절대 놓치지 마라 ★]
-- 너는 설문조사원이 아니다. 바 카운터 너머의 바텐더다. 손님이 방금 한 말에 **구체적으로 반응**하고("생일 축하 자리면 공간이 꽉 차는 느낌이겠네요", "숲향 좋아하신다니 그럼 저랑 취향 비슷하세요") 그 반응의 **끝자락에 궁금증처럼** 축 질문을 끼워 넣어라.
-- 형식적인 "네 알겠습니다. 다음 질문은..." 금지. "어느 쪽이세요? A / B / C" 처럼 선다형 반복도 금지(가끔은 괜찮지만 매 턴 반복 금지).
-- 취향을 바로 못 뽑아내도 괜찮다. 우회해라: **평소 음식, 좋아하는 향수, 카페에서 자주 시키는 음료, 여행지, 계절 취향** 같은 일상 질문으로 감각 단어를 역산해라. "숲향 향수" 처럼 손님 본인이 꺼낸 일상 취향은 **꼭 한 번 짚어서** 바(bar)에서 맞는 축으로 연결해라.
-- 한 턴에 질문 1개가 기본. 대신 공감/관찰/가벼운 농담 한 문장을 앞에 둬서 숨을 넣어라. reply 전체 톤은 "친구가 카운터에서 같이 골라주는 느낌".
+[★★★ 출력 언어 — 이 규칙 어기면 치명적 ★★★]
+reply 는 **순수 한글 한국어만**. 절대 금지:
+- 한자: 柑橘 / 香 / 苦 / 酸 / 甘 / 味 / 中 / 家族 / 友人 / 一 등 전부 금지. 한글로만.
+  ("가족" 은 "家族" 이 아니라 한글 "가족" 으로. "친구" 도 한글 그대로.)
+- 중국어/일본어 단어: 전부 금지
+- 이모지: 🍓 🍋 🥂 ✨ 🍹 전부 금지
+- 영어 단어: 문장에 섞어 쓰지 마라 ("fresh 하고" X, "상큼하고" O)
 
-[★★★ 최우선 원칙 ★★★]
-**슬롯 추출은 외부 파이프라인에서 이미 끝났다.** 이 턴에 반영된 슬롯은 아래 [이번 턴 추출된 슬롯] 섹션으로 주어진다.
-- 너는 **reply / action / user_intent 만** 신경 쓰면 된다. extracted_slots 필드는 참고용으로 빈 {} 로 출력해라 (시스템은 그 값을 사용하지 않는다).
-- reply 에서 손님 발화를 받아줄 때, [이번 턴 추출된 슬롯] 과 **일치하는 표현**을 써라. 거기 없는 축을 reply 에서 "이해했어요" 라고 말하지 마라.
-- [이미 확정된 슬롯] 목록은 이전 턴들에서 누적된 상태다. [이번 턴 추출된 슬롯] 과 합쳐서 손님 취향 전체 그림을 파악해라.
+❌ 잘못된 예: "家族들이랑 柑橘향 🍓 어떠세요?"
+✅ 올바른 예: "가족분들이랑 시트러스향 어떠세요?"
 
-[★★ 칵테일 이름 금지 ★★]
-**action=ASK 단계에서는 칵테일 이름을 절대 언급하지 마라 — 실재하는 이름이든, 네가 지어낸 이름이든 전부 금지.**
-- "마티니 어때요?", "모히토 추천드릴게요", "스윗 임팩트 같은 게 좋을 것 같아요" 전부 금지.
-- 추천 이름을 고르는 건 다음 단계(RAG 리트리버)의 일이다. 너는 지금 취향만 파악한다.
-- action=RECOMMEND 로 전환해서 마무리 멘트("그럼 그 느낌으로 골라와서 보여드릴게요") 를 할 때도 특정 칵테일 이름을 찍지 마라.
+[톤 — 가장 중요]
+- 너는 설문조사원이 아니다. "친구가 카운터에서 같이 고민해주는" 느낌.
+- 손님 말의 구체 단어(생일파티/레몬에이드/숲향/회식/"힘들었다" 등)를 한 번 짚어 **공감·반응한 뒤**, 짧은 질문 하나로 이어라.
+- 손님 기분에 진심으로 공감해라. "생일이면 특별하게 보내고 싶으시겠네요", "회식 끝나고 한 잔이면 긴 하루였겠네요" 처럼 감정을 먼저 받고 시작.
+- **슬롯과 무관한 잡담(날씨/근황/여행/음악/고민)도 자연스럽게 받아줘라.** 한두 문장 가볍게 주고받은 뒤 본래 축 질문으로 부드럽게 복귀. 잡담을 끊지 마라.
+- 한 턴에 질문 1개. "A/B/C 중에?" 선다형은 가끔만.
+- "모르겠다" 답엔 우회: "평소 음식 어떤 맛?", "향수는 어떤 계열?", "카페에서 뭐 시켜요?"
 
-[절대 원칙 — 위반 시 치명적]
-0. **출력 언어는 100% 자연스러운 한국어.** reply 에 한자(甜/苦/酸/甘 등), 중국어, 일본어, 영어 단어 절대 금지.
-   "약간은甜하고" 같이 한국어+한자 섞는 건 금지. "약간은 달콤하고" 처럼 순 한국어로 써라.
-0a. **축 이름을 직역해서 만들지 마라.** body 는 "몸향" 아니고 "바디감 / 묵직함". creamy 는 "우유향" 아니고 "크리미한 질감 / 부드러움". freshness 는 "신선함" 아니고 "청량감 / 상큼함". body 와 aroma(향)은 서로 다른 축이다 — body 관련 표현에 "향"이라는 단어 붙이지 마라.
-   허용 한국어:
-   - taste: sweet→단맛, sour→신맛, bitter→쓴맛, body→바디감/묵직함, creamy→크리미/부드러움, freshness→청량감/상큼함
-   - aroma: woody→우디향/나무향, minty→민트향, fruity→과일향, citrus→시트러스향, floral→꽃향, coffee→커피향, herbal→허브향
-   맛/향 표현은 "달콤/쌉쌀/상큼/청량/묵직/허브/시트러스" 등 한국어 단어만 사용.
-A. **reply 는 [이번 턴 추출된 슬롯]과 [이미 확정된 슬롯]에 맞춰서만 말해라.**
-   - 이번 턴에 확정되지 않은 축을 "이해했어요"라고 단정하지 마라.
-   - party_purpose 만 확정됐는데 current_mood 까지 아는 척하면 안 된다.
-   - strength_preference 가 이미 확정돼 있으면 사용자가 도수를 직접 정정하지 않는 한 다시 흔들지 마라.
-A3. **스키마 밖 새 질문 금지.** "격식 있는 분위기 / 편안한 느낌 / 텐션 / 무드 톤"처럼
-   party_purpose/current_mood/taste_profile/aroma_profile/strength_preference 로 바로 저장되지 않는
-   새 축을 만들어 묻지 마라. 이미 자리 정보가 잡혔으면 그 다음은 맛/향/도수처럼 실제 슬롯으로 이어져야 한다.
-A2. **[강도 미확정] 에 없는 향/맛 축은 손님이 먼저 언급하지 않은 이상 먼저 꺼내지 마라.**
-   - 태그에 없는 축을 "이것도 좋아하세요?" 라고 새로 여는 건 금지.
-   - 묻는 건 기본적으로 **[강도 미확정] 또는 [부족한 슬롯]에 있는 축**만.
-B. 정정(CORRECTION) 발화면 사과하고, 그 축을 다시 확인하거나 다른 축으로 넘어가라.
-   - 이미 취소된 축을 그대로 유지한 채로 아는 척하지 마라.
-C. 반복 금지: [직전에 네가 한 질문] 과 같은 주제·같은 구조·같은 선택지 질문을 다시 하지 마라. 손님이 답 못 하면 **다른 축으로 넘어가거나 바로 RECOMMEND**.
-C2. 손님이 "없어/괜찮아/없습니다/딱히/다 좋아" 류로 답했으면 **같은 축을 다시 묻는 것은 절대 금지**. 즉시 [부족한 슬롯] 목록의 다른 축으로 넘어가거나, 부족한 슬롯이 없으면 RECOMMEND 로 가라. "다른 수정사항 있으세요?" 같은 오픈 질문을 두 번 반복하지 마라.
-D. **[완성도]와 [강도 미확정]/[부족한 슬롯]을 이번 턴 질문의 1순위 기준으로 삼아라.**
-   - [완성도] < 80% 이면 action=ASK 가 기본이지만, 이미 핵심 축(자리·도수·맛/향 방향)이 꽤 잡혔거나 손님이 반복 피로를 보이면 RECOMMEND 로 넘어가도 된다. 질문은 가능하면 [부족한 슬롯] 또는 [강도 미확정] 중 하나를 타깃팅하되, 엉뚱한 축(이미 high 로 확정된 걸 또 물음)으로 새지 마라.
-   - [강도 미확정] 목록에 있는 축은 "좋아하세요?" 금지 (선호는 이미 확정). **강도만** 물어라 ("확 쎄게 / 은은하게 / 적당히 중에?"). 다만 같은 축을 다시 캐묻기보다 자연스러운 반응 뒤에 짧게 확인하는 방식이 우선이다.
-   - [이번 턴 추출된 슬롯] 에 이미 high/medium/low/zero 로 확정된 축은 **절대 다시 강도 질문하지 마라**. 예: 이번 턴에 fruity=high 가 뽑혔으면 "과일향 강도는요?" 다시 묻지 마라 — 이미 확정.
-   - [완성도]가 충분히 높거나(80% 이상), 남은 턴이 적거나, 손님이 추천을 원하면 RECOMMEND 로 넘어가라. 비선호 확인은 **하면 좋지만 하드 게이트는 아니다.**
-   - 손님이 "모르겠다"고 답하면 1회만 우회 질문(규칙 F) 후 포기하고 다음 축으로.
-E. [손님 친숙도] 에 따라 대화 방향을 **완전히 다르게** 잡아라 — 이건 최우선 분기다:
-   - **"처음" (novice)**: 손님은 칵테일 용어(드라이/프루티/베이스/스피릿) 잘 모른다. 칵테일 용어 금지, 일상 감각 단어만 써라. 질문은 **거의 다 일상 취향 우회**로 간다.
-     스크립트 예: "평소에 커피는 달달한 걸로 드세요 아니면 블랙이세요?", "아이스크림 고르면 어떤 맛 손이 가요?", "향수는 어떤 계열 쓰세요?", "여행 가면 바다 쪽이 좋으세요 숲 쪽이 좋으세요?", "평소 음식은 매콤한 거 달달한 거 담백한 거 중에?"
-     톤: "제가 같이 찾아드릴게요", "편하게 말씀하시면 제가 맞춰드릴게요". 살짝 가이드해주는 선배 느낌.
-   - **"가끔" (occasional)**: 칵테일 몇 개는 알고 있다. **과거 경험**을 축으로 풀어라.
-     스크립트 예: "저번에 드신 것 중에 괜찮았던 거 기억나세요?", "모히토나 마가리타 같은 거 드셔보셨어요? 어떠셨어요?", "진토닉류가 편하세요 아니면 사워 계열이 더 맞으세요?", "달달했던 게 좋았어요 쌉싸름한 게 좋았어요?"
-     톤: 친구가 같이 고르는 느낌. 용어는 적당히 (진토닉, 사워 정도는 OK).
-   - **"자주" (regular)**: 용어 자유롭게 써도 된다. 베이스·스타일·스피릿 바로 물어도 OK.
-     스크립트 예: "평소 베이스 뭐 많이 드세요? 진? 럼? 위스키?", "드라이한 쪽이세요 프루티 쪽이세요?", "스터드 & 스트레인 스타일 좋아하세요?", "비터 많이 들어간 클래식 계열 어떠세요?"
-     톤: 바텐더끼리 얘기하듯. 전문 용어 거리낌 없이.
-   ※ 친숙도별 톤과 질문 방식이 섞이면 안 된다. 처음인 손님한테 "드라이/프루티/스피릿/스터드" 단어 절대 금지. 자주인 손님한테 "음식은 매콤한 거 좋아하세요?" 같은 초짜 우회 질문은 지루하다.
-F. 손님이 "잘 모르겠다/몰라/딱히" 라고 답하면 같은 축을 다시 묻지 말고 **우회 질문**으로 유도해라:
-   - 맛 관련 모르겠다 → "평소 음식은 어떤 맛을 좋아하세요? 매콤한 거? 담백한 거?"
-   - 향 관련 모르겠다 → "향수는 어떤 계열 쓰세요?" "좋아하는 과일 있어요?"
-   - 도수 관련 모르겠다 → "평소 술 자리에서 몇 잔 정도 드세요?"
-   우회 질문으로도 답 못 하면 그 축은 포기하고 RECOMMEND 로 넘어가라.
-G. taste_profile/aroma_profile 강도는 대화 중 계속 업데이트되어야 한다. 초기 medium 을 대화 답변에 따라 high/low/zero 로 확정하거나, 새로운 축을 손님이 언급하면 추가해라.
-G2. **비선호 맛/향 확인은 가능하면 한 번 해라.** 다만 손님이 이미 추천을 원하거나 completion 이 충분하면 그걸 막는 하드 게이트로 쓰지 마라.
-   손님이 명시적으로 싫다고 한 축은 `zero` 로 이해하고, 단순히 약하게 원하면 `low` 로 이해해라.
-H. **손님 발화 분류 (user_intent)** — 답하기 전에 먼저 손님이 방금 한 말이 어떤 종류인지 판단해라:
-   - "SLOT": 취향/선호를 담은 답변 (예: "달달한 거 좋아", "도수는 약한 거로"). → 평소대로 추출 + 다음 질문.
-   - "QUESTION": 손님이 너한테 되물음 (예: "칵테일이 따뜻하다는 게 뭐야?", "그게 무슨 맛이야?"). → reply 는 **먼저 그 질문에 1~2문장으로 직접 답하고** 그 다음에 원래 하려던 축 질문을 다시 이어라. extracted_slots 는 대부분 {}.
-   - "UNKNOWN": 손님이 "모르겠다/몰라/딱히". → 우회 질문 (규칙 F).
-   - "CORRECTION": 손님이 이전 추론을 부정 ("나 그런 말 한 적 없는데"). → 해당 슬롯을 null 로 지우고 사과 후 재질문 (규칙 B).
-   - "STOP": "알아서 골라줘/그만/추천해줘". → action=RECOMMEND.
-   - "OTHER": 잡담/인사 → 가볍게 받고 원래 축 질문으로 복귀.
-   손님 질문(QUESTION)에 엉뚱한 답하지 마라. 되물으면 진짜 답부터 해라.
+[비선호 확인 — 한 번은 해줘]
+가능하면 대화 중에 "혹시 싫거나 꺼리는 재료/맛 있어요?" 를 한 번 물어라. 단 손님이 이미 추천을 원하거나 completion 이 충분하면 건너뛰어도 OK. 손님이 "싫어/빼줘/별로" 류로 말한 축은 zero 로 이해.
 
-[행동 원칙]
-1. 손님이 질문·반문하면 먼저 한 문장으로 진짜 내용을 담아 답한 뒤 질문해라. 회피 금지.
-2. 손님의 구체 단어("친구들", "생일파티", "레몬에이드")를 꼭 한 번 짚어서 받아쳐라.
-3. action=ASK 일 때 reply 구조 = **(손님 발화에 구체적 반응 1~2문장) + (질문 1개, 자연스럽게 끼워넣기)**. 반응 문장이 "좋으시네요!", "이해했습니다!" 같은 공허한 맞장구면 안 됨 — 손님이 말한 **구체 단어/상황**을 하나 짚어 되돌려줘라. 선다형("A/B/C 중에?")은 한 턴 건너 한 번 정도만. 그 외엔 자연스러운 open 질문 섞어라. "다음 질문은" / "추가로 여쭤볼게요" 같은 설문조사 접속사 금지.
-4. action 선택:
-   - ASK: 추천하기에 정보가 너무 얇고(자리·도수·맛방향 중 0~1 개) 다음 질문이 변별력 있을 때
-   - RECOMMEND: 아래 중 하나
-     · 자리·도수·맛/향 방향 중 2개 이상 이미 잡혔음
-     · 남은 턴 2 이하
-     · 손님이 "추천해줘/그만/알아서" 류
-     · 직전 질문을 손님이 답 못/안 하고 같은 걸 또 물을 수밖에 없을 때
-   RECOMMEND 일 때 reply 는 "그럼 그 느낌으로 골라와서 보여드릴게요" 로 마무리.
+[역할 분리]
+- 슬롯 추출은 외부 파이프라인이 이미 처리했다. 너는 reply / action / user_intent 만 판단.
+- extracted_slots 는 항상 빈 {} 로 출력.
+- [이번 턴 추출된 슬롯] 에 있는 축만 받아쳐라. 없는 축을 "이해했어요" 라고 단정 금지.
+- [이미 확정된 슬롯] 은 다시 묻지 마라. strength_preference 가 확정돼 있으면 손님이 직접 정정하지 않는 한 흔들지 마라.
 
-[출력 — JSON 한 덩어리만. 설명·마크다운·코드블록·이모지 금지]
+[칵테일 이름 금지]
+ASK 단계에서는 칵테일 이름을 절대 언급하지 마라 (실재든 가상이든 — 마티니/모히토/스윗임팩트 전부 금지).
+추천 이름 고르는 건 다음 단계(RAG) 가 한다. 너는 취향만 파악.
+RECOMMEND 전환 시에도 "그럼 그 느낌으로 골라와서 보여드릴게요" 정도로만 마무리.
+
+[한국어 규칙]
+- 순 한국어만. 한자/중국어/일본어/영어 단어 섞기 절대 금지.
+- 축 이름 한국어만 사용:
+  · 맛: 단맛 / 신맛 / 쓴맛 / 바디감(묵직함) / 크리미(부드러움) / 청량감(상큼함)  ※ body 는 "몸향" 아님, creamy 는 "우유향" 아님
+  · 향: 우디향 / 민트향 / 과일향 / 시트러스향 / 꽃향 / 커피향 / 허브향
+
+[user_intent 분류]
+- SLOT: 취향/선호 답변 (예: "달달한 거 좋아")
+- QUESTION: 손님이 되물음 → 먼저 한 문장으로 답하고 원래 질문 이어라
+- UNKNOWN: "모르겠다/딱히" → 우회 질문 (1회)
+- CORRECTION: "그런 말 안 했는데" → 사과하고 해당 축 재확인 or 다른 축으로
+- STOP: "추천해줘/알아서/그만" → action=RECOMMEND
+- OTHER: 잡담/감정 토로/인사 → 자연스럽게 받고 부드럽게 복귀
+
+[action 선택]
+- ASK: 확인할 축 남았고 다음 질문에 변별력 있을 때
+- RECOMMEND: 자리+도수+맛방향 중 2개 이상 잡혔음 / 남은 턴 ≤ 2 / 손님이 추천 원함 / 같은 축 반복 루프 감지
+
+[톤 예시]
+USER: "오늘 회식이라 좀 지치네"
+→ reply: "아이고, 회식 길었을 것 같네요. 오늘은 좀 릴랙스되는 느낌으로 가볼까요, 기분 전환되는 강한 한 잔이 땡기세요?"
+
+USER: "요즘 날씨 좋아서 산책 자주 해요"
+→ reply: "산책하기 딱 좋은 계절이죠. 바깥 공기 좋아하시면 혹시 상큼한 시트러스 계열이 손에 잘 맞으실까요?"
+
+USER: "모르겠어요 딱히"
+→ reply: "괜찮아요, 같이 찾아봐요. 혹시 카페에서 뭐 자주 시키세요? 달달한 라떼 쪽, 아니면 블랙 쪽?"
+
+[출력 — JSON 한 덩어리만. 마크다운/코드블록/이모지 금지]
 {
   "extracted_slots": {},
   "user_intent": "SLOT" | "QUESTION" | "UNKNOWN" | "CORRECTION" | "STOP" | "OTHER",
   "action": "ASK" | "RECOMMEND",
-  "reply": "손님한테 보여줄 2~3문장 친근한 존댓말 한국어"
+  "reply": "손님한테 보일 2~3문장 친근한 존댓말 한국어"
 }
-※ extracted_slots 필드는 항상 {} 로 비워서 출력해라. 추출은 이미 외부에서 끝났고 네 값은 무시된다. reply / action / user_intent 만 의미 있다.
-
-반드시 위 JSON 스키마 한 덩어리만 출력. extracted_slots 는 항상 {} — 절대 값 채우지 마라.
+※ extracted_slots 는 항상 {} — 네가 값 채우지 마라. reply / action / user_intent 만 의미 있다.
 """.strip()
 
 
@@ -2242,6 +2351,13 @@ def _format_extracted_this_turn(extracted: dict) -> str:
     return "\n".join(lines) if lines else "(이번 턴엔 새로 추출된 축 없음)"
 
 
+_FAMILIARITY_HINT = {
+    "처음": "처음 (novice) — 칵테일 용어(드라이/스피릿/베이스) 금지. 일상 취향(음식/향수/카페/여행) 으로 우회해서 물어라.",
+    "가끔": "가끔 (occasional) — 과거 경험으로 풀어라 (모히토/마가리타 드셔보셨어요?). 용어는 진토닉·사워 정도까지 OK.",
+    "자주": "자주 (regular) — 전문 용어 자유. 베이스/스타일/스피릿 직접 물어도 OK.",
+}
+
+
 def _build_bartender_user_prompt(
     history: list[dict],
     slots: dict,
@@ -2258,15 +2374,16 @@ def _build_bartender_user_prompt(
     missing = _missing_slots_description(slots_preview)
     completion = _calc_effective_completion(slots_preview)
     this_turn = _format_extracted_this_turn(extracted_this_turn or {})
+    familiarity_line = _FAMILIARITY_HINT.get(familiarity or "", f"{familiarity or '알 수 없음'}")
     return (
-        f"[손님 친숙도] {familiarity or '알 수 없음'}\n"
+        f"[손님 친숙도] {familiarity_line}\n"
         f"[남은 대화 턴] {remaining_turns} (총 {MAX_USER_TURNS})\n"
-        f"[완성도] {completion}% (권장 추천 임계치 {MIN_RECOMMEND_COMPLETION}%)\n\n"
+        f"[완성도] {completion}% (추천 임계치 {MIN_RECOMMEND_COMPLETION}%)\n\n"
         f"[지금까지 파악한 취향]\n{_summarize_slots_for_prompt(slots)}\n\n"
         f"[이번 턴 추출된 슬롯 — 이미 확정됨. reply 에서 이 내용을 짚어줘라]\n{this_turn}\n\n"
-        f"[이미 확정된 슬롯 — 절대 다시 묻지 마라, 덮어쓰기 금지]\n{locked}\n\n"
-        f"[강도 미확정 — 가능하면 이 축들부터 확인. 이미 충분하면 다 캐묻지 않아도 됨]\n{pending}\n\n"
-        f"[부족한 슬롯 — 자연스럽게 이어갈 때 우선 참고]\n{missing}\n\n"
+        f"[이미 확정된 슬롯 — 다시 묻지 마라]\n{locked}\n\n"
+        f"[강도 미확정 — 가능하면 이 축들부터 확인]\n{pending}\n\n"
+        f"[부족한 슬롯 — 자연스럽게 이어갈 때 참고]\n{missing}\n\n"
         f"[직전에 네가 한 질문]\n{last_q or '(없음 — 첫 턴)'}\n\n"
         f"[최근 대화]\n{_format_history(history)}\n\n"
         f"[손님의 방금 발화]\n{user_msg}\n\n"
@@ -2417,6 +2534,7 @@ def analyze_user_turn(
             user_intent = "OTHER"
 
         reply = str(parsed.get("reply") or "").strip()
+        reply = _strip_non_korean_tokens(reply)
         if force_pending_ask_key and (not reply or not _reply_targets_axis(reply, force_pending_ask_key)):
             reply = _pending_ask_template(force_pending_ask_key)
         if not reply and generate_next_question:
