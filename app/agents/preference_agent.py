@@ -1079,6 +1079,10 @@ _AXIS_SUBKEY_TO_KEYWORDS.setdefault(("aroma_profile", "citrus"), []).extend(
     ["오렌지향"]
 )
 
+_CONSTRAINED_INTENSITY_CHOICES = ("zero", "low", "medium", "high", "null")
+_TOKEN_TRIE_END = "__end__"
+_CHOICE_TRIE_CACHE: dict[tuple[int, tuple[str, ...]], dict] = {}
+
 
 # salvage 전용 — _INTENSITY_WORDS 보다 구어체 강도 표현 포함.
 # ("좋아" 는 "preference=high" 로 간주 — 사용자가 그 축을 원한다는 명시 신호로 본다.)
@@ -1131,6 +1135,142 @@ def _nearest_intensity(text: str, kw_start: int, kw_end: int) -> Optional[str]:
                 best = intensity
 
     return best
+
+
+def _build_choice_trie(tokenizer, choices: tuple[str, ...]) -> dict:
+    cache_key = (id(tokenizer), choices)
+    cached = _CHOICE_TRIE_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    trie: dict = {}
+    for choice in choices:
+        for variant in (choice, f" {choice}", f"\n{choice}"):
+            token_ids = tokenizer.encode(variant, add_special_tokens=False)
+            if not token_ids:
+                continue
+            node = trie
+            for tok in token_ids:
+                node = node.setdefault(tok, {})
+            node[_TOKEN_TRIE_END] = choice
+
+    _CHOICE_TRIE_CACHE[cache_key] = trie
+    return trie
+
+
+def _allowed_trie_tokens(trie: dict, prefix: list[int], eos_token_id: Optional[int]) -> list[int]:
+    node = trie
+    for tok in prefix:
+        node = node.get(tok)
+        if node is None:
+            return [eos_token_id] if eos_token_id is not None else []
+
+    allowed = [tok for tok in node.keys() if tok != _TOKEN_TRIE_END]
+    if _TOKEN_TRIE_END in node and eos_token_id is not None:
+        allowed.append(eos_token_id)
+    return allowed or ([eos_token_id] if eos_token_id is not None else [])
+
+
+def _contains_axis_keyword(user_msg: str, keywords: list[str]) -> bool:
+    normalized = _normalize_text(user_msg)
+    return any(_normalize_text(kw) in normalized for kw in keywords)
+
+
+def _build_intensity_choice_prompt(user_msg: str, axis: str, sub: str) -> tuple[str, str]:
+    axis_label = _PENDING_AXIS_KO.get(sub, sub)
+    profile_label = "맛" if axis == "taste_profile" else "향"
+    system = (
+        "너는 칵테일 취향 강도 분류기다. "
+        "반드시 다음 다섯 값 중 하나만 출력해라: zero, low, medium, high, null.\n"
+        "zero=빼고 싶음/싫음/없었으면 좋겠음, "
+        "low=은은하게/약하게/강하지 않게, "
+        "medium=적당히/중간/보통, "
+        "high=강하게/확실하게/분명하게/또렷하게, "
+        "null=이번 발화에 그 축 언급 없음 또는 모호함."
+    )
+    user = (
+        f"사용자 발화에서 {profile_label} 축 '{axis_label}'의 강도만 고르세요.\n"
+        f"발화: {user_msg}\n"
+        "답:"
+    )
+    return system, user
+
+
+def _decode_constrained_choice(system_prompt: str, user_prompt: str, choices: tuple[str, ...]) -> Optional[str]:
+    try:
+        from app.utils.model_loader import load_llm, render_chat
+        import torch
+
+        tokenizer, model = load_llm()
+        rendered = render_chat(tokenizer, system_prompt, user_prompt)
+        inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
+        input_len = inputs["input_ids"].shape[-1]
+        trie = _build_choice_trie(tokenizer, choices)
+        eos_token_id = tokenizer.eos_token_id
+        max_choice_tokens = max(
+            len(tokenizer.encode(choice, add_special_tokens=False))
+            for choice in choices
+        ) + 2
+
+        def prefix_allowed_tokens_fn(_batch_id, input_ids):
+            prefix = input_ids[input_len:].tolist()
+            return _allowed_trie_tokens(trie, prefix, eos_token_id)
+
+        with torch.no_grad():
+            out = model.generate(
+                **inputs,
+                max_new_tokens=max_choice_tokens,
+                do_sample=False,
+                repetition_penalty=1.0,
+                pad_token_id=eos_token_id,
+                eos_token_id=eos_token_id,
+                prefix_allowed_tokens_fn=prefix_allowed_tokens_fn,
+            )
+
+        raw = tokenizer.decode(out[0][input_len:], skip_special_tokens=True).strip().lower()
+        del inputs, out
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        return raw if raw in choices else None
+    except Exception as e:
+        logger.debug("constrained choice decode failed: %r", e, exc_info=True)
+        return None
+
+
+def _apply_constrained_intensity_rescue(user_msg: str, extracted: dict) -> dict:
+    """명시적으로 언급된 taste/aroma 축이 비어 있을 때 small-choice decoding 으로 복구.
+
+    완전한 JSON grammar 제약 대신, 실제 손실이 큰 강도 축만 `zero|low|medium|high|null`
+    중 하나로 강제 선택하게 해서 schema drift 를 줄인다.
+    """
+    if not user_msg:
+        return extracted
+    if _ALTERNATIVE_Q_RE.search(user_msg) or _has_correction_signal(user_msg):
+        return extracted
+
+    fixed = dict(extracted or {})
+
+    for axis in ("taste_profile", "aroma_profile"):
+        current = dict(fixed.get(axis) or {}) if isinstance(fixed.get(axis), dict) else {}
+        for (candidate_axis, sub), keywords in _AXIS_SUBKEY_TO_KEYWORDS.items():
+            if candidate_axis != axis:
+                continue
+            if sub in current and current[sub] in INTENSITY_VALUES:
+                continue
+            if not _contains_axis_keyword(user_msg, keywords):
+                continue
+            system_prompt, user_prompt = _build_intensity_choice_prompt(user_msg, axis, sub)
+            choice = _decode_constrained_choice(
+                system_prompt,
+                user_prompt,
+                _CONSTRAINED_INTENSITY_CHOICES,
+            )
+            if choice in INTENSITY_VALUES:
+                current[sub] = choice
+        if current:
+            fixed[axis] = current
+
+    return fixed
 
 
 def _salvage_taste_aroma_from_text(user_msg: str, extracted: dict) -> dict:
@@ -1992,8 +2132,24 @@ def analyze_user_turn(
         extracted = _apply_confirmation_from_proposal(history, user_msg, extracted)
         extracted = _salvage_taste_aroma_from_text(user_msg, extracted)
         extracted = _drop_hallucinated_taste_aroma(history, user_msg, extracted)
+        extracted = _apply_constrained_intensity_rescue(user_msg, extracted)
         extracted = _guard_correction_null(user_msg, extracted)
         extracted = _drop_unchanged_slots(extracted, slots)
+
+        if not generate_next_question:
+            return {
+                "extracted_slots": extracted,
+                "extracted_raw": extracted_raw,
+                "should_stop": False,
+                "stop_reason": "",
+                "next_question": "",
+                "reply": "",
+                "action": "ASK",
+                "user_intent": "SLOT",
+                "source": "llm_extract_only",
+                "raw": "",
+                "extract_raw": extract_raw_text,
+            }
 
         # ─── Pass 2 : reply/action 생성 (추출 결과 주입) ─────────────
         tokenizer, model = load_llm()
