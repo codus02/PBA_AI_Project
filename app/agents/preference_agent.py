@@ -894,19 +894,29 @@ _PROPOSAL_WORD_TO_KEY: dict[str, tuple[str, str]] = {
     "상큼": ("taste_profile", "freshness"),
     # aroma (향 단어는 더 길게 매칭해서 오염 방지)
     "우디향": ("aroma_profile", "woody"),
+    "우디한 향": ("aroma_profile", "woody"),
     "나무향": ("aroma_profile", "woody"),
     "민트향": ("aroma_profile", "minty"),
+    "민트감": ("aroma_profile", "minty"),
     "과일향": ("aroma_profile", "fruity"),
+    "과일 향": ("aroma_profile", "fruity"),
     "프루티": ("aroma_profile", "fruity"),
     "시트러스향": ("aroma_profile", "citrus"),
+    "시트러스 향": ("aroma_profile", "citrus"),
     "시트러스": ("aroma_profile", "citrus"),
     "레몬향": ("aroma_profile", "citrus"),
     "자몽향": ("aroma_profile", "citrus"),
     "라임향": ("aroma_profile", "citrus"),
     "플로럴": ("aroma_profile", "floral"),
+    "플로럴한 느낌": ("aroma_profile", "floral"),
     "꽃향": ("aroma_profile", "floral"),
     "커피향": ("aroma_profile", "coffee"),
+    "커피 느낌": ("aroma_profile", "coffee"),
+    "커피감": ("aroma_profile", "coffee"),
     "허브향": ("aroma_profile", "herbal"),
+    "허브 느낌": ("aroma_profile", "herbal"),
+    "허벌한 느낌": ("aroma_profile", "herbal"),
+    "허벌한": ("aroma_profile", "herbal"),
 }
 
 _INTENSITY_WORDS: list[tuple[str, list[str]]] = [
@@ -1075,10 +1085,15 @@ _AXIS_SUBKEY_TO_KEYWORDS.setdefault(("aroma_profile", "citrus"), []).extend(
 _USER_INTENSITY_WORDS: list[tuple[str, list[str]]] = [
     ("high",   ["강하게", "세게", "쎄게", "확", "진하게", "짱", "듬뿍",
                 "엄청", "완전", "너무", "매우", "많이", "진짜",
+                "확실", "분명", "또렷", "뚜렷", "강했으면",
                 "좋아해", "좋아함", "좋아", "좋음", "좋지", "좋네"]),
-    ("low",    ["약하게", "살짝", "은은하게", "옅게", "연하게", "약간", "조금만"]),
-    ("medium", ["적당히", "적당하게", "보통", "중간", "중간정도", "그냥"]),
-    ("zero",   ["빼고", "없이", "질색", "싫어", "싫음", "별로"]),
+    ("low",    ["약하게", "살짝", "은은하게", "옅게", "연하게", "약간", "조금만",
+                "은은하면", "약했으면", "약한 편", "강하지 않게", "강하지 않게요",
+                "강하지 않았으면", "과하지 않게", "튀지 않게", "높지 않았으면"]),
+    ("medium", ["적당히", "적당하게", "보통", "중간", "중간정도", "그냥",
+                "적당하면", "중간 정도", "균형 잡힌", "어느 정도"]),
+    ("zero",   ["빼고", "없이", "질색", "싫어", "싫음", "별로",
+                "없었으면", "안 났으면", "안났으면", "안 들어갔으면"]),
 ]
 
 
@@ -1598,6 +1613,7 @@ _EXTRACT_SYSTEM_PROMPT = """
    low/medium/high 전부 "선호" 범주. 비선호는 오직 zero.
 5. **enum 외 값 금지.** 강도는 {zero,low,medium,high} 만. "mint"/"medium-high" 같은 표현 금지.
    ⚠️ **"강하게" → "high"** (taste/aroma 값으로 "strong" 절대 금지 — "strong" 은 strength_preference 전용).
+   ⚠️ **"확실하게/분명하게/또렷하게" → "high"**, **"은은하게/약하게/강하지 않게" → "low"**, **"없었으면/안 났으면" → "zero"**.
 6. **CORRECTION (부정/부인/반문):** "X 한 적 없어 / 얘기 안 한 것 같은데 / 내가 언제 X 라고 했어?"
    → 해당 축만 null 로 넣어라.
    ⚠️ 무관한 축에 null 뱉지 마라. 사용자가 언급 안 한 축은 그냥 extracted 에서 빼라.
@@ -1625,7 +1641,7 @@ _EXTRACT_SYSTEM_PROMPT = """
 
 [축 키워드 매핑]
 - taste: 단맛→sweet, 신맛/새콤→sour, 쓴맛/씁쓸→bitter, 바디감/묵직→body, 크리미/부드러움/우유/밀크→creamy, 청량감/상큼/시원함→freshness
-- aroma: 우디/나무→woody, 민트→minty, 과일/프루티/파인애플/망고→fruity, 시트러스/레몬/자몽/라임→citrus, 꽃/플로럴→floral, 커피→coffee, 허브→herbal
+- aroma: 우디/나무/우디한 향→woody, 민트/민트감→minty, 과일/과일향/프루티/파인애플/망고→fruity, 시트러스/시트러스 향/레몬/자몽/라임→citrus, 꽃/플로럴/플로럴한 느낌→floral, 커피/커피향/커피 느낌→coffee, 허브/허브향/허벌한 느낌→herbal
 - purpose: 혼자/혼술→solo, 회식/거래처→business, 생일/기념/축하/돌잔치→celebration, 데이트/썸/둘이→date, 친구/모임/놀러→hangout
 - mood: 좋아/신나/설레→good, 별로/우울/힘들/안 좋→bad
 - strength: 무알콜/논알콜→zero, 약하게/가볍게→light, 보통/적당히→medium, 세게/강하게→strong
@@ -1675,6 +1691,14 @@ USER: "크리미한 질감 엄청 좋아해. 우디향 은은하게"
 → {"extracted_slots":{"taste_profile":{"creamy":"high"},"aroma_profile":{"woody":"low"}}}
 (크리미=taste.creamy (절대 aroma 아님), 우디향=aroma.woody. "은은하게"=low.)
 
+USER: "우디한 향이 분명했으면 좋겠어요. 민트감은 은은하면 돼요"
+→ {"extracted_slots":{"aroma_profile":{"woody":"high","minty":"low"}}}
+(우디한 향/민트감 모두 aroma. "분명했으면"=high, "은은하면"=low.)
+
+USER: "커피 느낌은 약했으면 좋겠어요. 시트러스 향은 강하지 않게요"
+→ {"extracted_slots":{"aroma_profile":{"coffee":"low","citrus":"low"}}}
+(커피 느낌/시트러스 향 모두 aroma. "약했으면/강하지 않게"=low.)
+
 USER: "오늘 친구 생일파티야"
 → {"extracted_slots":{"party_purpose":"celebration"}}
 (축하 분위기라고 해서 aroma.fruity·taste.sweet 같은 축 **절대 추가 금지** — 사용자가 명시한 축만.)
@@ -1714,7 +1738,7 @@ def _extract_slots_llm(history: list[dict], user_msg: str) -> tuple[dict, str]:
         with torch.no_grad():
             out = model.generate(
                 **inputs,
-                max_new_tokens=180,
+                max_new_tokens=128,
                 do_sample=False,
                 temperature=1.0,
                 top_p=1.0,
