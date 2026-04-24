@@ -15,7 +15,9 @@
 """
 from __future__ import annotations
 
+import io
 import os
+import pathlib
 from typing import Any
 
 import numpy as np
@@ -179,3 +181,110 @@ def analyze_space_image(
         "best_mood_tag": combos[best_idx],
         "mood_tags_json": atom_marginal,
     }
+
+
+# ============================================================================
+# img2tag (Gemini 기반): 공간 이미지 → mood_tag 3-tuple
+# ----------------------------------------------------------------------------
+# 기존 analyze_space_image(BLIP+atom) 와 병행. party_space_analysis 나
+# orchestration_agent.score_cocktail 의 mood_tags_json 의존성은 건드리지 않음.
+# FE 전용 경량 엔드포인트(/space/img2tag) 용.
+# ============================================================================
+
+_GEMINI_MODEL_ID = "gemini-2.5-flash"
+_PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+_IMG2TAG_EMBED_PATH = _PROJECT_ROOT / "modeling/image/final/cocktail_embeddings_st.npy"
+_IMG2TAG_IDS_PATH = _PROJECT_ROOT / "modeling/image/final/cocktail_ids_st.npy"
+
+_IMG2TAG_PROMPT = (
+    "Describe the mood and atmosphere of this space in 1-2 sentences. "
+    "Focus on the emotional vibe (e.g. cozy, lively, romantic), "
+    "the lighting and visual tone (e.g. warm, bright, dark), "
+    "and the sense of space (e.g. intimate, open, casual). "
+    "Do not describe objects."
+)
+
+
+def _load_gemini_client():
+    if "gemini" in _CACHE:
+        return _CACHE["gemini"]
+    from google import genai
+
+    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("GOOGLE_API_KEY 환경변수가 설정되지 않았습니다.")
+    client = genai.Client(api_key=api_key)
+    _CACHE["gemini"] = client
+    return client
+
+
+def _load_img2tag_corpus() -> tuple[np.ndarray, np.ndarray, dict[int, str]]:
+    """사전계산된 cocktail mood_tag 임베딩 + id 배열 + (cocktail_id → mood_tag) 맵.
+
+    매핑은 DB `cocktails` 테이블에서 읽는다 (CSV 불필요).
+    """
+    if "img2tag_corpus" in _CACHE:
+        return _CACHE["img2tag_corpus"]
+
+    for p in (_IMG2TAG_EMBED_PATH, _IMG2TAG_IDS_PATH):
+        if not p.exists():
+            raise FileNotFoundError(f"img2tag 참조 파일 없음: {p}")
+
+    embeds = np.load(_IMG2TAG_EMBED_PATH)
+    ids = np.load(_IMG2TAG_IDS_PATH)
+
+    db = SessionLocal()
+    try:
+        rows = db.query(Cocktail.cocktail_id, Cocktail.mood_tag).all()
+        id_to_tag = {int(cid): (tag or "") for cid, tag in rows}
+    finally:
+        db.close()
+
+    _CACHE["img2tag_corpus"] = (embeds, ids, id_to_tag)
+    return embeds, ids, id_to_tag
+
+
+def _to_pil(image_input) -> PILImage.Image:
+    """파일경로(str/Path), PIL Image, bytes 모두 수용."""
+    if isinstance(image_input, PILImage.Image):
+        return image_input.convert("RGB")
+    if isinstance(image_input, (bytes, bytearray)):
+        return PILImage.open(io.BytesIO(image_input)).convert("RGB")
+    return PILImage.open(image_input).convert("RGB")
+
+
+def analyze_image(image_input) -> str:
+    """Gemini 로 공간 분위기 설명 문장 생성."""
+    client = _load_gemini_client()
+    pil_img = _to_pil(image_input)
+    response = client.models.generate_content(
+        model=_GEMINI_MODEL_ID,
+        contents=[_IMG2TAG_PROMPT, pil_img],
+    )
+    return response.text.strip()
+
+
+def img2tag(image_input) -> tuple[str, ...]:
+    """공간 이미지 → mood_tag 튜플 (예: ("lively", "bright", "spacious")).
+
+    Parameters
+    ----------
+    image_input : str | Path | PIL.Image | bytes
+
+    Returns
+    -------
+    tuple[str, ...]
+        cocktails_final.csv 의 mood_tag 를 "|" 로 split 한 결과.
+    """
+    vlm_text = analyze_image(image_input)
+    query_emb = _encode([vlm_text])[0]   # 기존 BERT 임베더 재사용 (같은 벡터 공간)
+
+    embeds, ids, id_to_tag = _load_img2tag_corpus()
+    norms = np.linalg.norm(embeds, axis=1) * np.linalg.norm(query_emb)
+    sims = embeds @ query_emb / np.where(norms == 0, 1e-9, norms)
+
+    best_cid = int(ids[int(np.argmax(sims))])
+    mood_tag = id_to_tag.get(best_cid, "")
+    if not mood_tag:
+        raise RuntimeError(f"cocktail_id {best_cid} 에 해당하는 mood_tag 가 DB 에 없습니다.")
+    return tuple(mood_tag.split("|"))

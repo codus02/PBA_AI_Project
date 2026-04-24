@@ -37,7 +37,7 @@ from app.agents.preference_agent import (
 )
 from app.agents.orchestration_agent import run_recommendation, process_feedback, finalize_sample
 from app.agents.output_agent import generate_output_json
-from app.agents.mood_agent import analyze_space_image
+from app.agents.mood_agent import analyze_space_image, img2tag
 
 
 router = APIRouter()
@@ -356,6 +356,29 @@ async def upload_space_image(
             "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
         },
     }
+
+
+@router.post("/space/img2tag")
+async def img2tag_endpoint(file: UploadFile = File(...)):
+    """공간 이미지 → mood_tag 3-tuple. 세션 없이 동작하는 경량 엔드포인트."""
+    try:
+        image_bytes = await file.read()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"이미지 읽기 실패: {exc}")
+
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="빈 이미지 파일입니다.")
+
+    try:
+        tags = img2tag(image_bytes)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=500, detail=f"참조 파일 누락: {exc}")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Gemini 호출 실패: {exc}")
+
+    return {"tags": list(tags)}
 
 
 # ============================================================
