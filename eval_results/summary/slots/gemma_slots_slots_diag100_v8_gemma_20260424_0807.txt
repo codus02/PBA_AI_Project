@@ -1,0 +1,27 @@
+============================================================
+ SLOTS EVAL — model=Gemma  tag=slots_diag100_v8_gemma  20260424_0807
+ limit=100
+============================================================
+[per-item] 100 cases → eval_results/cases/slots/gemma_slots_slots_diag100_v8_gemma_20260424_0807.csv  (model=google/gemma-2-9b-it)
+
+============================================================
+SLOT EXTRACTION EVAL — 100 cases (2902.0s, 29.02s/case)
+============================================================
+
+[Scalar enums — exact match]
+  current_mood          :   56/  90 =  62.2%
+  party_purpose         :   56/  84 =  66.7%
+  strength_preference   :   56/  92 =  60.9%
+
+[Intensity dicts]
+  taste_profile KEY presence      : P=100.0  R= 72.6  F1= 84.1  (tp=114 fp=0 fn=43)
+  taste_profile KEY+VALUE exact   : P= 90.4  R= 65.6  F1= 76.0  (tp=103 fp=11 fn=54)
+  aroma_profile KEY presence      : P=100.0  R= 72.5  F1= 84.1  (tp=111 fp=0 fn=42)
+  aroma_profile KEY+VALUE exact   : P= 79.3  R= 57.5  F1= 66.7  (tp=88 fp=23 fn=65)
+
+[List enum]
+  disliked_bases                  : P= 87.1  R= 98.2  F1= 92.3  (tp=54 fp=8 fn=1)
+
+[Favorite drinks — binary presence]
+  favorite_drinks detected :    8/  18 =  44.4%
+
