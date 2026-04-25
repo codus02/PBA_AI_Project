@@ -28,4 +28,5 @@ E2E EVAL — mode=e2e  total_rows=500  evaluable=467  unevaluable_skipped=33  (4
   Hit@3  (labeled)            : 211/382 = 55.2%
   카테고리 Hit@3 (all cases)  : 360/467 = 77.1%
   카테고리 Hit@3 (labeled)    : 323/382 = 84.6%
+
   후보 없음                   : 0/467 = 0.0%
