@@ -368,7 +368,15 @@ async def upload_space_image(
 
 @router.post("/space/img2tag")
 async def img2tag_endpoint(file: UploadFile = File(...)):
-    """공간 이미지 → mood_tag 3-tuple. 세션 없이 동작하는 경량 엔드포인트."""
+    """공간 이미지 → mood_tag 3-tuple. 세션 없이 동작하는 경량 엔드포인트.
+
+    내부적으로 Gemini API 키 풀 (gemini_key_pool) 에서 분당 5회/일간 20회 한도
+    안에 있는 키를 자동 선택. 모든 키 소진 시 429 반환.
+
+    응답: ``{"mood_tag": ["lively", "bright", "spacious"]}``
+    """
+    from app.services.gemini_key_pool import QuotaExhaustedError
+
     try:
         image_bytes = await file.read()
     except Exception as exc:
@@ -381,12 +389,19 @@ async def img2tag_endpoint(file: UploadFile = File(...)):
         tags = img2tag(image_bytes)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=500, detail=f"참조 파일 누락: {exc}")
+    except QuotaExhaustedError as exc:
+        # 모든 Gemini 키가 분당/일간 한도 초과 → 잠시 후 재시도 가능.
+        raise HTTPException(
+            status_code=429,
+            detail=f"Gemini quota 소진 — 잠시 후 다시 시도해주세요. ({exc})",
+        )
     except RuntimeError as exc:
+        # 키 미설정 등 server config 오류.
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Gemini 호출 실패: {exc}")
 
-    return {"tags": list(tags)}
+    return {"mood_tag": list(tags)}
 
 
 # ============================================================

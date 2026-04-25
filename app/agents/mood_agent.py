@@ -205,16 +205,18 @@ _IMG2TAG_PROMPT = (
 )
 
 
-def _load_gemini_client():
-    if "gemini" in _CACHE:
-        return _CACHE["gemini"]
+def _build_gemini_client(api_key: str):
+    """주어진 키로 google-genai 클라이언트를 생성. 키별로 인스턴스 분리해 캐시.
+
+    각 키마다 별개 클라이언트 인스턴스라야 quota 회계가 키 단위로 정확해진다.
+    """
+    cache_key = f"gemini::{api_key[-6:]}"
+    if cache_key in _CACHE:
+        return _CACHE[cache_key]
     from google import genai
 
-    api_key = os.environ.get("GOOGLE_API_KEY", "")
-    if not api_key:
-        raise RuntimeError("GOOGLE_API_KEY 환경변수가 설정되지 않았습니다.")
     client = genai.Client(api_key=api_key)
-    _CACHE["gemini"] = client
+    _CACHE[cache_key] = client
     return client
 
 
@@ -254,14 +256,44 @@ def _to_pil(image_input) -> PILImage.Image:
 
 
 def analyze_image(image_input) -> str:
-    """Gemini 로 공간 분위기 설명 문장 생성."""
-    client = _load_gemini_client()
+    """Gemini 로 공간 분위기 설명 문장 생성. 키 풀에서 사용 가능한 키 자동 선택.
+
+    동작:
+      1. ``gemini_key_pool.acquire()`` 로 분당/일간 한도 안에 있는 키 1개 선택.
+      2. 그 키로 클라이언트 만들어서 generate_content 호출.
+      3. quota 에러면 그 키를 즉시 mark_quota_exceeded() 처리하고 다음 키로
+         자동 재시도. 모든 키가 소진되면 QuotaExhaustedError 가 위로 전파.
+      4. 최대 재시도 횟수는 키 개수만큼.
+    """
+    from app.services import gemini_key_pool
+
     pil_img = _to_pil(image_input)
-    response = client.models.generate_content(
-        model=_GEMINI_MODEL_ID,
-        contents=[_IMG2TAG_PROMPT, pil_img],
-    )
-    return response.text.strip()
+    last_exc: Exception | None = None
+
+    # 키 개수만큼 재시도. 매번 acquire() 가 사용 가능한 키를 다시 골라 줌.
+    keys = gemini_key_pool._parse_keys_from_env()
+    max_attempts = max(len(keys), 1)
+
+    for _ in range(max_attempts):
+        label, api_key, key_id = gemini_key_pool.acquire()
+        client = _build_gemini_client(api_key)
+        try:
+            response = client.models.generate_content(
+                model=_GEMINI_MODEL_ID,
+                contents=[_IMG2TAG_PROMPT, pil_img],
+            )
+            return response.text.strip()
+        except Exception as e:
+            if gemini_key_pool.is_gemini_quota_error(e):
+                gemini_key_pool.mark_quota_exceeded(key_id)
+                last_exc = e
+                continue
+            raise
+
+    # 도달 시: 모든 acquire 가 quota 에러를 만남 → 풀 소진과 동치.
+    raise gemini_key_pool.QuotaExhaustedError(
+        "모든 Gemini 키에서 quota 에러 발생"
+    ) from last_exc
 
 
 def img2tag(image_input) -> tuple[str, ...]:
