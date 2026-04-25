@@ -32,10 +32,9 @@ def _dialogue_trace_enabled() -> bool:
 
 
 def _dialogue_relaxed_mode_enabled() -> bool:
-    mode = os.getenv("PBA_DIALOGUE_MODE", "").strip().lower()
-    if mode in {"relaxed", "llm_first", "freeform"}:
-        return True
-    return os.getenv("PBA_RELAXED_DIALOGUE", "").strip().lower() in {"1", "true", "yes", "on"}
+    # relaxed 모드는 실제 품질보다 추출 안정성을 더 크게 해쳐서 폐기.
+    # 남아 있는 호출 경로는 모두 기본 모드로 수렴시킨다.
+    return False
 
 
 def _trace_clone(value):
@@ -1322,14 +1321,14 @@ def _has_explicit_scalar_signal(user_msg: str, key: str) -> bool:
 
 
 def _suppress_unanchored_scalar_overrides(current_slots: dict, user_msg: str, extracted: dict) -> dict:
-    """직접적인 근거 없이 기존 scalar 슬롯을 덮어쓰는 걸 막는다."""
+    """직접적인 근거 없이 기존 scalar 슬롯을 덮어쓰거나 지우는 걸 막는다."""
     fixed = dict(extracted or {})
     for key in ("current_mood", "party_purpose", "strength_preference"):
         if key not in fixed:
             continue
         current_val = (current_slots or {}).get(key)
         next_val = fixed.get(key)
-        if current_val in (None, "", "null") or next_val in (None, "", "null") or current_val == next_val:
+        if current_val in (None, "", "null") or current_val == next_val:
             continue
         if _has_correction_signal(user_msg):
             continue
@@ -2868,6 +2867,12 @@ def _run_slot_extraction_pipeline(
 
     extracted = validate_extracted_slots(extracted_raw)
     trace["validated"] = _trace_clone(extracted)
+
+    extracted = _apply_rule_based_slot_guards(history, user_msg, extracted)
+    trace["rule_guarded"] = _trace_clone(extracted)
+
+    extracted = _suppress_unanchored_scalar_overrides(slots, user_msg, extracted)
+    trace["scalar_guarded"] = _trace_clone(extracted)
 
     extracted = _salvage_affirmed_pending_axes(history, slots, user_msg, extracted)
     trace["affirmed_pending_salvaged"] = _trace_clone(extracted)

@@ -637,9 +637,7 @@ def print_final_recommendation(
 
 def main() -> None:
     print("=== LLM 전체 플로우 시뮬레이터 (메모리 only) ===")
-    dialogue_mode = os.getenv("PBA_DIALOGUE_MODE", "").strip().lower() or "default"
-    if os.getenv("PBA_RELAXED_DIALOGUE", "").strip().lower() in {"1", "true", "yes", "on"} and dialogue_mode == "default":
-        dialogue_mode = "relaxed"
+    dialogue_mode = "default"
     print(f"대화 모드: {dialogue_mode}")
     tag_row = ask_initial_tags()
     seeded = _seed_slots_from_initial_tags(tag_row)
