@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Iterable, Literal, Tuple
 
 import torch
 from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-from app.utils.config import QWEN3_EMBED_MODEL, LLM_MODEL
+from app.utils.config import (
+    DIALOGUE_LLM_MODEL,
+    LLM_MODEL,
+    QWEN3_EMBED_MODEL,
+    SLOT_EXTRACTOR_ADAPTER_PATH,
+    SLOT_EXTRACTOR_BACKEND,
+    SLOT_EXTRACTOR_MODEL,
+)
 
 _CACHE: dict[str, Tuple] = {}
 
@@ -62,22 +70,34 @@ def _bnb_8bit_config() -> BitsAndBytesConfig:
     return BitsAndBytesConfig(load_in_8bit=True)
 
 
-def load_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
+def _resolve_adapter_path(adapter_path: str | None) -> str | None:
+    if not adapter_path:
+        return None
+    expanded = str(Path(adapter_path).expanduser())
+    return expanded or None
+
+
+def _load_causal_llm(
+    model_id: str,
+    quantization: Literal["4bit", "8bit", "fp16"] | None = None,
+    adapter_path: str | None = None,
+):
     quant = (quantization or _DEFAULT_QUANT).lower()
-    cache_key = f"{LLM_MODEL}:{quant}"
+    resolved_adapter = _resolve_adapter_path(adapter_path)
+    cache_key = f"{model_id}:{quant}:{resolved_adapter or ''}"
     if cache_key in _CACHE:
         return _CACHE[cache_key]
 
     tokenizer = _load_with_offline_fallback(
         AutoTokenizer.from_pretrained,
-        LLM_MODEL,
+        model_id,
         trust_remote_code=True,
     )
 
     if quant == "4bit":
         model = _load_with_offline_fallback(
             AutoModelForCausalLM.from_pretrained,
-            LLM_MODEL,
+            model_id,
             quantization_config=_bnb_4bit_config(),
             device_map="auto",
             trust_remote_code=True,
@@ -85,7 +105,7 @@ def load_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
     elif quant == "8bit":
         model = _load_with_offline_fallback(
             AutoModelForCausalLM.from_pretrained,
-            LLM_MODEL,
+            model_id,
             quantization_config=_bnb_8bit_config(),
             device_map="auto",
             trust_remote_code=True,
@@ -93,15 +113,44 @@ def load_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
     else:
         model = _load_with_offline_fallback(
             AutoModelForCausalLM.from_pretrained,
-            LLM_MODEL,
+            model_id,
             torch_dtype=torch.float16,
             device_map="auto",
             trust_remote_code=True,
         )
 
+    if resolved_adapter:
+        try:
+            from peft import PeftModel
+        except ImportError as e:
+            raise RuntimeError(
+                "SLOT_EXTRACTOR_ADAPTER_PATH is set but 'peft' is not installed."
+            ) from e
+        model = PeftModel.from_pretrained(model, resolved_adapter)
+
     model.eval()
     _CACHE[cache_key] = (tokenizer, model)
     return tokenizer, model
+
+
+def load_dialogue_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
+    return _load_causal_llm(DIALOGUE_LLM_MODEL, quantization=quantization)
+
+
+def load_slot_extractor_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
+    adapter_path = None
+    if SLOT_EXTRACTOR_BACKEND == "adapter":
+        adapter_path = SLOT_EXTRACTOR_ADAPTER_PATH or None
+    return _load_causal_llm(
+        SLOT_EXTRACTOR_MODEL,
+        quantization=quantization,
+        adapter_path=adapter_path,
+    )
+
+
+def load_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
+    """Legacy alias: current default LLM = dialogue model."""
+    return load_dialogue_llm(quantization=quantization)
 
 
 def _apply_template(tokenizer, messages, add_generation_prompt: bool) -> str:

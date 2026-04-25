@@ -1141,12 +1141,9 @@ def analyze_feedback(
     """
     feedback_text = _sanitize_user_text(feedback_text)
     try:
-        from app.utils.model_loader import load_llm
         import torch
 
-        tokenizer, model = load_llm()
-
-        from app.utils.model_loader import render_chat
+        tokenizer, model, render_chat = _load_dialogue_llm_resources()
         rendered = render_chat(
             tokenizer,
             _FEEDBACK_SYSTEM_PROMPT,
@@ -1921,12 +1918,25 @@ def _build_intensity_choice_prompt(user_msg: str, axis: str, sub: str) -> tuple[
     return system, user
 
 
+def _load_dialogue_llm_resources():
+    from app.utils.model_loader import load_dialogue_llm, render_chat
+
+    tokenizer, model = load_dialogue_llm()
+    return tokenizer, model, render_chat
+
+
+def _load_slot_extractor_resources():
+    from app.utils.model_loader import load_slot_extractor_llm, render_chat
+
+    tokenizer, model = load_slot_extractor_llm()
+    return tokenizer, model, render_chat
+
+
 def _decode_constrained_choice(system_prompt: str, user_prompt: str, choices: tuple[str, ...]) -> Optional[str]:
     try:
-        from app.utils.model_loader import load_llm, render_chat
         import torch
 
-        tokenizer, model = load_llm()
+        tokenizer, model, render_chat = _load_slot_extractor_resources()
         rendered = render_chat(tokenizer, system_prompt, user_prompt)
         inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
         input_len = inputs["input_ids"].shape[-1]
@@ -2602,11 +2612,9 @@ def _build_extract_user_prompt(history: list[dict], user_msg: str) -> str:
 def _extract_slots_llm(history: list[dict], user_msg: str) -> tuple[dict, str]:
     """Pass 1: 슬롯 추출 전용. 반환 = (extracted_slots_raw_dict, raw_text)."""
     try:
-        from app.utils.model_loader import load_llm
         import torch
 
-        tokenizer, model = load_llm()
-        from app.utils.model_loader import render_chat
+        tokenizer, model, render_chat = _load_slot_extractor_resources()
         rendered = render_chat(
             tokenizer,
             _EXTRACT_SYSTEM_PROMPT,
@@ -2900,7 +2908,6 @@ def _analyze_user_turn_relaxed(
     trace: dict[str, Any] = {"mode": "relaxed"}
     user_msg = _sanitize_user_text(user_msg)
     try:
-        from app.utils.model_loader import load_llm, render_chat
         import torch
 
         extracted, extracted_raw, extract_raw_text = _run_slot_extraction_pipeline(
@@ -2927,7 +2934,7 @@ def _analyze_user_turn_relaxed(
                 "trace": trace,
             }
 
-        tokenizer, model = load_llm()
+        tokenizer, model, render_chat = _load_dialogue_llm_resources()
         remaining = max(RELAXED_MAX_USER_TURNS - user_turn_count, 0)
         rendered = render_chat(
             tokenizer,
@@ -3045,7 +3052,6 @@ def analyze_user_turn(
     user_msg = _sanitize_user_text(user_msg)
     trace: dict[str, Any] = {}
     try:
-        from app.utils.model_loader import load_llm
         import torch
 
         # ─── Pass 1 : 슬롯 추출 전용 LLM 호출 ───────────────────────
@@ -3074,10 +3080,9 @@ def analyze_user_turn(
             }
 
         # ─── Pass 2 : reply/action 생성 (추출 결과 주입) ─────────────
-        tokenizer, model = load_llm()
+        tokenizer, model, render_chat = _load_dialogue_llm_resources()
 
         remaining = max(MAX_USER_TURNS - user_turn_count, 0)
-        from app.utils.model_loader import render_chat
         rendered = render_chat(
             tokenizer,
             _BARTENDER_SYSTEM_PROMPT,
