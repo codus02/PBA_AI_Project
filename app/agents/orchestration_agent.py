@@ -58,7 +58,7 @@ AROMA_TO_INGREDIENT = {
 
 STRENGTH_RANGE = {
     "zero": (0.0, 0.0),
-    "light": (0.0, 2.0),
+    "light": (0.0, 2.5),
     "medium": (1.5, 3.5),
     "strong": (3.0, 5.0),
 }
@@ -1154,9 +1154,14 @@ def score_cocktail_breakdown(
 # 5. Top-K 추천
 # ============================================================
 
-RAG_RETRIEVE_N = 20
-RERANK_REASON_POOL_N = 6
+RAG_RETRIEVE_N = 50
+RERANK_REASON_POOL_N = 12
 AROMA_EXPANSION_LIMIT = 8
+
+
+def _use_llm_rerank() -> bool:
+    """LLM rerank 는 기본적으로 끄고 필요할 때만 명시적으로 켠다."""
+    return os.getenv("USE_LLM_RERANK", "false").lower() in ("1", "true", "yes", "on")
 
 
 def _score_survivors(
@@ -1308,21 +1313,22 @@ def recommend_top_k(
         return []
 
     # 4) LLM 은 상위 score 후보에 대한 reason 만 보강
-    rerank_pool_ids = [row["cocktail_id"] for row in scored[:max(k, RERANK_REASON_POOL_N)]]
-    rerank_pool = [id_to_cocktail[cid] for cid in rerank_pool_ids if cid in id_to_cocktail]
     llm_reason_by_id: dict[int, str] = {}
-    reranked = rerank_with_llm(
-        profile,
-        rerank_pool,
-        k=len(rerank_pool),
-        recipe_ingredients=all_ri,
-    )
-    if reranked:
-        llm_reason_by_id = {
-            int(item["cocktail_id"]): str(item["reason"]).strip()
-            for item in reranked
-            if item.get("cocktail_id") and item.get("reason")
-        }
+    if _use_llm_rerank():
+        rerank_pool_ids = [row["cocktail_id"] for row in scored[:max(k, RERANK_REASON_POOL_N)]]
+        rerank_pool = [id_to_cocktail[cid] for cid in rerank_pool_ids if cid in id_to_cocktail]
+        reranked = rerank_with_llm(
+            profile,
+            rerank_pool,
+            k=len(rerank_pool),
+            recipe_ingredients=all_ri,
+        )
+        if reranked:
+            llm_reason_by_id = {
+                int(item["cocktail_id"]): str(item["reason"]).strip()
+                for item in reranked
+                if item.get("cocktail_id") and item.get("reason")
+            }
 
     for row in final_results:
         cid = row["cocktail_id"]

@@ -56,8 +56,7 @@ from app.db.database import SessionLocal
 from scripts._eval_save import save_eval_result, short_model_name
 
 CSV_PATH = Path("data/eval/e2e_recommendation_eval_v2_2_500.csv")
-RAG_RETRIEVE_N = 20
-ENABLE_RERANK_PREVIEW = os.getenv("EVAL_RERANK_PREVIEW", "").lower() in ("1", "true", "yes")
+RAG_RETRIEVE_N = 50
 
 
 # ============================================================
@@ -158,6 +157,7 @@ def _llm_top3(
     diagnostics: dict | None = None,
     gold_cocktails: list | None = None,
     gold_categories: list | None = None,
+    use_rerank: bool = True,
 ) -> list[dict]:
     merged = profile["merged_slots"]
     gold_set = set(gold_cocktails or [])
@@ -259,7 +259,7 @@ def _llm_top3(
         diagnostics["gold_in_score_top3"] = "" if not gold_set else int(any(t["name_kr"] in gold_set for t in score_top3))
         diagnostics["cat_in_score_top3"] = "" if not cat_set else int(any(t["category"] in cat_set for t in score_top3))
 
-    if ENABLE_RERANK_PREVIEW:
+    if use_rerank:
         rerank_pool_ids = [item["cocktail_id"] for item in scored[:max(3, RERANK_REASON_POOL_N)]]
         id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
         rerank_pool = [id_to_cocktail[cid] for cid in rerank_pool_ids if cid in id_to_cocktail]
@@ -332,7 +332,12 @@ def _gold_to_profile(row) -> dict:
 # 메인 루프
 # ============================================================
 
-def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"):
+def run_eval(
+    limit: int | None = None,
+    tag: str | None = None,
+    mode: str = "e2e",
+    use_rerank: bool = True,
+):
     if mode not in ("e2e", "oracle"):
         raise ValueError(f"mode must be 'e2e' or 'oracle', got {mode}")
 
@@ -461,6 +466,7 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
                 diagnostics=diag,
                 gold_cocktails=gold_cocktails,
                 gold_categories=gold_categories,
+                use_rerank=use_rerank,
             )
             rec.update(diag)
 
@@ -538,6 +544,7 @@ def run_eval(limit: int | None = None, tag: str | None = None, mode: str = "e2e"
     _log("\n" + "=" * 60)
     _log(f"E2E EVAL — mode={mode}  total_rows={n}  evaluable={rec_total}  "
          f"unevaluable_skipped={unevaluable_skipped}  ({elapsed:.1f}s, {elapsed/max(n,1):.2f}s/case)")
+    _log(f"  설정                      : rerank={'on' if use_rerank else 'off'}  retrieve_n={RAG_RETRIEVE_N}  rerank_pool={RERANK_REASON_POOL_N}")
     if unevaluable_reasons:
         reasons_fmt = ", ".join(
             f"{k}={v}" for k, v in sorted(unevaluable_reasons.items(), key=lambda x: -x[1])
@@ -623,6 +630,8 @@ if __name__ == "__main__":
                          "이 값은 결과 파일명/메타에만 기록됨.")
     ap.add_argument("--mode", choices=["e2e", "oracle"], default="e2e",
                     help="e2e=user_text→LLM→추천 / oracle=gold 슬롯 직접 주입→추천 (추천 로직 천장)")
+    ap.add_argument("--no-rerank", action="store_true",
+                    help="LLM rerank preview/보강 없이 score 기반 추천만 사용")
     args = ap.parse_args()
 
     # --model 은 라벨 전용. 실제 모델과 라벨이 어긋나면 치명적이므로 경고.
@@ -635,7 +644,12 @@ if __name__ == "__main__":
         )
         time.sleep(5)
 
-    result = run_eval(limit=args.limit, tag=args.tag, mode=args.mode)
+    result = run_eval(
+        limit=args.limit,
+        tag=args.tag,
+        mode=args.mode,
+        use_rerank=not args.no_rerank,
+    )
     if args.tag:
         summary_lines = result.pop("_summary_lines", [])
         json_path, txt_path = save_eval_result(

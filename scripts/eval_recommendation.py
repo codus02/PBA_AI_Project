@@ -28,9 +28,8 @@ from app.agents.orchestration_agent import (
 )
 from scripts._eval_save import save_eval_result, short_model_name
 
-RAG_RETRIEVE_N = 20
+RAG_RETRIEVE_N = 50
 CSV_PATH = Path("data/eval/recommendation_eval_v2_500.csv")
-ENABLE_RERANK_PREVIEW = os.getenv("EVAL_RERANK_PREVIEW", "").lower() in ("1", "true", "yes")
 
 
 def _parse_list(val):
@@ -92,6 +91,7 @@ def _llm_top3(
     profile: dict,
     all_ri: dict,
     available_ids,
+    use_rerank: bool = True,
 ) -> list[dict]:
     merged = profile["merged_slots"]
 
@@ -138,7 +138,7 @@ def _llm_top3(
         })
 
     scored.sort(key=lambda x: x["score"], reverse=True)
-    if ENABLE_RERANK_PREVIEW:
+    if use_rerank:
         survivor_cocktails = [c for c, _ in survivors]
         rerank_pool_ids = [item["cocktail_id"] for item in scored[:max(3, RERANK_REASON_POOL_N)]]
         id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
@@ -152,7 +152,11 @@ def _llm_top3(
     return scored[:3]
 
 
-def eval_recommendation(limit: int | None = None, tag: str | None = None):
+def eval_recommendation(
+    limit: int | None = None,
+    tag: str | None = None,
+    use_rerank: bool = True,
+):
     df = pd.read_csv(CSV_PATH)
     if limit:
         df = df.head(limit)
@@ -179,7 +183,7 @@ def eval_recommendation(limit: int | None = None, tag: str | None = None):
                 continue
 
             profile = _make_mock_profile(row)
-            top3 = _llm_top3(db, profile, all_ri, available_ids)
+            top3 = _llm_top3(db, profile, all_ri, available_ids, use_rerank=use_rerank)
             case_id = row.get("case_id", i)
 
             if not top3:
@@ -239,6 +243,7 @@ def eval_recommendation(limit: int | None = None, tag: str | None = None):
         lines.append(msg)
 
     _log(f"\n[LLM 추천 적합도 평가] 총 {total}건")
+    _log(f"  설정:                    rerank={'on' if use_rerank else 'off'}  retrieve_n={RAG_RETRIEVE_N}  rerank_pool={RERANK_REASON_POOL_N}")
     _log(f"  Hit@1  (top1 정답 포함): {hit_k1}/{total} = {hit_k1/denom*100:.1f}%")
     _log(f"  Hit@3  (top3 정답 포함): {hit_k3}/{total} = {hit_k3/denom*100:.1f}%")
     _log(f"  카테고리 Hit@3:           {cat_hit}/{total} = {cat_hit/denom*100:.1f}%")
@@ -274,9 +279,11 @@ if __name__ == "__main__":
                     help="저장 라벨. 지정 시 eval_results/summary/rec/{model}_rec_{tag}_{stamp}.{json,txt} 저장.")
     ap.add_argument("--model", type=str, default=None,
                     help="결과 메타에 기록할 모델명 (미지정 시 env LLM_MODEL)")
+    ap.add_argument("--no-rerank", action="store_true",
+                    help="LLM rerank preview/보강 없이 score 기반 추천만 사용")
     args = ap.parse_args()
 
-    result = eval_recommendation(limit=args.limit, tag=args.tag)
+    result = eval_recommendation(limit=args.limit, tag=args.tag, use_rerank=not args.no_rerank)
     if args.tag:
         summary_lines = result.pop("_summary_lines", [])
         json_path, txt_path = save_eval_result(
