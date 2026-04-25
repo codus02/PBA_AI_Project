@@ -60,8 +60,12 @@ def _fmt_slots(row) -> str:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("csv", type=Path)
-    ap.add_argument("--only", choices=["labeled_miss", "cat_miss", "no_candidate", "all"],
-                    default="all")
+    ap.add_argument(
+        "--only",
+        choices=["labeled_miss", "hit1_miss", "cat_miss", "no_candidate", "all"],
+        default="all",
+        help="hit1_miss = 정답이 top3 에 있지만 #1 이 아닌 케이스 (랭킹 순위 문제)",
+    )
     ap.add_argument("--max", type=int, default=None, help="케이스 최대 출력 개수")
     args = ap.parse_args()
 
@@ -87,13 +91,15 @@ def main():
 
     labeled = df[df["has_exact_gold_i"] == 1]
     labeled_miss = labeled[labeled["hit_3_i"] == 0]
+    # Hit@1 only miss = 정답이 top3 안에는 있지만 #1 이 아닌 케이스 (순위 문제만 격리).
+    hit1_miss = labeled[(labeled["hit_3_i"] == 1) & (labeled["hit_1_i"] == 0)]
     cat_miss = df[(df["cat_hit_3_i"] == 0) & df["cat_hit_3"].notna() & (df["cat_hit_3"] != "")]
     no_cand = df[df["no_candidate_i"] == 1]
 
     print("=" * 70)
     print(f"per-item CSV: {args.csv}")
     print(f"total={n}  labeled={len(labeled)}  labeled_miss={len(labeled_miss)}  "
-          f"cat_miss={len(cat_miss)}  no_candidate={len(no_cand)}")
+          f"hit1_miss={len(hit1_miss)}  cat_miss={len(cat_miss)}  no_candidate={len(no_cand)}")
     print("=" * 70)
 
     def _dump(title, rows, max_n=None):
@@ -142,7 +148,9 @@ def main():
                     print(f"    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍")
 
     if args.only in ("labeled_miss", "all"):
-        _dump("Labeled miss (hit_3=0)", labeled_miss, args.max)
+        _dump("Labeled miss (hit_3=0) — 정답이 top3 에 아예 없음", labeled_miss, args.max)
+    if args.only in ("hit1_miss", "all"):
+        _dump("Hit@1 only miss (top3 안에 있지만 #1 아님) — 순위 문제", hit1_miss, args.max)
     if args.only in ("cat_miss", "all"):
         _dump("Category miss (cat_hit_3=0)", cat_miss, args.max)
     if args.only in ("no_candidate", "all"):

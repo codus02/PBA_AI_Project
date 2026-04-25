@@ -1019,16 +1019,19 @@ def score_cocktail_breakdown(
     aroma_agg = _aggregate_aroma_from_ingredients(recipe_ingredients)
     cocktail_strength = _get_cocktail_strength_value(cocktail)
 
-    # 1. 벡터 유사도
+    # 1. 벡터 유사도 — 가중치 절반 (총 ~89 → ~44).
+    # 이전엔 vector_similarity 가 dominant 라 시트러스/사워 평균값 칵테일이
+    # 항상 1등 차지하던 문제. 절반으로 줄여 taste/aroma intensity 매칭과
+    # mood/context 신호가 ranking 에 더 영향 주도록.
     pairs = [
-        (vector.sweetness_score, cocktail.sweet_level, 4.0, 20),
-        (vector.sourness_score, cocktail.sour_level, 4.0, 15),
-        (vector.bitterness_score, cocktail.bitter_level, 4.0, 10),
-        (vector.freshness_score, cocktail.freshness_level, 4.0, 10),
-        (vector.body_score, cocktail.body_level, 4.0, 8),
-        (vector.herbal_score, aroma_agg.get("herbal"), 3.0, 8),
-        (vector.citrus_score, aroma_agg.get("citrus"), 3.0, 8),
-        (vector.alcohol_score, cocktail_strength, 5.0, 10),
+        (vector.sweetness_score, cocktail.sweet_level, 4.0, 10),
+        (vector.sourness_score, cocktail.sour_level, 4.0, 8),
+        (vector.bitterness_score, cocktail.bitter_level, 4.0, 5),
+        (vector.freshness_score, cocktail.freshness_level, 4.0, 5),
+        (vector.body_score, cocktail.body_level, 4.0, 4),
+        (vector.herbal_score, aroma_agg.get("herbal"), 3.0, 4),
+        (vector.citrus_score, aroma_agg.get("citrus"), 3.0, 4),
+        (vector.alcohol_score, cocktail_strength, 5.0, 5),
     ]
     for user_s, cocktail_s, max_r, weight in pairs:
         if cocktail_s is None:
@@ -1037,7 +1040,11 @@ def score_cocktail_breakdown(
         score += component
         breakdown["vector_similarity"] += component
 
-    # 2. 맛 프로파일 (intensity 가중) — 축별 동적 threshold 사용
+    # 2. 맛 프로파일 (intensity 가중) — 축별 동적 threshold 사용.
+    # 가중치 강화: 벡터 유사도 절반 줄였으니 명시적 슬롯 매칭이 ranking 의 주신호.
+    # H1+H2: (10/-12, 5, 1/-4) → (18/-18, 8, 3/-8).
+    # H3B: medium 8→4. high 시그니처가 medium 누적에 침몰되는 문제 완화.
+    # H4: high 18→22, miss -18→-22. 시그니처 보상 절대값 키워 범용 칵테일 누름.
     taste_profile: dict = merged.get("taste_profile") or {}
     axis_thresholds = _compute_axis_thresholds()
     for tag, intensity in taste_profile.items():
@@ -1052,27 +1059,29 @@ def score_cocktail_breakdown(
         component = 0.0
         if intensity == "high":
             if val >= thr["high"]:
-                component += 10
+                component += 22
             elif val <= thr["low_max"]:
-                component -= 12
+                component -= 22
         elif intensity == "medium":
             if val >= thr["medium"]:
-                component += 5
+                component += 4
         elif intensity == "low":
             # 약하게 선호 → 은은하면 좋지만, 강하게 두드러지면 오히려 감점.
             if val <= thr["low_max"]:
-                component += 1
+                component += 3
             elif val >= thr["high"]:
-                component -= 4
+                component -= 8
         elif intensity == INTENSITY_PENDING:
             # 초기 태그에서 고른 "관심 축" → medium 가중의 절반으로 반영.
             # 사용자가 이 축을 고른 건 "여긴 취향 있는 축" 이라는 soft 신호.
             if val >= thr["medium"]:
-                component += 2.5
+                component += 4
         score += component
         breakdown["taste_profile"] += component
 
-    # 3. 향 프로파일 (explicit slot 가중 강화)
+    # 3. 향 프로파일 — 가중치 강화. H1+H2: (12/-8, 4, 2/-6, -12) → (20/-14, 7, 4/-10, -18).
+    # H3B: medium 7→4. medium 향 다발이 high 시그니처를 누르는 문제 완화.
+    # H4: high 20→25, miss -14→-18. 시그니처 향 보상 절대값 키움.
     aroma_profile: dict = merged.get("aroma_profile") or {}
     for tag, intensity in aroma_profile.items():
         val = float(aroma_agg.get(tag, 0.0) or 0.0)
@@ -1080,9 +1089,9 @@ def score_cocktail_breakdown(
         component = 0.0
         if intensity == "high":
             if val >= thresh:
-                component += 12
+                component += 25
             else:
-                component -= 8
+                component -= 18
         elif intensity == "medium":
             medium_thr = max(2.0, thresh - 0.5)
             if val >= medium_thr:
@@ -1090,17 +1099,17 @@ def score_cocktail_breakdown(
         elif intensity == "low":
             low_ok_max = max(1.5, thresh - 0.5)
             if val <= low_ok_max:
-                component += 2
+                component += 4
             elif val >= thresh:
-                component -= 6
+                component -= 10
         elif intensity == "zero":
             if val >= thresh:
-                component -= 12
+                component -= 18
         elif intensity == INTENSITY_PENDING:
             # 초기 태그의 향 관심 축 → medium 의 절반 가중.
             medium_thr = max(2.0, thresh - 0.5)
             if val >= medium_thr:
-                component += 2
+                component += 3
         score += component
         breakdown["aroma_profile"] += component
 
@@ -1131,16 +1140,18 @@ def score_cocktail_breakdown(
             component += 4
         else:
             component -= 4
+        # H5: strength dev 가중 ±15/±8 → ±10/±5. 정글버드(medium) 같은
+        # 만능 strength 매칭 칵테일 어드밴티지 줄여 #1 다툼 차별화.
         if dev <= 0.5:
-            component += 15
+            component += 10
         elif dev <= 1.0:
-            component += 8
+            component += 5
         elif dev <= 1.5:
             component += 0
         elif dev <= 2.0:
-            component -= 8
+            component -= 5
         else:
-            component -= 15
+            component -= 10
         score += component
         breakdown["strength"] += component
 

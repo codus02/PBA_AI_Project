@@ -653,7 +653,7 @@ if __name__ == "__main__":
     if args.tag:
         summary_lines = result.pop("_summary_lines", [])
         json_path, txt_path = save_eval_result(
-            kind="e2e",
+            kind="final",
             tag=args.tag,
             limit=args.limit,
             payload=result,

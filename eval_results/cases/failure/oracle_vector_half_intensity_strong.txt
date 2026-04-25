@@ -1,0 +1,1839 @@
+======================================================================
+per-item CSV: eval_results/cases/e2e/gemma_e2e_oracle_vector_half_intensity_strong_20260425_1806.csv
+total=467  labeled=382  labeled_miss=67  cat_miss=67  no_candidate=0
+======================================================================
+
+### Labeled miss (hit_3=0)  (n=67)
+
+  [case 19] mode=oracle
+    user_text : 우디한 향이 분명했으면 좋겠어요 민트감은 은은하면 돼! 기분은 보통이에. 부드러운 질감이 살짝 있으면 좋겠어요.
+    gold_slots: current_mood=soso  taste={'creamy': 'medium'}  aroma={'woody': 'high', 'minty': 'medium'}
+    gold_ck   : ['좀비', '페니실린', '정글 버드']
+    gold_cat  : ['시트러스 사워', '티키/트로피컬']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '파라다이스', '스프리츠', '미모사']...
+    survivors : ['키르', '사우스사이드', '파라다이스', '스프리츠', '미모사']...
+    score_top3: ['일레갈', '위스키 사워', '올드 쿠반']
+    top3_name : ['일레갈', '위스키 사워', '올드 쿠반']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 30] mode=oracle
+    user_text : 크리미한 느낌은 거의 없었으면 해요 산미가 또렷한 쪽이 좋아요 오늘은 기분이 좋은 편이에요. 허벌한 느낌은 은은하면 돼요 시트러스 느낌은 적당하
+    gold_slots: current_mood=good  party_purpose=date  strength_preference=light  taste={'creamy': 'low', 'sour': 'high'}  aroma={'herbal': 'medium', 'citrus': 'medium'}
+    gold_ck   : ['콥스 리바이버 No.2', '러시안 스프링 펀치', '다이키리']
+    gold_cat  : ['비터/허벌', '스파클링', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '파라다이스', '스프리츠', '사이드카']...
+    survivors : ['키르', '사우스사이드', '파라다이스', '스프리츠', '사이드카']...
+    score_top3: ['페이퍼 플레인', '네이키드 앤 페이머스', '시 브리즈']
+    top3_name : ['페이퍼 플레인', '네이키드 앤 페이머스', '시 브리즈']
+    top3_cat  : ['비터/허벌', '비터/허벌', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 32] mode=oracle
+    user_text : 도수는 중간 정도면 좋겠어요 조금 다운된 상태예요. 미팅 겸 한잔할 거예요 민트 향이 확실했으면 좋겠어요 꽃향은 약했으면 좋겠어요.
+    gold_slots: current_mood=bad  party_purpose=business  strength_preference=medium  aroma={'floral': 'low', 'minty': 'high'}
+    gold_ck   : ['올드 쿠반', '사우스사이드', '미셔너리즈 다운폴']
+    gold_cat  : ['리프레싱 하이볼', '스파클링', '시트러스 사워', '티키/트로피컬']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '스팅어', '라스트 워드', '파라다이스', '마티니']...
+    survivors : ['키르', '스팅어', '라스트 워드', '파라다이스', '마티니']...
+    score_top3: ['페르난디토', '그래스호퍼', '민트 줄렙']
+    top3_name : ['페르난디토', '그래스호퍼', '민트 줄렙']
+    top3_cat  : ['비터/허벌', '크리미', '클래식']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 46] mode=oracle
+    user_text : 크리미한 느낌은 적당하면 좋겠어요 바디감은 중간 정도면 돼. 오늘은 혼술용으로 보고 있어.
+    gold_slots: party_purpose=solo  taste={'creamy': 'medium', 'body': 'medium'}
+    gold_ck   : ['정글 버드', '브랜디 크러스타', '일레갈']
+    gold_cat  : ['시트러스 사워', '티키/트로피컬']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '스프리츠', '미모사', '사우스사이드']...
+    survivors : ['키르', '파라다이스', '스프리츠', '미모사', '사우스사이드']...
+    score_top3: ['위스키 사워', '스파이시 피프티', '피나 콜라다']
+    top3_name : ['위스키 사워', '스파이시 피프티', '피나 콜라다']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '크리미']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 54] mode=oracle
+    user_text : 시트러스 느낌은 적당하면 돼요. 부드러운 질감이 살짝 있으면 좋겠어.
+    gold_slots: taste={'creamy': 'medium'}  aroma={'citrus': 'medium'}
+    gold_ck   : ['정글 버드', '브랜디 크러스타', '카지노']
+    gold_cat  : ['시트러스 사워', '티키/트로피컬']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['브랜디 크러스타', '스프리츠', '시 브리즈', '키르', '스팅어']...
+    survivors : ['브랜디 크러스타', '스프리츠', '시 브리즈', '키르', '스팅어']...
+    score_top3: ['일레갈', '클로버 클럽', '위스키 사워']
+    top3_name : ['일레갈', '클로버 클럽', '위스키 사워']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 56] mode=oracle
+    user_text : 플로럴한 느낌은 은은하면 돼! 보드카 베이스만 아니면 좋겠어요. 오늘은 혼술용으로 보고 있어요. 그냥 무난한 기분이에.
+    gold_slots: current_mood=soso  party_purpose=solo  aroma={'floral': 'medium'}  bases!=['vodka']
+    gold_ck   : ['라스트 워드', '샤르트뢰즈 스위즐', '콥스 리바이버 No.2']
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스프리츠', '파라다이스', '스팅어']...
+    survivors : ['키르', '미모사', '스프리츠', '파라다이스', '스팅어']...
+    score_top3: ['카지노', '클로버 클럽', '피스코 펀치']
+    top3_name : ['카지노', '클로버 클럽', '피스코 펀치']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 59] mode=oracle
+    user_text : 산뜻한 느낌은 강하지 않아도 돼요 쓴맛이 또렷했으면 좋겠어요 바디감이 묵직했으면 좋겠어요 기분 좋게 한잔하고 싶어요 커피 느낌은 은은하면 돼요 
+    gold_slots: current_mood=good  taste={'bitter': 'high', 'body': 'high', 'freshness': 'low'}  aroma={'minty': 'medium', 'coffee': 'medium', 'herbal': 'high'}
+    gold_ck   : ['사제락', '러스티 네일']
+    gold_cat  : ['비터/허벌', '스피릿포워드']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '사우스사이드', '스팅어', '스프리츠']...
+    survivors : ['키르', '미모사', '사우스사이드', '스팅어', '스프리츠']...
+    score_top3: ['카지노', '트리니다드 사워', '정글 버드']
+    top3_name : ['카지노', '트리니다드 사워', '정글 버드']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 64] mode=oracle
+    user_text : 럼이랑 위스키 쪽은 안 들어갔으면 좋겠어요 신맛은 중간 정도면 돼요 씁쓸한 느낌은 약했으면 해요 딱히 업다운 없는 상태예요. 오늘은 혼술용으로 
+    gold_slots: current_mood=soso  party_purpose=solo  strength_preference=light  taste={'bitter': 'low', 'sour': 'medium'}  aroma={'minty': 'low'}  bases!=['rum', 'whiskey']
+    gold_ck   : ['러시안 스프링 펀치', '진 피즈', 'IBA Tiki']
+    gold_cat  : ['리프레싱 하이볼', '스파클링', '티키/트로피컬']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스팅어', '사우스사이드', '스프리츠']...
+    survivors : ['키르', '미모사', '스팅어', '사우스사이드', '스프리츠']...
+    score_top3: ['블러디 메리', '시 브리즈', '토미스 마가리타']
+    top3_name : ['블러디 메리', '시 브리즈', '토미스 마가리타']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 71] mode=oracle
+    user_text : 기념할 일이 있어서. 신맛이 확실했으면 좋겠어요 산뜻한 느낌이 강했으면 좋겠어. 셰리 코블러 쪽을 좋아해. 가볍게 마실 수 있으면 좋겠어! 오늘
+    gold_slots: current_mood=bad  party_purpose=celebration  strength_preference=light  taste={'freshness': 'high', 'sour': 'high'}
+    gold_ck   : ['러시안 스프링 펀치', '팔로마', '코스모폴리탄']
+    gold_cat  : ['리프레싱 하이볼', '스파클링', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '라스트 워드', '스프리츠', '사제락']...
+    survivors : ['키르', '미모사', '라스트 워드', '스프리츠', '사제락']...
+    score_top3: ['시 브리즈', '비스 니즈', '사우스사이드']
+    top3_name : ['시 브리즈', '비스 니즈', '사우스사이드']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 85] mode=oracle
+    user_text : 적당한 도수로 맞추고 싶어요 꽃향은 약했으면 좋겠어요 민트감은 강하지 않았으면 해요 데킬라 베이스는 빼고 싶어요 많이 달지 않았으면 해요 산뜻한
+    gold_slots: current_mood=bad  party_purpose=hangout  strength_preference=medium  taste={'freshness': 'low', 'sweet': 'low'}  aroma={'floral': 'low', 'minty': 'low'}  bases!=['tequila']
+    gold_ck   : ['카지노', '콥스 리바이버 No.2', '가리발디']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스프리츠', '스팅어', '카지노']...
+    survivors : ['키르', '미모사', '스프리츠', '스팅어', '카지노']...
+    score_top3: ['위스키 사워', '프렌치 마티니', '프렌치 커넥션']
+    top3_name : ['위스키 사워', '프렌치 마티니', '프렌치 커넥션']
+    top3_cat  : ['시트러스 사워', '과일계', '스피릿포워드']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 90] mode=oracle
+    user_text : 기분은 보통이에요 산뜻한 느낌은 강하지 않아도 돼요 씁쓸한 포인트가 분명했으면 해요. 진한 느낌으로 가도 괜찮아요 축하하는 자리에서 마실 거예요
+    gold_slots: current_mood=soso  party_purpose=celebration  strength_preference=strong  taste={'freshness': 'low', 'bitter': 'high'}  aroma={'woody': 'low', 'coffee': 'medium'}
+    gold_ck   : ['네그로니']
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '라스트 워드', '미모사', '스프리츠']...
+    survivors : ['키르', '사우스사이드', '라스트 워드', '미모사', '스프리츠']...
+    score_top3: ['올드 패션드', '사제락', '브랜디 크러스타']
+    top3_name : ['올드 패션드', '사제락', '브랜디 크러스타']
+    top3_cat  : ['스피릿포워드', '비터/허벌', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 98] mode=oracle
+    user_text : 가볍게 어울리는 자리예요. 딱히 업다운 없는 상태예요. 적당한 도수로 맞추고 싶어! 과일 향은 적당하면 좋겠어요 시트러스 향은 강하지 않게! 무
+    gold_slots: current_mood=soso  party_purpose=hangout  strength_preference=medium  taste={'body': 'high'}  aroma={'fruity': 'medium', 'citrus': 'low'}  bases!=['rum', 'whiskey']
+    gold_ck   : ['프렌치 커넥션', '그래스호퍼', '알렉산더']
+    gold_cat  : ['스피릿포워드', '크리미']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '미모사', '스프리츠', '카지노']...
+    survivors : ['키르', '사우스사이드', '미모사', '스프리츠', '카지노']...
+    score_top3: ['카지노', '스팅어', '포르노스타 마티니']
+    top3_name : ['카지노', '스팅어', '포르노스타 마티니']
+    top3_cat  : ['시트러스 사워', '스피릿포워드', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 104] mode=oracle
+    user_text : 도수는 중간 정도면 좋겠어요 오늘은 좀 들뜬 편이에요. 혼자 조용히 한잔할 생각이에요 많이 달지 않았으면 해요 과일 향은 적당하면 좋겠어요.
+    gold_slots: current_mood=good  party_purpose=solo  strength_preference=medium  taste={'sweet': 'low'}  aroma={'fruity': 'medium'}
+    gold_ck   : ['샤르트뢰즈 스위즐', '카지노', '섹스 온 더 비치']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '파라다이스', '사우스사이드', '스프리츠']...
+    survivors : ['키르', '미모사', '파라다이스', '사우스사이드', '스프리츠']...
+    score_top3: ['그랑 마가리타', '마가리타', '애비에이션']
+    top3_name : ['그랑 마가리타', '마가리타', '애비에이션']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 106] mode=oracle
+    user_text : 꽃향이 확실했으면 좋겠어요 기운이 떨어져 있어서요 청량감은 높지 않았으면 좋겠어요 데이트 자리에서 마실 거예요요.
+    gold_slots: current_mood=bad  party_purpose=date  taste={'freshness': 'low'}  aroma={'floral': 'high'}
+    gold_ck   : ['라스트 워드', '라모스 피즈', '스파이시 피프티']
+    gold_cat  : ['비터/허벌', '시트러스 사워', '크리미']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '미모사', '사이드카', '페이퍼 플레인']...
+    survivors : ['키르', '파라다이스', '미모사', '사이드카', '페이퍼 플레인']...
+    score_top3: ['카지노', '돈스 스페셜 다이키리', 'IBA Tiki']
+    top3_name : ['카지노', '돈스 스페셜 다이키리', 'IBA Tiki']
+    top3_cat  : ['시트러스 사워', '티키/트로피컬', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 109] mode=oracle
+    user_text : 혼자 천천히 마시려고요. 가볍게 마실 수 있으면 좋겠어! 특별한 건 없고 담담해. 우디한 향은 적당하면 좋겠어! 씁쓸한 느낌은 약했으면 해요 바
+    gold_slots: current_mood=soso  party_purpose=solo  strength_preference=light  taste={'bitter': 'low', 'body': 'low', 'freshness': 'medium'}  aroma={'woody': 'medium'}
+    gold_ck   : ['러시안 스프링 펀치', '진 피즈', '모히토']
+    gold_cat  : ['리프레싱 하이볼', '스파클링']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '사우스사이드', '라스트 워드', '스프리츠']...
+    survivors : ['키르', '미모사', '사우스사이드', '라스트 워드', '스프리츠']...
+    score_top3: ['미셔너리즈 다운폴', '미모사', '프렌치 75']
+    top3_name : ['미셔너리즈 다운폴', '미모사', '프렌치 75']
+    top3_cat  : ['티키/트로피컬', '스파클링', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 118] mode=oracle
+    user_text : 특별한 건 없고 담담해. 커피 향은 적당하면 좋겠어! 일 이야기하면서 마실 예정이에. 단맛은 약했으면 좋겠어요 신맛은 약했으면 좋겠어. 도수는 
+    gold_slots: current_mood=soso  party_purpose=business  strength_preference=medium  taste={'sour': 'low', 'sweet': 'low'}  aroma={'coffee': 'medium'}
+    gold_ck   : ['샤르트뢰즈 스위즐', '카지노', '라스트 워드']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '스프리츠', '라스트 워드', '사우스사이드', '미모사']...
+    survivors : ['키르', '스프리츠', '라스트 워드', '사우스사이드', '미모사']...
+    score_top3: ['스프리츠', '애비에이션', '불바디에']
+    top3_name : ['스프리츠', '애비에이션', '불바디에']
+    top3_cat  : ['스파클링', '시트러스 사워', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 125] mode=oracle
+    user_text : 도수는 중간 정도면 좋겠어요. 허벌한 느낌은 은은하면 돼요 나무 향은 은은하면 돼. 축하하는 자리에서 마실 거예요. 행키팽키 같은 스타일을 좋아
+    gold_slots: current_mood=bad  party_purpose=celebration  strength_preference=medium  taste={'freshness': 'low'}  aroma={'herbal': 'medium', 'woody': 'medium'}
+    gold_ck   : ['카지노', '콥스 리바이버 No.2', '싱가폴 슬링']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사제락', '미모사', '라스트 워드', '사우스사이드']...
+    survivors : ['키르', '사제락', '미모사', '라스트 워드', '사우스사이드']...
+    score_top3: ['트리니다드 사워', '쓰리 닷츠 앳 어 대시', '러스티 네일']
+    top3_name : ['트리니다드 사워', '쓰리 닷츠 앳 어 대시', '러스티 네일']
+    top3_cat  : ['시트러스 사워', '티키/트로피컬', '스피릿포워드']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 156] mode=oracle
+    user_text : 보드카 베이스만 아니면 좋겠어요 크리미한 느낌이 진했으면 좋겠어요 세지 않은 쪽이면 좋겠어요. 편하게 모여서 마시려고요 허브 향이 분명했으면 좋
+    gold_slots: current_mood=bad  party_purpose=hangout  strength_preference=light  taste={'creamy': 'high'}  aroma={'fruity': 'medium', 'herbal': 'high'}  bases!=['vodka']
+    gold_ck   : ['그래스호퍼']
+    gold_cat  : ['크리미']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스프리츠', '파라다이스', '사우스사이드']...
+    survivors : ['키르', '미모사', '스프리츠', '파라다이스', '사우스사이드']...
+    score_top3: ['클로버 클럽', '사우스사이드', '정글 버드']
+    top3_name : ['클로버 클럽', '사우스사이드', '정글 버드']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 157] mode=oracle
+    user_text : 부담 없는 도수면 돼요 무게감은 낮은 쪽이면 좋겠어요 허브 향이 분명했으면 좋겠어요 플로럴한 느낌은 은은하면 돼요 커피 느낌은 은은하면 돼요 업
+    gold_slots: party_purpose=business  strength_preference=light  taste={'body': 'low'}  aroma={'coffee': 'medium', 'herbal': 'high', 'floral': 'medium'}
+    gold_ck   : ['콥스 리바이버 No.2', '싱가폴 슬링', '정글 버드']
+    gold_cat  : ['비터/허벌', '시트러스 사워', '티키/트로피컬']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['불바디에', '키르', '라스트 워드', '사우스사이드', '스프리츠']...
+    survivors : ['불바디에', '키르', '라스트 워드', '사우스사이드', '스프리츠']...
+    score_top3: ['진 피즈', '샴페인 칵테일', '아메리카노']
+    top3_name : ['진 피즈', '샴페인 칵테일', '아메리카노']
+    top3_cat  : ['리프레싱 하이볼', '스파클링', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 165] mode=oracle
+    user_text : 부드러운 질감이 살짝 있으면 좋겠어요 바디감이 묵직했으면 좋겠어요 단맛은 과하지 않게 적당하면 좋겠어요 부담 없이 균형 잡힌 도수면 좋겠어요 꽃
+    gold_slots: party_purpose=hangout  strength_preference=medium  taste={'body': 'high', 'sweet': 'medium', 'creamy': 'medium'}  aroma={'floral': 'low'}
+    gold_ck   : ['러스티 네일', '그래스호퍼', '프렌치 커넥션']
+    gold_cat  : ['스피릿포워드', '크리미']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '스프리츠', '미모사', '파라다이스', '사우스사이드']...
+    survivors : ['키르', '스프리츠', '미모사', '파라다이스', '사우스사이드']...
+    score_top3: ['트리니다드 사워', '피나 콜라다', '정글 버드']
+    top3_name : ['트리니다드 사워', '피나 콜라다', '정글 버드']
+    top3_cat  : ['시트러스 사워', '크리미', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 168] mode=oracle
+    user_text : 세지 않은 쪽이면 좋겠어요 취향으로는 가리발디가 잘 맞아요 컨디션이 썩 좋진 않아요 쓴맛은 적당히 있으면 좋겠어요 단맛이 확실히 느껴졌으면 좋겠
+    gold_slots: current_mood=bad  party_purpose=celebration  strength_preference=light  taste={'sweet': 'high', 'bitter': 'medium'}  aroma={'minty': 'medium', 'floral': 'medium'}  bases!=['rum']
+    gold_ck   : ['포르노스타 마티니', '데킬라 선라이즈', '싱가폴 슬링']
+    gold_cat  : ['과일계', '스파클링', '시트러스 사워']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '라스트 워드', '미모사', '스팅어', '스프리츠']...
+    survivors : ['키르', '라스트 워드', '미모사', '스팅어', '스프리츠']...
+    score_top3: ['몽키 글랜드', '페르난디토', '트리니다드 사워']
+    top3_name : ['몽키 글랜드', '페르난디토', '트리니다드 사워']
+    top3_cat  : ['비터/허벌', '비터/허벌', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 175] mode=oracle
+    user_text : 꽃향은 약했으면 좋겠어요 무게감 있는 쪽이 좋아요 데킬라 쪽은 안 들어갔으면 좋겠어요. 오늘은 혼술용으로 보고 있어요 좀 처진 느낌이에요 세지 
+    gold_slots: current_mood=bad  party_purpose=solo  strength_preference=light  taste={'body': 'high'}  aroma={'floral': 'low'}  bases!=['tequila']
+    gold_ck   : ['아이리시 커피', '러스티 네일', '프렌치 커넥션']
+    gold_cat  : ['스피릿포워드', '크리미']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '스팅어', '라스트 워드', '미모사']...
+    survivors : ['키르', '파라다이스', '스팅어', '라스트 워드', '미모사']...
+    score_top3: ['정글 버드', '피나 콜라다', '트리니다드 사워']
+    top3_name : ['정글 버드', '피나 콜라다', '트리니다드 사워']
+    top3_cat  : ['티키/트로피컬', '크리미', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 194] mode=oracle
+    user_text : 기분은 보통이에! 허벌한 느낌은 강하지 않았으면 해요 우디한 향은 적당하면 좋겠어! 편하게 모여서 마시려고요. 세지 않은 쪽이면 좋겠어.
+    gold_slots: current_mood=soso  party_purpose=hangout  strength_preference=light  aroma={'woody': 'medium', 'herbal': 'low'}
+    gold_ck   : ['러시안 스프링 펀치', '포르노스타 마티니', '데킬라 선라이즈']
+    gold_cat  : ['과일계', '스파클링']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '스프리츠', '미모사', '스팅어']...
+    survivors : ['키르', '사우스사이드', '스프리츠', '미모사', '스팅어']...
+    score_top3: ['IBA Tiki', '아이리시 커피', '정글 버드']
+    top3_name : ['IBA Tiki', '아이리시 커피', '정글 버드']
+    top3_cat  : ['티키/트로피컬', '크리미', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 195] mode=oracle
+    user_text : 오늘은 좀 지쳐 있어요 편하게 모여서 마시려고요. 스파이시 피프티 쪽을 좋아해요 바디감이 묵직했으면 좋겠어요 크리미한 느낌은 거의 없었으면 해요
+    gold_slots: current_mood=bad  party_purpose=hangout  taste={'creamy': 'low', 'body': 'high'}  aroma={'coffee': 'low', 'herbal': 'medium'}
+    gold_ck   : ['사제락', '올드 패션드', '러스티 네일']
+    gold_cat  : ['비터/허벌', '스피릿포워드']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['스프리츠', '키르', '미모사', '스팅어', '사우스사이드']...
+    survivors : ['스프리츠', '키르', '미모사', '스팅어', '사우스사이드']...
+    score_top3: ['정글 버드', '브랜디 크러스타', '카지노']
+    top3_name : ['정글 버드', '브랜디 크러스타', '카지노']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 203] mode=oracle
+    user_text : 적당한 도수로 맞추고 싶어요 그냥 무난한 기분이에요 지인들이랑 수다 떨면서 마실 거예요 산뜻함은 중간 정도면 돼요 과일 향은 적당하면 좋겠어요 
+    gold_slots: current_mood=soso  party_purpose=hangout  strength_preference=medium  taste={'freshness': 'medium'}  aroma={'citrus': 'low', 'floral': 'high', 'fruity': 'medium'}
+    gold_ck   : ['티퍼러리']
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스프리츠', '카지노', '스팅어']...
+    survivors : ['키르', '미모사', '스프리츠', '카지노', '스팅어']...
+    score_top3: ['벨리니', '샤르트뢰즈 스위즐', '싱가폴 슬링']
+    top3_name : ['벨리니', '샤르트뢰즈 스위즐', '싱가폴 슬링']
+    top3_cat  : ['스파클링', '비터/허벌', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 204] mode=oracle
+    user_text : 무게감은 낮은 쪽이면 좋겠어요 산뜻한 느낌이 강했으면 좋겠어요 컨디션이 썩 좋진 않아요 데이트 자리에서 마실 거예요. 적당한 도수로 맞추고 싶어
+    gold_slots: current_mood=bad  party_purpose=date  strength_preference=medium  taste={'body': 'low', 'freshness': 'high'}  aroma={'fruity': 'high', 'minty': 'low', 'herbal': 'low'}  bases!=['tequila', 'vodka']
+    gold_ck   : ['미모사']
+    gold_cat  : ['스파클링']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '사우스사이드', '불바디에', '사이드카']...
+    survivors : ['키르', '파라다이스', '사우스사이드', '불바디에', '사이드카']...
+    score_top3: ['플랜터즈 펀치', '헤밍웨이 스페셜', '벨리니']
+    top3_name : ['플랜터즈 펀치', '헤밍웨이 스페셜', '벨리니']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 212] mode=oracle
+    user_text : 플로럴한 느낌은 강하지 않았으면 해요 시트러스 향은 강하지 않게요 가볍게 어울리는 자리예요 비트윈 더 시트 쪽을 좋아해요 쓴맛은 중간 정도로만 
+    gold_slots: party_purpose=hangout  taste={'sweet': 'low', 'bitter': 'medium'}  aroma={'citrus': 'low', 'floral': 'low'}
+    gold_ck   : ['러스티 네일', '홀시스 넥', '리멤버 더 메인']
+    gold_cat  : ['리프레싱 하이볼', '비터/허벌', '스피릿포워드']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['사우스사이드', '스프리츠', '미모사', '카지노', '스팅어']...
+    survivors : ['사우스사이드', '스프리츠', '미모사', '카지노', '스팅어']...
+    score_top3: ['페이퍼 플레인', '프렌치 마티니', '브랜디 크러스타']
+    top3_name : ['페이퍼 플레인', '프렌치 마티니', '브랜디 크러스타']
+    top3_cat  : ['비터/허벌', '과일계', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 217] mode=oracle
+    user_text : 커피 느낌은 약했으면 좋겠어요 프루티한 느낌은 은은하면 돼요 신맛이 확실했으면 좋겠어요 단맛은 약했으면 좋겠어요 오늘은 좀 지쳐 있어요 너무 약
+    gold_slots: current_mood=bad  strength_preference=medium  taste={'sweet': 'low', 'sour': 'high'}  aroma={'coffee': 'low', 'fruity': 'medium'}
+    gold_ck   : ['콥스 리바이버 No.2', '레몬 드롭 마티니', '토미스 마가리타']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '라스트 워드', '파라다이스', '카지노']...
+    survivors : ['키르', '미모사', '라스트 워드', '파라다이스', '카지노']...
+    score_top3: ['클로버 클럽', '코스모폴리탄', '비스 니즈']
+    top3_name : ['클로버 클럽', '코스모폴리탄', '비스 니즈']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 224] mode=oracle
+    user_text : 도수는 가볍게 가고 싶어요 혼자 조용히 한잔할 생각이에요 시트러스 느낌은 약했으면 좋겠어요 청량감이 확실했으면 좋겠어요요.
+    gold_slots: party_purpose=solo  strength_preference=light  taste={'freshness': 'high'}  aroma={'citrus': 'low'}
+    gold_ck   : ['다크 앤 스토미', '페르난디토', '홀시스 넥']
+    gold_cat  : ['리프레싱 하이볼', '비터/허벌']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '스팅어', '미모사', '사우스사이드', '카지노']...
+    survivors : ['키르', '스팅어', '미모사', '사우스사이드', '카지노']...
+    score_top3: ['샴페인 칵테일', '시 브리즈', '미모사']
+    top3_name : ['샴페인 칵테일', '시 브리즈', '미모사']
+    top3_cat  : ['스파클링', '시트러스 사워', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 225] mode=oracle
+    user_text : 혼자 마시기 좋은 걸 찾고 있어요 부담 없는 도수면 돼요. 조금 다운된 상태예요 바디감은 가벼웠으면 좋겠어요.
+    gold_slots: current_mood=bad  party_purpose=solo  strength_preference=light  taste={'body': 'low'}
+    gold_ck   : ['정글 버드', '러시안 스프링 펀치', '페이퍼 플레인']
+    gold_cat  : ['비터/허벌', '스파클링', '티키/트로피컬']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '라스트 워드', '스팅어', '불바디에', '파라다이스']...
+    survivors : ['키르', '라스트 워드', '스팅어', '불바디에', '파라다이스']...
+    score_top3: ['데킬라 선라이즈', '블러디 메리', '아메리카노']
+    top3_name : ['데킬라 선라이즈', '블러디 메리', '아메리카노']
+    top3_cat  : ['과일계', '시트러스 사워', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 242] mode=oracle
+    user_text : 좀 처진 느낌이에요 세지 않은 쪽이면 좋겠어요 씁쓸한 느낌은 약했으면 해요. 꽃향이 확실했으면 좋겠어요 시트러스 향이 확실했으면 좋겠어요 알렉산
+    gold_slots: current_mood=bad  party_purpose=solo  strength_preference=light  taste={'bitter': 'low'}  aroma={'floral': 'high', 'citrus': 'high'}
+    gold_ck   : ['라모스 피즈', '네이키드 앤 페이머스', '라스트 워드']
+    gold_cat  : ['비터/허벌', '크리미']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['미모사', '스팅어', '키르', '스프리츠', '라스트 워드']...
+    survivors : ['미모사', '스팅어', '키르', '스프리츠', '라스트 워드']...
+    score_top3: ['러시안 스프링 펀치', 'IBA Tiki', '미모사']
+    top3_name : ['러시안 스프링 펀치', 'IBA Tiki', '미모사']
+    top3_cat  : ['스파클링', '티키/트로피컬', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 246] mode=oracle
+    user_text : 미팅 겸 한잔할 거예요 평소에는 메리 픽포드이랑 칸찬차라 좋아해요 프루티한 향이 또렷했으면 해요 플로럴한 향이 또렷했으면 해요. 세지 않은 쪽이
+    gold_slots: party_purpose=business  strength_preference=light  taste={'creamy': 'low', 'bitter': 'low'}  aroma={'floral': 'high', 'fruity': 'high'}  bases!=['tequila']
+    gold_ck   : ['라스트 워드', '애비에이션', '샤르트뢰즈 스위즐']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '스프리츠', '파라다이스', '사제락', '라스트 워드']...
+    survivors : ['키르', '스프리츠', '파라다이스', '사제락', '라스트 워드']...
+    score_top3: ['러시안 스프링 펀치', '포르노스타 마티니', '벨리니']
+    top3_name : ['러시안 스프링 펀치', '포르노스타 마티니', '벨리니']
+    top3_cat  : ['스파클링', '스파클링', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 250] mode=oracle
+    user_text : 시트러스 느낌은 약했으면 좋겠어! 단맛은 과하지 않게 적당하면 좋겠어. 오늘은 혼술용으로 보고 있어! 세지 않은 쪽이면 좋겠어!
+    gold_slots: party_purpose=solo  strength_preference=light  taste={'sweet': 'medium'}  aroma={'citrus': 'low'}
+    gold_ck   : ['포르노스타 마티니', '피나 콜라다', '벨리니']
+    gold_cat  : ['스파클링', '크리미']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['사우스사이드', '스팅어', '카지노', '미모사', '스프리츠']...
+    survivors : ['사우스사이드', '스팅어', '카지노', '미모사', '스프리츠']...
+    score_top3: ['정글 버드', '러스티 네일', '프렌치 마티니']
+    top3_name : ['정글 버드', '러스티 네일', '프렌치 마티니']
+    top3_cat  : ['티키/트로피컬', '스피릿포워드', '과일계']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 266] mode=oracle
+    user_text : 러시안 스프링 펀치 쪽을 좋아해요 달콤한 쪽이 좋아요 위스키 베이스만 아니면 좋겠어요 조금 다운된 상태예요 혼자 마시기 좋은 걸 찾고 있어요 도
+    gold_slots: current_mood=bad  party_purpose=solo  strength_preference=medium  taste={'sweet': 'high'}  bases!=['whiskey']
+    gold_ck   : ['일레갈', '싱가폴 슬링', '돈스 스페셜 다이키리']
+    gold_cat  : ['시트러스 사워', '티키/트로피컬']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['미모사', '스프리츠', '라스트 워드', '스팅어', '러시안 스프링 펀치']...
+    survivors : ['미모사', '스프리츠', '라스트 워드', '스팅어', '러시안 스프링 펀치']...
+    score_top3: ['스파이시 피프티', '롱 아일랜드 아이스 티', '몽키 글랜드']
+    top3_name : ['스파이시 피프티', '롱 아일랜드 아이스 티', '몽키 글랜드']
+    top3_cat  : ['시트러스 사워', '리프레싱 하이볼', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 287] mode=oracle
+    user_text : 플로럴한 향이 또렷했으면 해요 조용히 대화할 자리라서요 부담 없이 균형 잡힌 도수면 좋겠어요 그냥 무난한 기분이에요요.
+    gold_slots: current_mood=soso  party_purpose=business  strength_preference=medium  aroma={'floral': 'high'}
+    gold_ck   : ['라스트 워드', '라모스 피즈', '스파이시 피프티']
+    gold_cat  : ['비터/허벌', '시트러스 사워', '크리미']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['라스트 워드', '키르', '스프리츠', '파라다이스', '스팅어']...
+    survivors : ['라스트 워드', '키르', '스프리츠', '파라다이스', '스팅어']...
+    score_top3: ['카지노', '클로버 클럽', '올드 쿠반']
+    top3_name : ['카지노', '클로버 클럽', '올드 쿠반']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 290] mode=oracle
+    user_text : 씁쓸한 포인트가 분명했으면 해요 산뜻함은 중간 정도면 돼요 단맛은 과하지 않게 적당하면 좋겠어! 꽃향은 적당하면 좋겠어요.
+    gold_slots: taste={'bitter': 'high', 'sweet': 'medium', 'freshness': 'medium'}  aroma={'floral': 'medium'}
+    gold_ck   : ['트리니다드 사워', '가리발디', '페이퍼 플레인']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['미모사', '키르', '스프리츠', '프렌치 마티니', '사제락']...
+    survivors : ['미모사', '키르', '스프리츠', '프렌치 마티니', '사제락']...
+    score_top3: ['싱가폴 슬링', '스프리츠', '쓰리 닷츠 앳 어 대시']
+    top3_name : ['싱가폴 슬링', '스프리츠', '쓰리 닷츠 앳 어 대시']
+    top3_cat  : ['시트러스 사워', '스파클링', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 301] mode=oracle
+    user_text : 단맛은 과하지 않게 적당하면 좋겠어요 허브 향이 분명했으면 좋겠어요 기운이 떨어져 있어서요 럼는 피하고 싶어요요.
+    gold_slots: current_mood=bad  taste={'sweet': 'medium'}  aroma={'herbal': 'high'}  bases!=['rum']
+    gold_ck   : ['싱가폴 슬링', '콥스 리바이버 No.2', '진 바질 스매시']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '라스트 워드', '파라다이스', '사우스사이드', '미모사']...
+    survivors : ['키르', '라스트 워드', '파라다이스', '사우스사이드', '미모사']...
+    score_top3: ['클로버 클럽', '트리니다드 사워', '브램블']
+    top3_name : ['클로버 클럽', '트리니다드 사워', '브램블']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 307] mode=oracle
+    user_text : 특별한 건 없고 담담해요 세지 않은 쪽이면 좋겠어요. 허브 향이 분명했으면 좋겠어요 청량감은 높지 않았으면 좋겠어요 신맛이 확실했으면 좋겠어요 
+    gold_slots: current_mood=soso  party_purpose=date  strength_preference=light  taste={'bitter': 'medium', 'freshness': 'low', 'sour': 'high'}  aroma={'herbal': 'high'}
+    gold_ck   : ['콥스 리바이버 No.2', '사우스사이드', '브램블']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '사이드카', '파라다이스', '미모사']...
+    survivors : ['키르', '사우스사이드', '사이드카', '파라다이스', '미모사']...
+    score_top3: ['페이퍼 플레인', '네이키드 앤 페이머스', '정글 버드']
+    top3_name : ['페이퍼 플레인', '네이키드 앤 페이머스', '정글 버드']
+    top3_cat  : ['비터/허벌', '비터/허벌', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 313] mode=oracle
+    user_text : 일 이야기하면서 마실 예정이에요. 그냥 무난한 기분이에. 너무 약하거나 세지 않은 쪽이면 돼! 허벌한 느낌은 은은하면 돼. 부드럽고 진한 질감이
+    gold_slots: current_mood=soso  party_purpose=business  strength_preference=medium  taste={'creamy': 'high'}  aroma={'herbal': 'medium'}
+    gold_ck   : ['그래스호퍼', '알렉산더']
+    gold_cat  : ['크리미']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '스프리츠', '파라다이스', '시 브리즈']...
+    survivors : ['키르', '사우스사이드', '스프리츠', '파라다이스', '시 브리즈']...
+    score_top3: ['클로버 클럽', '사우스사이드', '위스키 사워']
+    top3_name : ['클로버 클럽', '사우스사이드', '위스키 사워']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 323] mode=oracle
+    user_text : 축하하는 자리에서 마실 거예! 취향으로는 셜리 템플가 잘 맞아! 딱히 업다운 없는 상태예! 부담 없이 균형 잡힌 도수면 좋겠어. 크리미한 느낌이
+    gold_slots: current_mood=soso  party_purpose=celebration  strength_preference=medium  taste={'creamy': 'high'}  aroma={'woody': 'medium', 'coffee': 'low', 'herbal': 'high'}
+    gold_ck   : ['그래스호퍼']
+    gold_cat  : ['크리미']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '스프리츠', '사제락', '미모사']...
+    survivors : ['키르', '사우스사이드', '스프리츠', '사제락', '미모사']...
+    score_top3: ['클로버 클럽', '사우스사이드', '위스키 사워']
+    top3_name : ['클로버 클럽', '사우스사이드', '위스키 사워']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 324] mode=oracle
+    user_text : 씁쓸한 느낌은 약했으면 해요 같이 분위기 있게 마실 거예요. 부담 없이 균형 잡힌 도수면 좋겠어요 기운이 떨어져 있어서요 우디한 향이 분명했으면
+    gold_slots: current_mood=bad  party_purpose=date  strength_preference=medium  taste={'bitter': 'low'}  aroma={'woody': 'high', 'floral': 'low'}
+    gold_ck   : ['페니실린', '올드 쿠반', '쓰리 닷츠 앳 어 대시']
+    gold_cat  : ['스파클링', '시트러스 사워', '티키/트로피컬']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '사우스사이드', '라스트 워드', '사이드카']...
+    survivors : ['키르', '파라다이스', '사우스사이드', '라스트 워드', '사이드카']...
+    score_top3: ['일레갈', '위스키 사워', '프렌치 커넥션']
+    top3_name : ['일레갈', '위스키 사워', '프렌치 커넥션']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '스피릿포워드']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 325] mode=oracle
+    user_text : 쓴맛은 강하지 않았으면 좋겠어요 바디감이 묵직했으면 좋겠어요 크리미한 느낌은 적당하면 좋겠어요. 위스키이랑 보드카 베이스만 아니면 좋겠어. 기분
+    gold_slots: current_mood=soso  party_purpose=solo  strength_preference=medium  taste={'creamy': 'medium', 'bitter': 'low', 'body': 'high'}  aroma={'coffee': 'low', 'citrus': 'medium'}  bases!=['vodka', 'whiskey']
+    gold_ck   : ['그래스호퍼', '알렉산더', '프렌치 커넥션']
+    gold_cat  : ['스피릿포워드', '크리미']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '스프리츠', '스팅어', '미모사', '사우스사이드']...
+    survivors : ['키르', '스프리츠', '스팅어', '미모사', '사우스사이드']...
+    score_top3: ['일레갈', '피나 콜라다', '클로버 클럽']
+    top3_name : ['일레갈', '피나 콜라다', '클로버 클럽']
+    top3_cat  : ['티키/트로피컬', '크리미', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 330] mode=oracle
+    user_text : 너무 약하거나 세지 않은 쪽이면 돼요 오늘은 기분이 좋은 편이에요 과일 향은 적당하면 좋겠어요 업무 얘기 나누면서 마실 자리예요 크리미한 느낌이
+    gold_slots: current_mood=good  party_purpose=business  strength_preference=medium  taste={'creamy': 'high'}  aroma={'fruity': 'medium'}
+    gold_ck   : ['그래스호퍼', '알렉산더']
+    gold_cat  : ['크리미']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '시 브리즈', '스프리츠', '사우스사이드']...
+    survivors : ['키르', '파라다이스', '시 브리즈', '스프리츠', '사우스사이드']...
+    score_top3: ['클로버 클럽', '위스키 사워', '피스코 사워']
+    top3_name : ['클로버 클럽', '위스키 사워', '피스코 사워']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 336] mode=oracle
+    user_text : 시트러스가 또렷하게 느껴졌으면 해요 나무 향은 은은하면 돼요 미팅 겸 한잔할 거예요 취향으로는 알렉산더가 잘 맞아요. 도수는 중간 정도면 좋겠어
+    gold_slots: current_mood=bad  party_purpose=business  strength_preference=medium  taste={'freshness': 'medium'}  aroma={'citrus': 'high', 'woody': 'medium'}
+    gold_ck   : ['콥스 리바이버 No.2', '코스모폴리탄', '싱가폴 슬링']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['사우스사이드', '키르', '라스트 워드', '스팅어', '위스키 사워']...
+    survivors : ['사우스사이드', '키르', '라스트 워드', '스팅어', '위스키 사워']...
+    score_top3: ['위스키 사워', '올드 쿠반', '서퍼링 바스타드']
+    top3_name : ['위스키 사워', '올드 쿠반', '서퍼링 바스타드']
+    top3_cat  : ['시트러스 사워', '스파클링', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 339] mode=oracle
+    user_text : 부담 없는 도수면 돼요 오늘은 혼술용으로 보고 있어요 꽃향은 적당하면 좋겠어요 민트 향은 적당하면 좋겠어요 딱히 업다운 없는 상태예요 부드럽고 
+    gold_slots: current_mood=soso  party_purpose=solo  strength_preference=light  taste={'body': 'low', 'creamy': 'low'}  aroma={'minty': 'medium', 'floral': 'medium'}
+    gold_ck   : ['포르노스타 마티니', '정글 버드', '러시안 스프링 펀치']
+    gold_cat  : ['스파클링', '티키/트로피컬']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '스팅어', '스프리츠', '미모사', '파라다이스']...
+    survivors : ['키르', '스팅어', '스프리츠', '미모사', '파라다이스']...
+    score_top3: ['모히토', '미셔너리즈 다운폴', '벨리니']
+    top3_name : ['모히토', '미셔너리즈 다운폴', '벨리니']
+    top3_cat  : ['리프레싱 하이볼', '티키/트로피컬', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 356] mode=oracle
+    user_text : 오늘은 기분이 좋은 편이에요 일 이야기하면서 마실 예정이에요 시트러스 향이 확실했으면 좋겠어요 청량감은 높지 않았으면 좋겠어요 바디감은 가벼웠으
+    gold_slots: current_mood=good  party_purpose=business  taste={'freshness': 'low', 'body': 'low'}  aroma={'citrus': 'high'}
+    gold_ck   : ['브랜디 크러스타', '페이퍼 플레인', '네이키드 앤 페이머스']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['사우스사이드', '키르', '사이드카', '시 브리즈', '카지노']...
+    survivors : ['사우스사이드', '키르', '사이드카', '시 브리즈', '카지노']...
+    score_top3: ['IBA Tiki', '샤르트뢰즈 스위즐', '파라다이스']
+    top3_name : ['IBA Tiki', '샤르트뢰즈 스위즐', '파라다이스']
+    top3_cat  : ['티키/트로피컬', '비터/허벌', '과일계']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 362] mode=oracle
+    user_text : 바디감이 묵직했으면 좋겠어요 부드러운 질감이 살짝 있으면 좋겠어요 조금 다운된 상태예요. 부담 없는 도수면 돼요 플로럴한 느낌은 강하지 않았으면
+    gold_slots: current_mood=bad  strength_preference=light  taste={'body': 'high', 'creamy': 'medium'}  aroma={'floral': 'low'}
+    gold_ck   : ['아이리시 커피', '러스티 네일', '그래스호퍼']
+    gold_cat  : ['스피릿포워드', '크리미']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['파라다이스', '키르', '스프리츠', '스팅어', '라스트 워드']...
+    survivors : ['파라다이스', '키르', '스프리츠', '스팅어', '라스트 워드']...
+    score_top3: ['정글 버드', '피나 콜라다', '알렉산더']
+    top3_name : ['정글 버드', '피나 콜라다', '알렉산더']
+    top3_cat  : ['티키/트로피컬', '크리미', '크리미']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 366] mode=oracle
+    user_text : 평소랑 비슷한 컨디션이에요 보드카 베이스만 아니면 좋겠어요. 부담 없이 균형 잡힌 도수면 좋겠어요 평소에는 시 브리즈 좋아해요 민트감은 은은하면
+    gold_slots: current_mood=soso  strength_preference=medium  aroma={'minty': 'medium', 'woody': 'low'}  bases!=['vodka']
+    gold_ck   : ['샤르트뢰즈 스위즐', '카지노', '라스트 워드']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['민트 줄렙', '사우스사이드', '키르', '스팅어', '마티니']...
+    survivors : ['민트 줄렙', '사우스사이드', '키르', '스팅어', '마티니']...
+    score_top3: ['사우스사이드', '페르난디토', '그래스호퍼']
+    top3_name : ['사우스사이드', '페르난디토', '그래스호퍼']
+    top3_cat  : ['시트러스 사워', '비터/허벌', '크리미']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 373] mode=oracle
+    user_text : 보드카이랑 럼는 피하고 싶어요 쓴맛이 또렷했으면 좋겠어요 크리미한 느낌은 적당하면 좋겠어요 무게감 있는 쪽이 좋아요 적당한 도수로 맞추고 싶어요
+    gold_slots: current_mood=good  party_purpose=date  strength_preference=medium  taste={'bitter': 'high', 'creamy': 'medium', 'body': 'high'}  aroma={'minty': 'medium'}  bases!=['rum', 'vodka']
+    gold_ck   : ['러스티 네일']
+    gold_cat  : ['비터/허벌', '스피릿포워드']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '사우스사이드', '사이드카', '스팅어']...
+    survivors : ['키르', '파라다이스', '사우스사이드', '사이드카', '스팅어']...
+    score_top3: ['카지노', '트리니다드 사워', '브랜디 크러스타']
+    top3_name : ['카지노', '트리니다드 사워', '브랜디 크러스타']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 374] mode=oracle
+    user_text : 혼자 마시기 좋은 걸 찾고 있어. 꽃향이 확실했으면 좋겠어! 부담 없이 균형 잡힌 도수면 좋겠어요. 기분 좋게 한잔하고 싶어. 산미는 적당하면 
+    gold_slots: current_mood=good  party_purpose=solo  strength_preference=medium  taste={'sour': 'medium'}  aroma={'floral': 'high'}
+    gold_ck   : ['라스트 워드', '스파이시 피프티', '애비에이션']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스프리츠', '파라다이스', '스팅어']...
+    survivors : ['키르', '미모사', '스프리츠', '파라다이스', '스팅어']...
+    score_top3: ['클로버 클럽', '올드 쿠반', '브램블']
+    top3_name : ['클로버 클럽', '올드 쿠반', '브램블']
+    top3_cat  : ['시트러스 사워', '스파클링', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 383] mode=oracle
+    user_text : 오늘은 좀 들뜬 편이에요 우디한 향은 적당하면 좋겠어요 시트러스 향은 은은하면 좋겠어요 바디감이 묵직했으면 좋겠어요 단맛은 중간 정도면 돼요 세
+    gold_slots: current_mood=good  party_purpose=hangout  strength_preference=light  taste={'body': 'high', 'sweet': 'medium'}  aroma={'woody': 'medium', 'citrus': 'medium'}  bases!=['tequila']
+    gold_ck   : ['아이리시 커피', '러스티 네일', '프렌치 커넥션']
+    gold_cat  : ['스피릿포워드', '크리미']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['사우스사이드', '키르', '카지노', '미모사', '불바디에']...
+    survivors : ['사우스사이드', '키르', '카지노', '미모사', '불바디에']...
+    score_top3: ['정글 버드', '트리니다드 사워', '미셔너리즈 다운폴']
+    top3_name : ['정글 버드', '트리니다드 사워', '미셔너리즈 다운폴']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 385] mode=oracle
+    user_text : 쓴맛이 또렷했으면 좋겠어요 바디감이 묵직했으면 좋겠어요 민트 향은 적당하면 좋겠어요 미팅 겸 한잔할 거예요 럼 베이스만 아니면 좋겠어요 부담 없
+    gold_slots: current_mood=soso  party_purpose=business  strength_preference=medium  taste={'body': 'high', 'bitter': 'high'}  aroma={'minty': 'medium'}  bases!=['rum']
+    gold_ck   : ['러스티 네일']
+    gold_cat  : ['비터/허벌', '스피릿포워드']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['불바디에', '키르', '사우스사이드', '라스트 워드', '스팅어']...
+    survivors : ['불바디에', '키르', '사우스사이드', '라스트 워드', '스팅어']...
+    score_top3: ['카지노', '트리니다드 사워', '불바디에']
+    top3_name : ['카지노', '트리니다드 사워', '불바디에']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 390] mode=oracle
+    user_text : 단맛이 확실히 느껴졌으면 좋겠어요 청량감이 확실했으면 좋겠어요 바디감은 중간 정도면 돼요 데이트용으로 찾고 있어요. 도수는 가볍게 가고 싶어요 
+    gold_slots: party_purpose=date  strength_preference=light  taste={'freshness': 'high', 'sweet': 'high', 'body': 'medium'}  aroma={'minty': 'medium', 'woody': 'medium', 'fruity': 'medium'}
+    gold_ck   : ['페르난디토']
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '파라다이스', '라스트 워드', '사이드카']...
+    survivors : ['키르', '사우스사이드', '파라다이스', '라스트 워드', '사이드카']...
+    score_top3: ['정글 버드', '미셔너리즈 다운폴', '샴페인 칵테일']
+    top3_name : ['정글 버드', '미셔너리즈 다운폴', '샴페인 칵테일']
+    top3_cat  : ['티키/트로피컬', '티키/트로피컬', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 394] mode=oracle
+    user_text : 시트러스 느낌은 약했으면 좋겠어요 허벌한 느낌이 확실했으면 해요 나무 향은 강하지 않았으면 해요 조금 다운된 상태예요 진는 피하고 싶어요 적당한
+    gold_slots: current_mood=bad  strength_preference=medium  taste={'body': 'high'}  aroma={'herbal': 'high', 'woody': 'low', 'citrus': 'low'}  bases!=['gin']
+    gold_ck   : ['그래스호퍼']
+    gold_cat  : ['크리미']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['불바디에', '사우스사이드', '스팅어', '키르', '라스트 워드']...
+    survivors : ['불바디에', '스팅어', '키르', '사이드카', '블러디 메리']...
+    score_top3: ['러스티 네일', '스팅어', '티퍼러리']
+    top3_name : ['러스티 네일', '스팅어', '티퍼러리']
+    top3_cat  : ['스피릿포워드', '스피릿포워드', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 398] mode=oracle
+    user_text : IBA Tiki 같은 스타일을 좋아하는 편이에요. 민트감은 은은하면 돼요 프루티한 향은 약했으면 좋겠어! 많이 달지 않았으면 해요 산뜻한 느낌은
+    gold_slots: party_purpose=hangout  strength_preference=medium  taste={'sweet': 'low', 'freshness': 'low'}  aroma={'fruity': 'low', 'minty': 'medium'}
+    gold_ck   : ['토미스 마가리타', '페니실린', '브램블']
+    gold_cat  : ['시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스프리츠', '카지노', '사우스사이드']...
+    survivors : ['키르', '미모사', '스프리츠', '카지노', '사우스사이드']...
+    score_top3: ['민트 줄렙', '행키팽키', '스팅어']
+    top3_name : ['민트 줄렙', '행키팽키', '스팅어']
+    top3_cat  : ['클래식', '비터/허벌', '스피릿포워드']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 404] mode=oracle
+    user_text : 꽃향이 확실했으면 좋겠어요 단맛은 중간 정도면 돼요 부드럽고 진득한 질감은 약했으면 좋겠어요 데이트용으로 찾고 있어요 부담 없는 도수면 돼요요.
+    gold_slots: party_purpose=date  strength_preference=light  taste={'creamy': 'low', 'sweet': 'medium'}  aroma={'floral': 'high'}
+    gold_ck   : ['라스트 워드', '네이키드 앤 페이머스', '스파이시 피프티']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '스프리츠', '사우스사이드', '사이드카']...
+    survivors : ['키르', '파라다이스', '스프리츠', '사우스사이드', '사이드카']...
+    score_top3: ['미셔너리즈 다운폴', '진 피즈', '올드 쿠반']
+    top3_name : ['미셔너리즈 다운폴', '진 피즈', '올드 쿠반']
+    top3_cat  : ['티키/트로피컬', '리프레싱 하이볼', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 406] mode=oracle
+    user_text : 업무 얘기 나누면서 마실 자리예요 럼 쪽은 안 들어갔으면 좋겠어요 오늘은 좀 들뜬 편이에요 가볍게 마실 수 있으면 좋겠어요 커피 향은 적당하면 
+    gold_slots: current_mood=good  party_purpose=business  strength_preference=light  aroma={'minty': 'low', 'coffee': 'medium'}  bases!=['rum']
+    gold_ck   : ['러시안 스프링 펀치', '페이퍼 플레인', '포르노스타 마티니']
+    gold_cat  : ['비터/허벌', '스파클링']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '마티니', '민트 줄렙', '스팅어', '스프리츠']...
+    survivors : ['키르', '마티니', '민트 줄렙', '스팅어', '스프리츠']...
+    score_top3: ['아이리시 커피', '진 피즈', '아메리카노']
+    top3_name : ['아이리시 커피', '진 피즈', '아메리카노']
+    top3_cat  : ['크리미', '리프레싱 하이볼', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 407] mode=oracle
+    user_text : 도수는 중간 정도면 좋겠어요. 신맛은 중간 정도면 돼요 달콤한 쪽이 좋아. 오늘은 축하 자리예. 컨디션이 괜찮은 날이에.
+    gold_slots: current_mood=good  party_purpose=celebration  strength_preference=medium  taste={'sour': 'medium', 'sweet': 'high'}
+    gold_ck   : ['일레갈', '돈스 스페셜 다이키리', '스파이시 피프티']
+    gold_cat  : ['시트러스 사워', '티키/트로피컬']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '미모사', '스프리츠', '위스키 사워']...
+    survivors : ['키르', '사우스사이드', '미모사', '스프리츠', '위스키 사워']...
+    score_top3: ['마이타이', '트리니다드 사워', '싱가폴 슬링']
+    top3_name : ['마이타이', '트리니다드 사워', '싱가폴 슬링']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 433] mode=oracle
+    user_text : 베스퍼 쪽을 좋아해요 컨디션이 괜찮은 날이에요 허벌한 느낌이 확실했으면 해요 시트러스 느낌은 적당하면 돼요 플로럴한 느낌은 강하지 않았으면 해요
+    gold_slots: current_mood=good  party_purpose=business  strength_preference=medium  taste={'bitter': 'medium'}  aroma={'citrus': 'medium', 'floral': 'low', 'herbal': 'high'}
+    gold_ck   : ['콥스 리바이버 No.2', '싱가폴 슬링', '카지노']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['사우스사이드', '스프리츠', '스팅어', '키르', '미모사']...
+    survivors : ['사우스사이드', '스프리츠', '스팅어', '키르', '미모사']...
+    score_top3: ['트리니다드 사워', '정글 버드', '브랜디 크러스타']
+    top3_name : ['트리니다드 사워', '정글 버드', '브랜디 크러스타']
+    top3_cat  : ['시트러스 사워', '티키/트로피컬', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 436] mode=oracle
+    user_text : 쓴맛은 강하지 않았으면 좋겠어요 신맛은 중간 정도면 돼요 과일 향은 강하지 않아도 돼요 그냥 무난한 기분이에요 부담 없이 균형 잡힌 도수면 좋겠
+    gold_slots: current_mood=soso  party_purpose=date  strength_preference=medium  taste={'sour': 'medium', 'bitter': 'low'}  aroma={'fruity': 'low'}
+    gold_ck   : ['올드 쿠반', '토미스 마가리타', '페니실린']
+    gold_cat  : ['스파클링', '시트러스 사워']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '사우스사이드', '사이드카', '미모사']...
+    survivors : ['키르', '파라다이스', '사우스사이드', '사이드카', '미모사']...
+    score_top3: ['위스키 사워', '브램블', '피스코 사워']
+    top3_name : ['위스키 사워', '브램블', '피스코 사워']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 453] mode=oracle
+    user_text : 평소랑 비슷한 컨디션이에요 꽃향이 확실했으면 좋겠어요 시트러스 향이 확실했으면 좋겠어요 과일 향이 확실했으면 좋겠어요 편하게 모여서 마시려고요요
+    gold_slots: current_mood=soso  party_purpose=hangout  aroma={'floral': 'high', 'citrus': 'high', 'fruity': 'high'}
+    gold_ck   : ['라스트 워드', '애비에이션', '샤르트뢰즈 스위즐']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '스프리츠', '미모사', '사우스사이드', '파라다이스']...
+    survivors : ['키르', '스프리츠', '미모사', '사우스사이드', '파라다이스']...
+    score_top3: ['카지노', '클로버 클럽', '피스코 펀치']
+    top3_name : ['카지노', '클로버 클럽', '피스코 펀치']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 459] mode=oracle
+    user_text : 기분 좋게 한잔하고 싶어요 우디한 향이 분명했으면 좋겠어요 플로럴한 향이 또렷했으면 해요 기념할 일이 있어서요 가볍게 마실 수 있으면 좋겠어요 
+    gold_slots: current_mood=good  party_purpose=celebration  strength_preference=light  taste={'bitter': 'low'}  aroma={'woody': 'high', 'floral': 'high'}
+    gold_ck   : ['네이키드 앤 페이머스', '티퍼러리']
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '라스트 워드', '미모사', '스프리츠']...
+    survivors : ['키르', '사우스사이드', '라스트 워드', '미모사', '스프리츠']...
+    score_top3: ['IBA Tiki', '미셔너리즈 다운폴', '페니실린']
+    top3_name : ['IBA Tiki', '미셔너리즈 다운폴', '페니실린']
+    top3_cat  : ['티키/트로피컬', '티키/트로피컬', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 461] mode=oracle
+    user_text : 둘이 분위기 보면서 마시려고요 럼는 피하고 싶어요 많이 달지 않았으면 해요 기분이 꽤 좋아요 부담 없이 균형 잡힌 도수면 좋겠어요 커피 느낌은 
+    gold_slots: current_mood=good  party_purpose=date  strength_preference=medium  taste={'sweet': 'low'}  aroma={'coffee': 'low'}  bases!=['rum']
+    gold_ck   : ['샤르트뢰즈 스위즐', '카지노', '라스트 워드']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '카지노', '파라다이스', '스프리츠']...
+    survivors : ['키르', '사우스사이드', '카지노', '파라다이스', '스프리츠']...
+    score_top3: ['애비에이션', '레몬 드롭 마티니', '스프리츠']
+    top3_name : ['애비에이션', '레몬 드롭 마티니', '스프리츠']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 463] mode=oracle
+    user_text : 진이랑 럼 베이스는 빼고 싶어요 혼자 조용히 한잔할 생각이에요 가볍게 마실 수 있으면 좋겠어요 커피 향은 강하지 않게요 많이 달지 않았으면 해요
+    gold_slots: party_purpose=solo  strength_preference=light  taste={'creamy': 'medium', 'sweet': 'low'}  aroma={'coffee': 'low'}  bases!=['gin', 'rum']
+    gold_ck   : ['페이퍼 플레인', '러시안 스프링 펀치', '네이키드 앤 페이머스']
+    gold_cat  : ['비터/허벌', '스파클링']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '스프리츠', '미모사', '스팅어', '아이리시 커피']...
+    survivors : ['키르', '스프리츠', '미모사', '스팅어', '아이리시 커피']...
+    score_top3: ['아메리카노', '블러디 메리', '시 브리즈']
+    top3_name : ['아메리카노', '블러디 메리', '시 브리즈']
+    top3_cat  : ['비터/허벌', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 471] mode=oracle
+    user_text : 좀 처진 느낌이에요 시트러스 향은 은은하면 좋겠어요 허브 향은 적당하면 좋겠어요 럼이랑 데킬라는 피하고 싶어요. 일 이야기하면서 마실 예정이에요
+    gold_slots: current_mood=bad  party_purpose=business  strength_preference=light  taste={'body': 'high'}  aroma={'citrus': 'medium', 'herbal': 'medium'}  bases!=['rum', 'tequila']
+    gold_ck   : ['아이리시 커피', '러스티 네일', '그래스호퍼']
+    gold_cat  : ['스피릿포워드', '크리미']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['불바디에', '사우스사이드', '라스트 워드', '키르', '스팅어']...
+    survivors : ['불바디에', '사우스사이드', '라스트 워드', '키르', '스팅어']...
+    score_top3: ['카지노', '트리니다드 사워', '불바디에']
+    top3_name : ['카지노', '트리니다드 사워', '불바디에']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 473] mode=oracle
+    user_text : 조금 다운된 상태예. 친구들이랑 같이 마실 거예! 과일 향은 강하지 않아도 돼요 민트 향은 약했으면 좋겠어요 나무 향은 은은하면 돼요. 도수는 
+    gold_slots: current_mood=bad  party_purpose=hangout  strength_preference=light  taste={'freshness': 'high'}  aroma={'minty': 'low', 'woody': 'medium', 'fruity': 'low'}
+    gold_ck   : ['진 피즈', '쿠바 리브레', '프렌치 75']
+    gold_cat  : ['리프레싱 하이볼', '스파클링']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스팅어', '사우스사이드', '스프리츠']...
+    survivors : ['키르', '미모사', '스팅어', '사우스사이드', '스프리츠']...
+    score_top3: ['샴페인 칵테일', '스프리츠', '페이퍼 플레인']
+    top3_name : ['샴페인 칵테일', '스프리츠', '페이퍼 플레인']
+    top3_cat  : ['스파클링', '스파클링', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 498] mode=oracle
+    user_text : 부담 없이 균형 잡힌 도수면 좋겠어요 컨디션이 썩 좋진 않아요 둘이 분위기 보면서 마시려고요. 허벌한 느낌은 은은하면 돼요 위스키는 피하고 싶어
+    gold_slots: current_mood=bad  party_purpose=date  strength_preference=medium  taste={'sweet': 'high', 'sour': 'medium'}  aroma={'herbal': 'medium'}  bases!=['whiskey']
+    gold_ck   : ['싱가폴 슬링', '일레갈', '돈스 스페셜 다이키리']
+    gold_cat  : ['시트러스 사워', '티키/트로피컬']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '사우스사이드', '라스트 워드', '사이드카']...
+    survivors : ['키르', '파라다이스', '사우스사이드', '라스트 워드', '사이드카']...
+    score_top3: ['스파이시 피프티', '롱 아일랜드 아이스 티', '몽키 글랜드']
+    top3_name : ['스파이시 피프티', '롱 아일랜드 아이스 티', '몽키 글랜드']
+    top3_cat  : ['시트러스 사워', '리프레싱 하이볼', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+### Category miss (cat_hit_3=0)  (n=67)
+
+  [case 4] mode=oracle
+    user_text : 프루티한 향이 또렷했으면 해요 꽃향은 적당하면 좋겠어요 커피 느낌은 약했으면 좋겠어요 산미가 또렷한 쪽이 좋아요 알코올 없는 쪽으로 보고 있어요
+    gold_slots: current_mood=bad  party_purpose=hangout  strength_preference=zero  taste={'sour': 'high'}  aroma={'floral': 'medium', 'coffee': 'low', 'fruity': 'high'}
+    gold_ck   : []
+    gold_cat  : ['시트러스 사워']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['노지토', '버진 메리', '버진 피냐 콜라다', '버진 모히토', '셜리 템플']
+    survivors : ['노지토', '버진 메리', '버진 피냐 콜라다', '버진 모히토', '셜리 템플']
+    score_top3: ['버진 피냐 콜라다', '노지토', '셜리 템플']
+    top3_name : ['버진 피냐 콜라다', '노지토', '셜리 템플']
+    top3_cat  : ['크리미', '리프레싱 하이볼', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 8] mode=oracle
+    user_text : 혼자 마시기 좋은 걸 찾고 있어요 가볍게 마실 수 있으면 좋겠어요. 과일 향은 적당하면 좋겠어요 플로럴한 향이 또렷했으면 해요 무게감은 낮은 쪽
+    gold_slots: party_purpose=solo  strength_preference=light  taste={'bitter': 'medium', 'creamy': 'high', 'body': 'low'}  aroma={'fruity': 'medium', 'floral': 'high'}
+    gold_ck   : []
+    gold_cat  : ['크리미']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '미모사', '스프리츠', '사우스사이드']...
+    survivors : ['키르', '파라다이스', '미모사', '스프리츠', '사우스사이드']...
+    score_top3: ['클로버 클럽', '포르노스타 마티니', '사우스사이드']
+    top3_name : ['클로버 클럽', '포르노스타 마티니', '사우스사이드']
+    top3_cat  : ['시트러스 사워', '스파클링', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 9] mode=oracle
+    user_text : 허브 향은 약했으면 좋겠어요 시트러스 느낌은 약했으면 좋겠어요 민트 향은 적당하면 좋겠어요 쓴맛이 또렷했으면 좋겠어요 바디감이 묵직했으면 좋겠어
+    gold_slots: current_mood=good  strength_preference=zero  taste={'bitter': 'high', 'body': 'high'}  aroma={'citrus': 'low', 'herbal': 'low', 'minty': 'medium'}
+    gold_ck   : []
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 메리', '노지토', '버진 모히토', '버진 피냐 콜라다', '셜리 템플']
+    survivors : ['버진 메리', '노지토', '버진 모히토', '버진 피냐 콜라다', '셜리 템플']
+    score_top3: ['버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    top3_name : ['버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    top3_cat  : ['크리미', '스파클링', '리프레싱 하이볼']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 14] mode=oracle
+    user_text : 민트 향이 확실했으면 좋겠어요 축하하는 자리에서 마실 거예요 확실히 힘 있는 쪽이어도 돼요. 단맛은 과하지 않게 적당하면 좋겠어요 좀 처진 느낌
+    gold_slots: current_mood=bad  party_purpose=celebration  strength_preference=strong  taste={'sweet': 'medium'}  aroma={'minty': 'high'}
+    gold_ck   : []
+    gold_cat  : ['리프레싱 하이볼']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['샴페인 칵테일', '스팅어', '키르', '라스트 워드', '민트 줄렙']...
+    survivors : ['샴페인 칵테일', '스팅어', '키르', '라스트 워드', '민트 줄렙']...
+    score_top3: ['올드 쿠반', '페르난디토', '사우스사이드']
+    top3_name : ['올드 쿠반', '페르난디토', '사우스사이드']
+    top3_cat  : ['스파클링', '비터/허벌', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 21] mode=oracle
+    user_text : 조금 다운된 상태예요 평소에는 알렉산더 좋아해요 조용히 대화할 자리라서요. 단맛은 과하지 않게 적당하면 좋겠어요 크리미한 느낌은 적당하면 좋겠어
+    gold_slots: current_mood=bad  party_purpose=business  strength_preference=zero  taste={'sweet': 'medium', 'creamy': 'medium', 'freshness': 'low'}  aroma={'floral': 'high', 'coffee': 'high'}
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 메리', '버진 피냐 콜라다', '노지토', '버진 모히토', '셜리 템플']
+    survivors : ['버진 메리', '버진 피냐 콜라다', '노지토', '버진 모히토', '셜리 템플']
+    score_top3: ['버진 피냐 콜라다', '셜리 템플', '버진 메리']
+    top3_name : ['버진 피냐 콜라다', '셜리 템플', '버진 메리']
+    top3_cat  : ['크리미', '스파클링', '클래식']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 22] mode=oracle
+    user_text : 친구들이랑 같이 마실 거예! 시트러스 향이 확실했으면 좋겠어요 꽃향이 확실했으면 좋겠어요 시원한 민트감이 또렷했으면 해! 도수는 중간 정도면 좋
+    gold_slots: party_purpose=hangout  strength_preference=medium  aroma={'minty': 'high', 'floral': 'high', 'citrus': 'high'}  bases!=['tequila', 'whiskey']
+    gold_ck   : []
+    gold_cat  : ['리프레싱 하이볼']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['스팅어', '키르', '스프리츠', '마티니', '미모사']...
+    survivors : ['스팅어', '키르', '스프리츠', '마티니', '미모사']...
+    score_top3: ['올드 쿠반', '사우스사이드', '미셔너리즈 다운폴']
+    top3_name : ['올드 쿠반', '사우스사이드', '미셔너리즈 다운폴']
+    top3_cat  : ['스파클링', '시트러스 사워', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 32] mode=oracle
+    user_text : 도수는 중간 정도면 좋겠어요 조금 다운된 상태예요. 미팅 겸 한잔할 거예요 민트 향이 확실했으면 좋겠어요 꽃향은 약했으면 좋겠어요.
+    gold_slots: current_mood=bad  party_purpose=business  strength_preference=medium  aroma={'floral': 'low', 'minty': 'high'}
+    gold_ck   : ['올드 쿠반', '사우스사이드', '미셔너리즈 다운폴']
+    gold_cat  : ['리프레싱 하이볼', '스파클링', '시트러스 사워', '티키/트로피컬']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '스팅어', '라스트 워드', '파라다이스', '마티니']...
+    survivors : ['키르', '스팅어', '라스트 워드', '파라다이스', '마티니']...
+    score_top3: ['페르난디토', '그래스호퍼', '민트 줄렙']
+    top3_name : ['페르난디토', '그래스호퍼', '민트 줄렙']
+    top3_cat  : ['비터/허벌', '크리미', '클래식']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 55] mode=oracle
+    user_text : 평소랑 비슷한 컨디션이에요 크리미한 느낌이 진했으면 좋겠어요 바디감은 가벼웠으면 좋겠어요 허브 향은 적당하면 좋겠어요 좋은 일 있어서 분위기 내
+    gold_slots: current_mood=soso  party_purpose=celebration  taste={'creamy': 'high', 'body': 'low'}  aroma={'herbal': 'medium'}  bases!=['vodka']
+    gold_ck   : []
+    gold_cat  : ['크리미']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '사우스사이드', '사제락', '스프리츠']...
+    survivors : ['키르', '파라다이스', '사우스사이드', '사제락', '스프리츠']...
+    score_top3: ['클로버 클럽', '사우스사이드', '위스키 사워']
+    top3_name : ['클로버 클럽', '사우스사이드', '위스키 사워']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 56] mode=oracle
+    user_text : 플로럴한 느낌은 은은하면 돼! 보드카 베이스만 아니면 좋겠어요. 오늘은 혼술용으로 보고 있어요. 그냥 무난한 기분이에.
+    gold_slots: current_mood=soso  party_purpose=solo  aroma={'floral': 'medium'}  bases!=['vodka']
+    gold_ck   : ['라스트 워드', '샤르트뢰즈 스위즐', '콥스 리바이버 No.2']
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스프리츠', '파라다이스', '스팅어']...
+    survivors : ['키르', '미모사', '스프리츠', '파라다이스', '스팅어']...
+    score_top3: ['카지노', '클로버 클럽', '피스코 펀치']
+    top3_name : ['카지노', '클로버 클럽', '피스코 펀치']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 59] mode=oracle
+    user_text : 산뜻한 느낌은 강하지 않아도 돼요 쓴맛이 또렷했으면 좋겠어요 바디감이 묵직했으면 좋겠어요 기분 좋게 한잔하고 싶어요 커피 느낌은 은은하면 돼요 
+    gold_slots: current_mood=good  taste={'bitter': 'high', 'body': 'high', 'freshness': 'low'}  aroma={'minty': 'medium', 'coffee': 'medium', 'herbal': 'high'}
+    gold_ck   : ['사제락', '러스티 네일']
+    gold_cat  : ['비터/허벌', '스피릿포워드']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '사우스사이드', '스팅어', '스프리츠']...
+    survivors : ['키르', '미모사', '사우스사이드', '스팅어', '스프리츠']...
+    score_top3: ['카지노', '트리니다드 사워', '정글 버드']
+    top3_name : ['카지노', '트리니다드 사워', '정글 버드']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 62] mode=oracle
+    user_text : 커피 느낌이 또렷했으면 해요 기분이 꽤 좋아요. 기념할 일이 있어서요 씁쓸한 포인트가 분명했으면 해요 신맛이 확실했으면 좋겠어요 도수는 0이면 
+    gold_slots: current_mood=good  party_purpose=celebration  strength_preference=zero  taste={'sour': 'high', 'bitter': 'high'}  aroma={'coffee': 'high'}
+    gold_ck   : []
+    gold_cat  : ['비터/허벌', '시트러스 사워', '커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['노지토', '버진 피냐 콜라다', '버진 메리', '버진 모히토', '셜리 템플']
+    survivors : ['노지토', '버진 피냐 콜라다', '버진 메리', '버진 모히토', '셜리 템플']
+    score_top3: ['노지토', '버진 모히토', '버진 메리']
+    top3_name : ['노지토', '버진 모히토', '버진 메리']
+    top3_cat  : ['리프레싱 하이볼', '리프레싱 하이볼', '클래식']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 63] mode=oracle
+    user_text : 부담 없이 균형 잡힌 도수면 좋겠어요 보드카 베이스는 빼고 싶어요 커피 향이 확실했으면 좋겠어요 단맛은 과하지 않게 적당하면 좋겠어요 그냥 무난
+    gold_slots: current_mood=soso  party_purpose=hangout  strength_preference=medium  taste={'sweet': 'medium'}  aroma={'coffee': 'high'}  bases!=['vodka']
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '카지노', '스프리츠', '샴페인 칵테일']...
+    survivors : ['키르', '미모사', '카지노', '스프리츠', '샴페인 칵테일']...
+    score_top3: ['토미스 마가리타', '클로버 클럽', '위스키 사워']
+    top3_name : ['토미스 마가리타', '클로버 클럽', '위스키 사워']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 64] mode=oracle
+    user_text : 럼이랑 위스키 쪽은 안 들어갔으면 좋겠어요 신맛은 중간 정도면 돼요 씁쓸한 느낌은 약했으면 해요 딱히 업다운 없는 상태예요. 오늘은 혼술용으로 
+    gold_slots: current_mood=soso  party_purpose=solo  strength_preference=light  taste={'bitter': 'low', 'sour': 'medium'}  aroma={'minty': 'low'}  bases!=['rum', 'whiskey']
+    gold_ck   : ['러시안 스프링 펀치', '진 피즈', 'IBA Tiki']
+    gold_cat  : ['리프레싱 하이볼', '스파클링', '티키/트로피컬']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스팅어', '사우스사이드', '스프리츠']...
+    survivors : ['키르', '미모사', '스팅어', '사우스사이드', '스프리츠']...
+    score_top3: ['블러디 메리', '시 브리즈', '토미스 마가리타']
+    top3_name : ['블러디 메리', '시 브리즈', '토미스 마가리타']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 74] mode=oracle
+    user_text : 보드카 쪽은 안 들어갔으면 좋겠어요 알코올 없는 쪽으로 보고 있어요. 취향으로는 진 바질 스매시가 잘 맞아요 쓴맛이 또렷했으면 좋겠어요 부드러운
+    gold_slots: current_mood=soso  strength_preference=zero  taste={'creamy': 'medium', 'bitter': 'high', 'body': 'high'}  bases!=['vodka']
+    gold_ck   : []
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 메리', '버진 피냐 콜라다', '노지토', '셜리 템플', '버진 모히토']
+    survivors : ['버진 메리', '버진 피냐 콜라다', '노지토', '셜리 템플', '버진 모히토']
+    score_top3: ['버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    top3_name : ['버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    top3_cat  : ['크리미', '스파클링', '리프레싱 하이볼']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 115] mode=oracle
+    user_text : 커피 향이 확실했으면 좋겠어요. 청량감이 확실했으면 좋겠어요 단맛은 약했으면 좋겠어! 부담 없는 도수면 돼요. 그냥 무난한 기분이에요. 둘이 분
+    gold_slots: current_mood=soso  party_purpose=date  strength_preference=light  taste={'sweet': 'low', 'freshness': 'high'}  aroma={'coffee': 'high'}
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '카지노', '사우스사이드', '스프리츠', '라스트 워드']...
+    survivors : ['키르', '카지노', '사우스사이드', '스프리츠', '라스트 워드']...
+    score_top3: ['진 피즈', '시 브리즈', '샴페인 칵테일']
+    top3_name : ['진 피즈', '시 브리즈', '샴페인 칵테일']
+    top3_cat  : ['리프레싱 하이볼', '시트러스 사워', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 136] mode=oracle
+    user_text : 기분은 보통이에요 가볍게 마실 수 있으면 좋겠어요 위스키 쪽은 안 들어갔으면 좋겠어요 플로럴한 느낌은 강하지 않았으면 해요 허브 향은 적당하면 
+    gold_slots: current_mood=soso  party_purpose=date  strength_preference=light  taste={'sweet': 'high', 'creamy': 'high'}  aroma={'herbal': 'medium', 'floral': 'low'}  bases!=['whiskey']
+    gold_ck   : []
+    gold_cat  : ['크리미']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '사우스사이드', '스프리츠', '마티니']...
+    survivors : ['키르', '파라다이스', '사우스사이드', '스프리츠', '마티니']...
+    score_top3: ['정글 버드', '클로버 클럽', '사우스사이드']
+    top3_name : ['정글 버드', '클로버 클럽', '사우스사이드']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 156] mode=oracle
+    user_text : 보드카 베이스만 아니면 좋겠어요 크리미한 느낌이 진했으면 좋겠어요 세지 않은 쪽이면 좋겠어요. 편하게 모여서 마시려고요 허브 향이 분명했으면 좋
+    gold_slots: current_mood=bad  party_purpose=hangout  strength_preference=light  taste={'creamy': 'high'}  aroma={'fruity': 'medium', 'herbal': 'high'}  bases!=['vodka']
+    gold_ck   : ['그래스호퍼']
+    gold_cat  : ['크리미']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스프리츠', '파라다이스', '사우스사이드']...
+    survivors : ['키르', '미모사', '스프리츠', '파라다이스', '사우스사이드']...
+    score_top3: ['클로버 클럽', '사우스사이드', '정글 버드']
+    top3_name : ['클로버 클럽', '사우스사이드', '정글 버드']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 162] mode=oracle
+    user_text : 술은 안 들어갔으면 해. 커피 느낌이 또렷했으면 해요 허브 향이 분명했으면 좋겠어! 기분은 보통이에. 산뜻함은 중간 정도면 돼요 무게감은 낮은 
+    gold_slots: current_mood=soso  party_purpose=hangout  strength_preference=zero  taste={'body': 'low', 'freshness': 'medium'}  aroma={'herbal': 'high', 'coffee': 'high'}
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 메리', '노지토', '버진 모히토', '버진 피냐 콜라다', '셜리 템플']
+    survivors : ['버진 메리', '노지토', '버진 모히토', '버진 피냐 콜라다', '셜리 템플']
+    score_top3: ['버진 모히토', '노지토', '버진 메리']
+    top3_name : ['버진 모히토', '노지토', '버진 메리']
+    top3_cat  : ['리프레싱 하이볼', '리프레싱 하이볼', '클래식']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 164] mode=oracle
+    user_text : 피나 콜라다이랑 라모스 피즈 쪽을 좋아해요. 데이트 자리에서 마실 거예! 신맛이 확실했으면 좋겠어요 쓴맛은 강하지 않았으면 좋겠어요. 보드카이랑
+    gold_slots: party_purpose=date  strength_preference=zero  taste={'bitter': 'low', 'sour': 'high'}  aroma={'minty': 'medium', 'fruity': 'high', 'coffee': 'medium'}  bases!=['tequila', 'vodka']
+    gold_ck   : []
+    gold_cat  : ['시트러스 사워']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 피냐 콜라다', '노지토', '버진 메리', '버진 모히토', '셜리 템플']
+    survivors : ['버진 피냐 콜라다', '노지토', '버진 메리', '버진 모히토', '셜리 템플']
+    score_top3: ['노지토', '버진 피냐 콜라다', '셜리 템플']
+    top3_name : ['노지토', '버진 피냐 콜라다', '셜리 템플']
+    top3_cat  : ['리프레싱 하이볼', '크리미', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 174] mode=oracle
+    user_text : 허벌한 느낌이 확실했으면 해요 커피 향이 확실했으면 좋겠어요 딱히 업다운 없는 상태예요 산미는 적당하면 좋겠어요. 데킬라 베이스는 빼고 싶어요 
+    gold_slots: current_mood=soso  party_purpose=hangout  strength_preference=light  taste={'sour': 'medium'}  aroma={'herbal': 'high', 'coffee': 'high'}  bases!=['tequila']
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스프리츠', '카지노', '사우스사이드']...
+    survivors : ['키르', '미모사', '스프리츠', '카지노', '사우스사이드']...
+    score_top3: ['정글 버드', '페이퍼 플레인', '네이키드 앤 페이머스']
+    top3_name : ['정글 버드', '페이퍼 플레인', '네이키드 앤 페이머스']
+    top3_cat  : ['티키/트로피컬', '비터/허벌', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 183] mode=oracle
+    user_text : 단맛은 과하지 않게 적당하면 좋겠어요 크리미한 느낌이 진했으면 좋겠어요 쓴맛이 또렷했으면 좋겠어요 오늘은 기분이 좋은 편이에요 우디한 향은 적당
+    gold_slots: current_mood=good  taste={'bitter': 'high', 'sweet': 'medium', 'creamy': 'high'}  aroma={'herbal': 'medium', 'woody': 'medium'}
+    gold_ck   : []
+    gold_cat  : ['비터/허벌', '크리미']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '미모사', '파라다이스', '스프리츠']...
+    survivors : ['키르', '사우스사이드', '미모사', '파라다이스', '스프리츠']...
+    score_top3: ['정글 버드', '브랜디 크러스타', '트리니다드 사워']
+    top3_name : ['정글 버드', '브랜디 크러스타', '트리니다드 사워']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 187] mode=oracle
+    user_text : 오늘은 좀 지쳐 있어요. 도수는 0이면 좋겠어. 플로럴한 느낌은 강하지 않았으면 해요 민트 향은 약했으면 좋겠어. 쓴맛이 또렷했으면 좋겠어! 조
+    gold_slots: current_mood=bad  party_purpose=business  strength_preference=zero  taste={'bitter': 'high'}  aroma={'floral': 'low', 'minty': 'low'}
+    gold_ck   : []
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 메리', '버진 피냐 콜라다', '노지토', '버진 모히토', '셜리 템플']
+    survivors : ['버진 메리', '버진 피냐 콜라다', '노지토', '버진 모히토', '셜리 템플']
+    score_top3: ['버진 피냐 콜라다', '셜리 템플', '버진 메리']
+    top3_name : ['버진 피냐 콜라다', '셜리 템플', '버진 메리']
+    top3_cat  : ['크리미', '스파클링', '클래식']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 194] mode=oracle
+    user_text : 기분은 보통이에! 허벌한 느낌은 강하지 않았으면 해요 우디한 향은 적당하면 좋겠어! 편하게 모여서 마시려고요. 세지 않은 쪽이면 좋겠어.
+    gold_slots: current_mood=soso  party_purpose=hangout  strength_preference=light  aroma={'woody': 'medium', 'herbal': 'low'}
+    gold_ck   : ['러시안 스프링 펀치', '포르노스타 마티니', '데킬라 선라이즈']
+    gold_cat  : ['과일계', '스파클링']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '스프리츠', '미모사', '스팅어']...
+    survivors : ['키르', '사우스사이드', '스프리츠', '미모사', '스팅어']...
+    score_top3: ['IBA Tiki', '아이리시 커피', '정글 버드']
+    top3_name : ['IBA Tiki', '아이리시 커피', '정글 버드']
+    top3_cat  : ['티키/트로피컬', '크리미', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 195] mode=oracle
+    user_text : 오늘은 좀 지쳐 있어요 편하게 모여서 마시려고요. 스파이시 피프티 쪽을 좋아해요 바디감이 묵직했으면 좋겠어요 크리미한 느낌은 거의 없었으면 해요
+    gold_slots: current_mood=bad  party_purpose=hangout  taste={'creamy': 'low', 'body': 'high'}  aroma={'coffee': 'low', 'herbal': 'medium'}
+    gold_ck   : ['사제락', '올드 패션드', '러스티 네일']
+    gold_cat  : ['비터/허벌', '스피릿포워드']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['스프리츠', '키르', '미모사', '스팅어', '사우스사이드']...
+    survivors : ['스프리츠', '키르', '미모사', '스팅어', '사우스사이드']...
+    score_top3: ['정글 버드', '브랜디 크러스타', '카지노']
+    top3_name : ['정글 버드', '브랜디 크러스타', '카지노']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 198] mode=oracle
+    user_text : 혼자 천천히 마시려고요. 씁쓸한 포인트가 분명했으면 해요 청량감이 확실했으면 좋겠어! 과일 향이 확실했으면 좋겠어요. 럼이랑 위스키는 피하고 싶
+    gold_slots: current_mood=bad  party_purpose=solo  strength_preference=medium  taste={'bitter': 'high', 'freshness': 'high'}  aroma={'fruity': 'high'}  bases!=['rum', 'whiskey']
+    gold_ck   : []
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '파라다이스', '라스트 워드', '카지노']...
+    survivors : ['키르', '미모사', '파라다이스', '라스트 워드', '카지노']...
+    score_top3: ['싱가폴 슬링', '시 브리즈', '카지노']
+    top3_name : ['싱가폴 슬링', '시 브리즈', '카지노']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 202] mode=oracle
+    user_text : 위스키 베이스만 아니면 좋겠어요. 평소에는 다이키리 좋아해. 무알콜로 부탁드려. 꽃향은 약했으면 좋겠어요 커피 향이 확실했으면 좋겠어요. 단맛은
+    gold_slots: current_mood=good  strength_preference=zero  taste={'sweet': 'medium', 'sour': 'low'}  aroma={'coffee': 'high', 'floral': 'low'}  bases!=['whiskey']
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 피냐 콜라다', '노지토', '버진 메리', '버진 모히토', '셜리 템플']
+    survivors : ['버진 피냐 콜라다', '노지토', '버진 메리', '버진 모히토', '셜리 템플']
+    score_top3: ['버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    top3_name : ['버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    top3_cat  : ['크리미', '스파클링', '리프레싱 하이볼']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 216] mode=oracle
+    user_text : 바디감이 묵직했으면 좋겠어요 산미가 또렷한 쪽이 좋아요 씁쓸한 느낌은 약했으면 해요 같이 분위기 있게 마실 거예요 시트러스 느낌은 약했으면 좋겠
+    gold_slots: party_purpose=date  strength_preference=zero  taste={'bitter': 'low', 'sour': 'high', 'body': 'high'}  aroma={'citrus': 'low'}
+    gold_ck   : []
+    gold_cat  : ['시트러스 사워']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 메리', '노지토', '버진 모히토', '셜리 템플', '버진 피냐 콜라다']
+    survivors : ['버진 메리', '노지토', '버진 모히토', '셜리 템플', '버진 피냐 콜라다']
+    score_top3: ['버진 피냐 콜라다', '노지토', '버진 모히토']
+    top3_name : ['버진 피냐 콜라다', '노지토', '버진 모히토']
+    top3_cat  : ['크리미', '리프레싱 하이볼', '리프레싱 하이볼']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 224] mode=oracle
+    user_text : 도수는 가볍게 가고 싶어요 혼자 조용히 한잔할 생각이에요 시트러스 느낌은 약했으면 좋겠어요 청량감이 확실했으면 좋겠어요요.
+    gold_slots: party_purpose=solo  strength_preference=light  taste={'freshness': 'high'}  aroma={'citrus': 'low'}
+    gold_ck   : ['다크 앤 스토미', '페르난디토', '홀시스 넥']
+    gold_cat  : ['리프레싱 하이볼', '비터/허벌']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '스팅어', '미모사', '사우스사이드', '카지노']...
+    survivors : ['키르', '스팅어', '미모사', '사우스사이드', '카지노']...
+    score_top3: ['샴페인 칵테일', '시 브리즈', '미모사']
+    top3_name : ['샴페인 칵테일', '시 브리즈', '미모사']
+    top3_cat  : ['스파클링', '시트러스 사워', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 237] mode=oracle
+    user_text : 약한 것보다는 도수가 있는 편이 좋아! 우디한 향은 약했으면 좋겠어요. 기념할 일이 있어서요. 크리미한 느낌이 진했으면 좋겠어! 평소랑 비슷한 
+    gold_slots: current_mood=soso  party_purpose=celebration  strength_preference=strong  taste={'creamy': 'high'}  aroma={'woody': 'low'}
+    gold_ck   : []
+    gold_cat  : ['크리미']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '파라다이스', '스프리츠', '라스트 워드']...
+    survivors : ['키르', '사우스사이드', '파라다이스', '스프리츠', '라스트 워드']...
+    score_top3: ['클로버 클럽', '피스코 사워', '사우스사이드']
+    top3_name : ['클로버 클럽', '피스코 사워', '사우스사이드']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 242] mode=oracle
+    user_text : 좀 처진 느낌이에요 세지 않은 쪽이면 좋겠어요 씁쓸한 느낌은 약했으면 해요. 꽃향이 확실했으면 좋겠어요 시트러스 향이 확실했으면 좋겠어요 알렉산
+    gold_slots: current_mood=bad  party_purpose=solo  strength_preference=light  taste={'bitter': 'low'}  aroma={'floral': 'high', 'citrus': 'high'}
+    gold_ck   : ['라모스 피즈', '네이키드 앤 페이머스', '라스트 워드']
+    gold_cat  : ['비터/허벌', '크리미']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['미모사', '스팅어', '키르', '스프리츠', '라스트 워드']...
+    survivors : ['미모사', '스팅어', '키르', '스프리츠', '라스트 워드']...
+    score_top3: ['러시안 스프링 펀치', 'IBA Tiki', '미모사']
+    top3_name : ['러시안 스프링 펀치', 'IBA Tiki', '미모사']
+    top3_cat  : ['스파클링', '티키/트로피컬', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 246] mode=oracle
+    user_text : 미팅 겸 한잔할 거예요 평소에는 메리 픽포드이랑 칸찬차라 좋아해요 프루티한 향이 또렷했으면 해요 플로럴한 향이 또렷했으면 해요. 세지 않은 쪽이
+    gold_slots: party_purpose=business  strength_preference=light  taste={'creamy': 'low', 'bitter': 'low'}  aroma={'floral': 'high', 'fruity': 'high'}  bases!=['tequila']
+    gold_ck   : ['라스트 워드', '애비에이션', '샤르트뢰즈 스위즐']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '스프리츠', '파라다이스', '사제락', '라스트 워드']...
+    survivors : ['키르', '스프리츠', '파라다이스', '사제락', '라스트 워드']...
+    score_top3: ['러시안 스프링 펀치', '포르노스타 마티니', '벨리니']
+    top3_name : ['러시안 스프링 펀치', '포르노스타 마티니', '벨리니']
+    top3_cat  : ['스파클링', '스파클링', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 250] mode=oracle
+    user_text : 시트러스 느낌은 약했으면 좋겠어! 단맛은 과하지 않게 적당하면 좋겠어. 오늘은 혼술용으로 보고 있어! 세지 않은 쪽이면 좋겠어!
+    gold_slots: party_purpose=solo  strength_preference=light  taste={'sweet': 'medium'}  aroma={'citrus': 'low'}
+    gold_ck   : ['포르노스타 마티니', '피나 콜라다', '벨리니']
+    gold_cat  : ['스파클링', '크리미']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['사우스사이드', '스팅어', '카지노', '미모사', '스프리츠']...
+    survivors : ['사우스사이드', '스팅어', '카지노', '미모사', '스프리츠']...
+    score_top3: ['정글 버드', '러스티 네일', '프렌치 마티니']
+    top3_name : ['정글 버드', '러스티 네일', '프렌치 마티니']
+    top3_cat  : ['티키/트로피컬', '스피릿포워드', '과일계']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 256] mode=oracle
+    user_text : 신맛은 약했으면 좋겠어요 도수는 어느 정도 있어도 괜찮아요 럼 쪽은 안 들어갔으면 좋겠어요. 시원한 민트감이 또렷했으면 해요 조금 다운된 상태예
+    gold_slots: current_mood=bad  party_purpose=solo  strength_preference=strong  taste={'sour': 'low'}  aroma={'minty': 'high'}  bases!=['rum']
+    gold_ck   : []
+    gold_cat  : ['리프레싱 하이볼']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['스팅어', '키르', '마티니', '미모사', '라스트 워드']...
+    survivors : ['스팅어', '키르', '마티니', '미모사', '라스트 워드']...
+    score_top3: ['페르난디토', '민트 줄렙', '행키팽키']
+    top3_name : ['페르난디토', '민트 줄렙', '행키팽키']
+    top3_cat  : ['비터/허벌', '클래식', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 269] mode=oracle
+    user_text : 같이 분위기 있게 마실 거예요 산뜻함은 중간 정도면 돼요 쓴맛이 또렷했으면 좋겠어요 컨디션이 썩 좋진 않아요 알코올 없는 쪽으로 보고 있어요 취
+    gold_slots: current_mood=bad  party_purpose=date  strength_preference=zero  taste={'bitter': 'high', 'freshness': 'medium'}
+    gold_ck   : []
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 메리', '노지토', '버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    survivors : ['버진 메리', '노지토', '버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    score_top3: ['버진 모히토', '노지토', '버진 피냐 콜라다']
+    top3_name : ['버진 모히토', '노지토', '버진 피냐 콜라다']
+    top3_cat  : ['리프레싱 하이볼', '리프레싱 하이볼', '크리미']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 275] mode=oracle
+    user_text : 산뜻함은 중간 정도면 돼요 달콤한 쪽이 좋아요 알코올 없는 쪽으로 보고 있어요 진 베이스는 빼고 싶어요 혼자 조용히 한잔할 생각이에요 과일 향이
+    gold_slots: current_mood=good  party_purpose=solo  strength_preference=zero  taste={'sweet': 'high', 'freshness': 'medium'}  aroma={'fruity': 'high', 'minty': 'medium', 'coffee': 'high'}  bases!=['gin']
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['노지토', '버진 메리', '버진 피냐 콜라다', '버진 모히토', '셜리 템플']
+    survivors : ['노지토', '버진 메리', '버진 피냐 콜라다', '버진 모히토', '셜리 템플']
+    score_top3: ['버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    top3_name : ['버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    top3_cat  : ['크리미', '스파클링', '리프레싱 하이볼']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 276] mode=oracle
+    user_text : 커피 느낌이 또렷했으면 해요 꽃향이 확실했으면 좋겠어요 오늘은 혼술용으로 보고 있어요 컨디션이 괜찮은 날이에요
+    gold_slots: current_mood=good  party_purpose=solo  aroma={'coffee': 'high', 'floral': 'high'}
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스프리츠', '카지노', '스팅어']...
+    survivors : ['키르', '미모사', '스프리츠', '카지노', '스팅어']...
+    score_top3: ['카지노', '클로버 클럽', '피스코 펀치']
+    top3_name : ['카지노', '클로버 클럽', '피스코 펀치']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 291] mode=oracle
+    user_text : 씁쓸한 느낌은 약했으면 해. 업무 얘기 나누면서 마실 자리예! 기운이 떨어져 있어서. 우디한 향이 분명했으면 좋겠어요 커피 향이 확실했으면 좋겠
+    gold_slots: current_mood=bad  party_purpose=business  strength_preference=strong  taste={'bitter': 'low'}  aroma={'woody': 'high', 'coffee': 'high', 'minty': 'low'}
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['라스트 워드', '키르', '사우스사이드', '스팅어', '카지노']...
+    survivors : ['라스트 워드', '키르', '사우스사이드', '스팅어', '카지노']...
+    score_top3: ['좀비', '비트윈 더 시트', '사이드카']
+    top3_name : ['좀비', '비트윈 더 시트', '사이드카']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 294] mode=oracle
+    user_text : 쓴맛은 중간 정도로만 느껴지면 돼요. 커피 향은 적당하면 좋겠어요 플로럴한 향이 또렷했으면 해요 시원한 민트감이 또렷했으면 해! 오늘은 기분이 
+    gold_slots: current_mood=good  party_purpose=hangout  taste={'bitter': 'medium'}  aroma={'minty': 'high', 'coffee': 'medium', 'floral': 'high'}
+    gold_ck   : []
+    gold_cat  : ['리프레싱 하이볼']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['미모사', '키르', '스프리츠', '마티니', '스팅어']...
+    survivors : ['미모사', '키르', '스프리츠', '마티니', '스팅어']...
+    score_top3: ['올드 쿠반', '행키팽키', '사우스사이드']
+    top3_name : ['올드 쿠반', '행키팽키', '사우스사이드']
+    top3_cat  : ['스파클링', '비터/허벌', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 297] mode=oracle
+    user_text : 크리미한 느낌이 진했으면 좋겠어요 무게감은 낮은 쪽이면 좋겠어요 업무 얘기 나누면서 마실 자리예요 스파이시 피프티 같은 스타일을 좋아하는 편이에
+    gold_slots: current_mood=soso  party_purpose=business  strength_preference=strong  taste={'body': 'low', 'creamy': 'high'}  aroma={'floral': 'low', 'woody': 'high'}
+    gold_ck   : []
+    gold_cat  : ['크리미']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['스프리츠', '불바디에', '스팅어', '사우스사이드', '파라다이스']...
+    survivors : ['스프리츠', '불바디에', '스팅어', '사우스사이드', '파라다이스']...
+    score_top3: ['일레갈', '위스키 사워', '좀비']
+    top3_name : ['일레갈', '위스키 사워', '좀비']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 306] mode=oracle
+    user_text : 취향으로는 맨해튼가 잘 맞아! 너무 약하거나 세지 않은 쪽이면 돼요. 특별한 건 없고 담담해요. 일 이야기하면서 마실 예정이에! 보드카 베이스는
+    gold_slots: current_mood=soso  party_purpose=business  strength_preference=medium  taste={'bitter': 'low'}  aroma={'citrus': 'high', 'coffee': 'high', 'fruity': 'high'}  bases!=['vodka']
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['사우스사이드', '카지노', '키르', '스팅어', '스프리츠']...
+    survivors : ['사우스사이드', '카지노', '키르', '스팅어', '스프리츠']...
+    score_top3: ['일레갈', '클로버 클럽', '마가리타']
+    top3_name : ['일레갈', '클로버 클럽', '마가리타']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 311] mode=oracle
+    user_text : 샴페인 칵테일 같은 스타일을 좋아하는 편이에요 무알콜로 부탁드려요 딱히 업다운 없는 상태예요. 혼자 마시기 좋은 걸 찾고 있어요 바디감은 가벼웠
+    gold_slots: current_mood=soso  party_purpose=solo  strength_preference=zero  taste={'sour': 'high', 'body': 'low'}  aroma={'coffee': 'high'}  bases!=['gin', 'tequila']
+    gold_ck   : []
+    gold_cat  : ['시트러스 사워', '커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['노지토', '버진 메리', '버진 피냐 콜라다', '버진 모히토', '셜리 템플']
+    survivors : ['노지토', '버진 메리', '버진 피냐 콜라다', '버진 모히토', '셜리 템플']
+    score_top3: ['노지토', '버진 모히토', '버진 메리']
+    top3_name : ['노지토', '버진 모히토', '버진 메리']
+    top3_cat  : ['리프레싱 하이볼', '리프레싱 하이볼', '클래식']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 313] mode=oracle
+    user_text : 일 이야기하면서 마실 예정이에요. 그냥 무난한 기분이에. 너무 약하거나 세지 않은 쪽이면 돼! 허벌한 느낌은 은은하면 돼. 부드럽고 진한 질감이
+    gold_slots: current_mood=soso  party_purpose=business  strength_preference=medium  taste={'creamy': 'high'}  aroma={'herbal': 'medium'}
+    gold_ck   : ['그래스호퍼', '알렉산더']
+    gold_cat  : ['크리미']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '스프리츠', '파라다이스', '시 브리즈']...
+    survivors : ['키르', '사우스사이드', '스프리츠', '파라다이스', '시 브리즈']...
+    score_top3: ['클로버 클럽', '사우스사이드', '위스키 사워']
+    top3_name : ['클로버 클럽', '사우스사이드', '위스키 사워']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 320] mode=oracle
+    user_text : 보드카 쪽은 안 들어갔으면 좋겠어. 신맛은 중간 정도면 돼요 부드럽고 진한 질감이 확실했으면 해요 단맛은 약했으면 좋겠어. 적당한 도수로 맞추고
+    gold_slots: current_mood=bad  party_purpose=date  strength_preference=medium  taste={'sweet': 'low', 'sour': 'medium', 'creamy': 'high'}  aroma={'citrus': 'high', 'fruity': 'high', 'minty': 'low'}  bases!=['vodka']
+    gold_ck   : []
+    gold_cat  : ['크리미']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '파라다이스', '사이드카', '트리니다드 사워']...
+    survivors : ['키르', '사우스사이드', '파라다이스', '사이드카', '트리니다드 사워']...
+    score_top3: ['클로버 클럽', '일레갈', '그랑 마가리타']
+    top3_name : ['클로버 클럽', '일레갈', '그랑 마가리타']
+    top3_cat  : ['시트러스 사워', '티키/트로피컬', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 323] mode=oracle
+    user_text : 축하하는 자리에서 마실 거예! 취향으로는 셜리 템플가 잘 맞아! 딱히 업다운 없는 상태예! 부담 없이 균형 잡힌 도수면 좋겠어. 크리미한 느낌이
+    gold_slots: current_mood=soso  party_purpose=celebration  strength_preference=medium  taste={'creamy': 'high'}  aroma={'woody': 'medium', 'coffee': 'low', 'herbal': 'high'}
+    gold_ck   : ['그래스호퍼']
+    gold_cat  : ['크리미']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '스프리츠', '사제락', '미모사']...
+    survivors : ['키르', '사우스사이드', '스프리츠', '사제락', '미모사']...
+    score_top3: ['클로버 클럽', '사우스사이드', '위스키 사워']
+    top3_name : ['클로버 클럽', '사우스사이드', '위스키 사워']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 330] mode=oracle
+    user_text : 너무 약하거나 세지 않은 쪽이면 돼요 오늘은 기분이 좋은 편이에요 과일 향은 적당하면 좋겠어요 업무 얘기 나누면서 마실 자리예요 크리미한 느낌이
+    gold_slots: current_mood=good  party_purpose=business  strength_preference=medium  taste={'creamy': 'high'}  aroma={'fruity': 'medium'}
+    gold_ck   : ['그래스호퍼', '알렉산더']
+    gold_cat  : ['크리미']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '시 브리즈', '스프리츠', '사우스사이드']...
+    survivors : ['키르', '파라다이스', '시 브리즈', '스프리츠', '사우스사이드']...
+    score_top3: ['클로버 클럽', '위스키 사워', '피스코 사워']
+    top3_name : ['클로버 클럽', '위스키 사워', '피스코 사워']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 332] mode=oracle
+    user_text : 기운이 떨어져 있어서. 단맛이 확실히 느껴졌으면 좋겠어요 씁쓸한 포인트가 분명했으면 해! 술은 안 들어갔으면 해요. 커피 향은 강하지 않게요. 
+    gold_slots: current_mood=bad  party_purpose=business  strength_preference=zero  taste={'sweet': 'high', 'bitter': 'high'}  aroma={'coffee': 'low'}
+    gold_ck   : []
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 메리', '노지토', '버진 피냐 콜라다', '버진 모히토', '셜리 템플']
+    survivors : ['버진 메리', '노지토', '버진 피냐 콜라다', '버진 모히토', '셜리 템플']
+    score_top3: ['버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    top3_name : ['버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    top3_cat  : ['크리미', '스파클링', '리프레싱 하이볼']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 342] mode=oracle
+    user_text : 커피 느낌이 또렷했으면 해요 과일 향이 확실했으면 좋겠어요 허브 향이 분명했으면 좋겠어! 컨디션이 괜찮은 날이에. 가볍게 어울리는 자리예요.
+    gold_slots: current_mood=good  party_purpose=hangout  aroma={'herbal': 'high', 'coffee': 'high', 'fruity': 'high'}
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '사우스사이드', '스프리츠', '카지노']...
+    survivors : ['키르', '미모사', '사우스사이드', '스프리츠', '카지노']...
+    score_top3: ['정글 버드', '브랜디 크러스타', '카지노']
+    top3_name : ['정글 버드', '브랜디 크러스타', '카지노']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 367] mode=oracle
+    user_text : 시원한 민트감이 또렷했으면 해! 기분 좋게 한잔하고 싶어요. 진한 느낌으로 가도 괜찮아요. 혼자 천천히 마시려고.
+    gold_slots: current_mood=good  party_purpose=solo  strength_preference=strong  aroma={'minty': 'high'}
+    gold_ck   : []
+    gold_cat  : ['리프레싱 하이볼']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['마티니', '스팅어', '키르', '민트 줄렙', '사우스사이드']...
+    survivors : ['마티니', '스팅어', '키르', '민트 줄렙', '사우스사이드']...
+    score_top3: ['올드 쿠반', '사우스사이드', '페르난디토']
+    top3_name : ['올드 쿠반', '사우스사이드', '페르난디토']
+    top3_cat  : ['스파클링', '시트러스 사워', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 373] mode=oracle
+    user_text : 보드카이랑 럼는 피하고 싶어요 쓴맛이 또렷했으면 좋겠어요 크리미한 느낌은 적당하면 좋겠어요 무게감 있는 쪽이 좋아요 적당한 도수로 맞추고 싶어요
+    gold_slots: current_mood=good  party_purpose=date  strength_preference=medium  taste={'bitter': 'high', 'creamy': 'medium', 'body': 'high'}  aroma={'minty': 'medium'}  bases!=['rum', 'vodka']
+    gold_ck   : ['러스티 네일']
+    gold_cat  : ['비터/허벌', '스피릿포워드']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '사우스사이드', '사이드카', '스팅어']...
+    survivors : ['키르', '파라다이스', '사우스사이드', '사이드카', '스팅어']...
+    score_top3: ['카지노', '트리니다드 사워', '브랜디 크러스타']
+    top3_name : ['카지노', '트리니다드 사워', '브랜디 크러스타']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 378] mode=oracle
+    user_text : 그냥 무난한 기분이에요 시트러스가 또렷하게 느껴졌으면 해요. 축하하는 자리에서 마실 거예요 산미가 또렷한 쪽이 좋아요 부드럽고 진한 질감이 확실
+    gold_slots: current_mood=soso  party_purpose=celebration  strength_preference=zero  taste={'sour': 'high', 'creamy': 'high'}  aroma={'citrus': 'high'}
+    gold_ck   : []
+    gold_cat  : ['시트러스 사워', '크리미']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 메리', '노지토', '버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    survivors : ['버진 메리', '노지토', '버진 피냐 콜라다', '셜리 템플', '버진 모히토']
+    score_top3: ['노지토', '버진 모히토', '버진 메리']
+    top3_name : ['노지토', '버진 모히토', '버진 메리']
+    top3_cat  : ['리프레싱 하이볼', '리프레싱 하이볼', '클래식']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 383] mode=oracle
+    user_text : 오늘은 좀 들뜬 편이에요 우디한 향은 적당하면 좋겠어요 시트러스 향은 은은하면 좋겠어요 바디감이 묵직했으면 좋겠어요 단맛은 중간 정도면 돼요 세
+    gold_slots: current_mood=good  party_purpose=hangout  strength_preference=light  taste={'body': 'high', 'sweet': 'medium'}  aroma={'woody': 'medium', 'citrus': 'medium'}  bases!=['tequila']
+    gold_ck   : ['아이리시 커피', '러스티 네일', '프렌치 커넥션']
+    gold_cat  : ['스피릿포워드', '크리미']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['사우스사이드', '키르', '카지노', '미모사', '불바디에']...
+    survivors : ['사우스사이드', '키르', '카지노', '미모사', '불바디에']...
+    score_top3: ['정글 버드', '트리니다드 사워', '미셔너리즈 다운폴']
+    top3_name : ['정글 버드', '트리니다드 사워', '미셔너리즈 다운폴']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 390] mode=oracle
+    user_text : 단맛이 확실히 느껴졌으면 좋겠어요 청량감이 확실했으면 좋겠어요 바디감은 중간 정도면 돼요 데이트용으로 찾고 있어요. 도수는 가볍게 가고 싶어요 
+    gold_slots: party_purpose=date  strength_preference=light  taste={'freshness': 'high', 'sweet': 'high', 'body': 'medium'}  aroma={'minty': 'medium', 'woody': 'medium', 'fruity': 'medium'}
+    gold_ck   : ['페르난디토']
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '파라다이스', '라스트 워드', '사이드카']...
+    survivors : ['키르', '사우스사이드', '파라다이스', '라스트 워드', '사이드카']...
+    score_top3: ['정글 버드', '미셔너리즈 다운폴', '샴페인 칵테일']
+    top3_name : ['정글 버드', '미셔너리즈 다운폴', '샴페인 칵테일']
+    top3_cat  : ['티키/트로피컬', '티키/트로피컬', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 391] mode=oracle
+    user_text : 커피 향이 확실했으면 좋겠어! 특별한 건 없고 담담해. 청량감이 확실했으면 좋겠어! 부담 없이 균형 잡힌 도수면 좋겠어! 오늘은 혼술용으로 보고
+    gold_slots: current_mood=soso  party_purpose=solo  strength_preference=medium  taste={'freshness': 'high'}  aroma={'coffee': 'high'}
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스프리츠', '카지노', '스팅어']...
+    survivors : ['키르', '미모사', '스프리츠', '카지노', '스팅어']...
+    score_top3: ['비스 니즈', '스프리츠', '존 콜린스']
+    top3_name : ['비스 니즈', '스프리츠', '존 콜린스']
+    top3_cat  : ['시트러스 사워', '스파클링', '리프레싱 하이볼']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 394] mode=oracle
+    user_text : 시트러스 느낌은 약했으면 좋겠어요 허벌한 느낌이 확실했으면 해요 나무 향은 강하지 않았으면 해요 조금 다운된 상태예요 진는 피하고 싶어요 적당한
+    gold_slots: current_mood=bad  strength_preference=medium  taste={'body': 'high'}  aroma={'herbal': 'high', 'woody': 'low', 'citrus': 'low'}  bases!=['gin']
+    gold_ck   : ['그래스호퍼']
+    gold_cat  : ['크리미']
+    retrieved?: gold=0.0  survivor=0.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['불바디에', '사우스사이드', '스팅어', '키르', '라스트 워드']...
+    survivors : ['불바디에', '스팅어', '키르', '사이드카', '블러디 메리']...
+    score_top3: ['러스티 네일', '스팅어', '티퍼러리']
+    top3_name : ['러스티 네일', '스팅어', '티퍼러리']
+    top3_cat  : ['스피릿포워드', '스피릿포워드', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 398] mode=oracle
+    user_text : IBA Tiki 같은 스타일을 좋아하는 편이에요. 민트감은 은은하면 돼요 프루티한 향은 약했으면 좋겠어! 많이 달지 않았으면 해요 산뜻한 느낌은
+    gold_slots: party_purpose=hangout  strength_preference=medium  taste={'sweet': 'low', 'freshness': 'low'}  aroma={'fruity': 'low', 'minty': 'medium'}
+    gold_ck   : ['토미스 마가리타', '페니실린', '브램블']
+    gold_cat  : ['시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스프리츠', '카지노', '사우스사이드']...
+    survivors : ['키르', '미모사', '스프리츠', '카지노', '사우스사이드']...
+    score_top3: ['민트 줄렙', '행키팽키', '스팅어']
+    top3_name : ['민트 줄렙', '행키팽키', '스팅어']
+    top3_cat  : ['클래식', '비터/허벌', '스피릿포워드']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 404] mode=oracle
+    user_text : 꽃향이 확실했으면 좋겠어요 단맛은 중간 정도면 돼요 부드럽고 진득한 질감은 약했으면 좋겠어요 데이트용으로 찾고 있어요 부담 없는 도수면 돼요요.
+    gold_slots: party_purpose=date  strength_preference=light  taste={'creamy': 'low', 'sweet': 'medium'}  aroma={'floral': 'high'}
+    gold_ck   : ['라스트 워드', '네이키드 앤 페이머스', '스파이시 피프티']
+    gold_cat  : ['비터/허벌', '시트러스 사워']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '스프리츠', '사우스사이드', '사이드카']...
+    survivors : ['키르', '파라다이스', '스프리츠', '사우스사이드', '사이드카']...
+    score_top3: ['미셔너리즈 다운폴', '진 피즈', '올드 쿠반']
+    top3_name : ['미셔너리즈 다운폴', '진 피즈', '올드 쿠반']
+    top3_cat  : ['티키/트로피컬', '리프레싱 하이볼', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 422] mode=oracle
+    user_text : 적당한 도수로 맞추고 싶어요 혼자 조용히 한잔할 생각이에요 프루티한 향이 또렷했으면 해요 시트러스 느낌은 적당하면 돼요. 컨디션이 썩 좋진 않아
+    gold_slots: current_mood=bad  party_purpose=solo  strength_preference=medium  taste={'sweet': 'low', 'creamy': 'high', 'body': 'medium'}  aroma={'fruity': 'high', 'citrus': 'medium'}  bases!=['vodka']
+    gold_ck   : []
+    gold_cat  : ['크리미']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '사우스사이드', '미모사', '스팅어']...
+    survivors : ['키르', '파라다이스', '사우스사이드', '미모사', '스팅어']...
+    score_top3: ['일레갈', '클로버 클럽', '그랑 마가리타']
+    top3_name : ['일레갈', '클로버 클럽', '그랑 마가리타']
+    top3_cat  : ['티키/트로피컬', '시트러스 사워', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 427] mode=oracle
+    user_text : 산미가 또렷한 쪽이 좋아요 달콤한 쪽이 좋아요 미팅 겸 한잔할 거예요 술은 안 들어갔으면 해요 시트러스 향은 강하지 않게요 좀 처진 느낌이에요
+    gold_slots: current_mood=bad  party_purpose=business  strength_preference=zero  taste={'sour': 'high', 'sweet': 'high'}  aroma={'citrus': 'low'}
+    gold_ck   : []
+    gold_cat  : ['시트러스 사워']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 메리', '노지토', '버진 모히토', '셜리 템플', '버진 피냐 콜라다']
+    survivors : ['버진 메리', '노지토', '버진 모히토', '셜리 템플', '버진 피냐 콜라다']
+    score_top3: ['버진 피냐 콜라다', '셜리 템플', '노지토']
+    top3_name : ['버진 피냐 콜라다', '셜리 템플', '노지토']
+    top3_cat  : ['크리미', '스파클링', '리프레싱 하이볼']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 429] mode=oracle
+    user_text : 혼자 천천히 마시려고요 커피 느낌이 또렷했으면 해요 시트러스 향이 확실했으면 좋겠어요 시큼한 느낌은 거의 없었으면 해요 평소랑 비슷한 컨디션이에
+    gold_slots: current_mood=soso  party_purpose=solo  strength_preference=medium  taste={'sour': 'low'}  aroma={'coffee': 'high', 'citrus': 'high'}
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['카지노', '스팅어', '키르', '미모사', '사우스사이드']...
+    survivors : ['카지노', '스팅어', '키르', '미모사', '사우스사이드']...
+    score_top3: ['일레갈', '스프리츠', '그랑 마가리타']
+    top3_name : ['일레갈', '스프리츠', '그랑 마가리타']
+    top3_cat  : ['티키/트로피컬', '스파클링', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 448] mode=oracle
+    user_text : 둘이 분위기 보면서 마시려고요 확실히 힘 있는 쪽이어도 돼요. 무게감은 적당하면 좋겠어요 좀 처진 느낌이에요 민트 향이 확실했으면 좋겠어요.
+    gold_slots: current_mood=bad  party_purpose=date  strength_preference=strong  taste={'body': 'medium'}  aroma={'minty': 'high'}
+    gold_ck   : []
+    gold_cat  : ['리프레싱 하이볼']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '파라다이스', '스팅어', '마티니', '사우스사이드']...
+    survivors : ['키르', '파라다이스', '스팅어', '마티니', '사우스사이드']...
+    score_top3: ['민트 줄렙', '행키팽키', '스팅어']
+    top3_name : ['민트 줄렙', '행키팽키', '스팅어']
+    top3_cat  : ['클래식', '비터/허벌', '스피릿포워드']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 459] mode=oracle
+    user_text : 기분 좋게 한잔하고 싶어요 우디한 향이 분명했으면 좋겠어요 플로럴한 향이 또렷했으면 해요 기념할 일이 있어서요 가볍게 마실 수 있으면 좋겠어요 
+    gold_slots: current_mood=good  party_purpose=celebration  strength_preference=light  taste={'bitter': 'low'}  aroma={'woody': 'high', 'floral': 'high'}
+    gold_ck   : ['네이키드 앤 페이머스', '티퍼러리']
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['키르', '사우스사이드', '라스트 워드', '미모사', '스프리츠']...
+    survivors : ['키르', '사우스사이드', '라스트 워드', '미모사', '스프리츠']...
+    score_top3: ['IBA Tiki', '미셔너리즈 다운폴', '페니실린']
+    top3_name : ['IBA Tiki', '미셔너리즈 다운폴', '페니실린']
+    top3_cat  : ['티키/트로피컬', '티키/트로피컬', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 460] mode=oracle
+    user_text : 청량감은 적당하면 좋겠어요 쓴맛은 중간 정도로만 느껴지면 돼요 단맛은 중간 정도면 돼요 허벌한 느낌이 확실했으면 해요 민트 향이 확실했으면 좋겠
+    gold_slots: current_mood=soso  party_purpose=hangout  strength_preference=strong  taste={'sweet': 'medium', 'bitter': 'medium', 'freshness': 'medium'}  aroma={'herbal': 'high', 'minty': 'high'}
+    gold_ck   : []
+    gold_cat  : ['리프레싱 하이볼']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '카지노', '스프리츠', '사우스사이드']...
+    survivors : ['키르', '미모사', '카지노', '스프리츠', '사우스사이드']...
+    score_top3: ['올드 쿠반', '페르난디토', '사우스사이드']
+    top3_name : ['올드 쿠반', '페르난디토', '사우스사이드']
+    top3_cat  : ['스파클링', '비터/허벌', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 466] mode=oracle
+    user_text : 알코올 없는 쪽으로 보고 있어! 오늘은 좀 지쳐 있어. 업무 얘기 나누면서 마실 자리예요. 나무 향은 강하지 않았으면 해요 커피 향이 확실했으면
+    gold_slots: current_mood=bad  party_purpose=business  strength_preference=zero  taste={'freshness': 'medium', 'bitter': 'low'}  aroma={'woody': 'low', 'citrus': 'high', 'coffee': 'high'}
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 메리', '노지토', '버진 피냐 콜라다', '버진 모히토', '셜리 템플']
+    survivors : ['버진 메리', '노지토', '버진 피냐 콜라다', '버진 모히토', '셜리 템플']
+    score_top3: ['버진 모히토', '노지토', '셜리 템플']
+    top3_name : ['버진 모히토', '노지토', '셜리 템플']
+    top3_cat  : ['리프레싱 하이볼', '리프레싱 하이볼', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 471] mode=oracle
+    user_text : 좀 처진 느낌이에요 시트러스 향은 은은하면 좋겠어요 허브 향은 적당하면 좋겠어요 럼이랑 데킬라는 피하고 싶어요. 일 이야기하면서 마실 예정이에요
+    gold_slots: current_mood=bad  party_purpose=business  strength_preference=light  taste={'body': 'high'}  aroma={'citrus': 'medium', 'herbal': 'medium'}  bases!=['rum', 'tequila']
+    gold_ck   : ['아이리시 커피', '러스티 네일', '그래스호퍼']
+    gold_cat  : ['스피릿포워드', '크리미']
+    retrieved?: gold=1.0  survivor=1.0  score_top3=0.0  final_ranker=score_primary
+    retrieved : ['불바디에', '사우스사이드', '라스트 워드', '키르', '스팅어']...
+    survivors : ['불바디에', '사우스사이드', '라스트 워드', '키르', '스팅어']...
+    score_top3: ['카지노', '트리니다드 사워', '불바디에']
+    top3_name : ['카지노', '트리니다드 사워', '불바디에']
+    top3_cat  : ['시트러스 사워', '시트러스 사워', '비터/허벌']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+    => gold NOT in top3 — retrieval 에서 누락 or 하드필터 드랍
+
+  [case 478] mode=oracle
+    user_text : 컨디션이 괜찮은 날이에. 민트감은 은은하면 돼요 허벌한 느낌은 강하지 않았으면 해요 커피 향이 확실했으면 좋겠어요. 술은 안 들어갔으면 해. 산
+    gold_slots: current_mood=good  party_purpose=business  strength_preference=zero  taste={'freshness': 'medium'}  aroma={'herbal': 'low', 'minty': 'medium', 'coffee': 'high'}
+    gold_ck   : []
+    gold_cat  : ['커피/디저트']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['버진 메리', '버진 모히토', '노지토', '버진 피냐 콜라다', '셜리 템플']
+    survivors : ['버진 메리', '버진 모히토', '노지토', '버진 피냐 콜라다', '셜리 템플']
+    score_top3: ['버진 피냐 콜라다', '버진 모히토', '셜리 템플']
+    top3_name : ['버진 피냐 콜라다', '버진 모히토', '셜리 템플']
+    top3_cat  : ['크리미', '리프레싱 하이볼', '스파클링']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 486] mode=oracle
+    user_text : 진 쪽은 안 들어갔으면 좋겠어. 혼자 조용히 한잔할 생각이에! 그냥 무난한 기분이에요. 쓴맛이 또렷했으면 좋겠어! 시트러스 향이 확실했으면 좋겠
+    gold_slots: current_mood=soso  party_purpose=solo  strength_preference=strong  taste={'bitter': 'high'}  aroma={'citrus': 'high', 'coffee': 'low'}  bases!=['gin']
+    gold_ck   : []
+    gold_cat  : ['비터/허벌']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['카지노', '사우스사이드', '스팅어', '키르', '미모사']...
+    survivors : ['스팅어', '키르', '미모사', '스프리츠', '사이드카']...
+    score_top3: ['브랜디 크러스타', '좀비', '트리니다드 사워']
+    top3_name : ['브랜디 크러스타', '좀비', '트리니다드 사워']
+    top3_cat  : ['시트러스 사워', '티키/트로피컬', '시트러스 사워']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
+
+  [case 489] mode=oracle
+    user_text : 친구들이랑 같이 마실 거예요 산뜻한 느낌이 강했으면 좋겠어요 기운이 떨어져 있어서요. 세지 않은 쪽이면 좋겠어요 위스키 베이스만 아니면 좋겠어요
+    gold_slots: current_mood=bad  party_purpose=hangout  strength_preference=light  taste={'freshness': 'high'}  aroma={'floral': 'high', 'minty': 'high'}  bases!=['whiskey']
+    gold_ck   : []
+    gold_cat  : ['리프레싱 하이볼']
+    retrieved?: gold=nan  survivor=nan  score_top3=nan  final_ranker=score_primary
+    retrieved : ['키르', '미모사', '스프리츠', '스팅어', '카지노']...
+    survivors : ['키르', '미모사', '스프리츠', '스팅어', '카지노']...
+    score_top3: ['올드 쿠반', '사우스사이드', '미셔너리즈 다운폴']
+    top3_name : ['올드 쿠반', '사우스사이드', '미셔너리즈 다운폴']
+    top3_cat  : ['스파클링', '시트러스 사워', '티키/트로피컬']
+    top3_src  : ['score_primary', 'score_primary', 'score_primary']
