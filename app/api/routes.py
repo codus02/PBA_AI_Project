@@ -38,7 +38,12 @@ from app.agents.preference_agent import (
     _sanitize_user_text,
 )
 from app.agents.orchestration_agent import run_recommendation, process_feedback, finalize_sample
-from app.agents.output_agent import generate_output_json
+from app.agents.output_agent import (
+    generate_output_json,
+    generate_motor_recipe,
+    DEFAULT_SAMPLE_VOLUME_ML,
+    DEFAULT_FINAL_VOLUME_ML,
+)
 from app.agents.mood_agent import analyze_space_image, img2tag
 
 
@@ -171,6 +176,22 @@ def recommend_sample_endpoint(
         result["llm_question"] = question
         result["llm_turn"] = _serialize_dialogue_turn(llm_turn)
 
+        # 시음용 샘플 제조 명령 (Pi 펌프). 칵테일 원본 비율 그대로, 30ml.
+        cocktail_id = top.get("cocktail_id")
+        if cocktail_id is not None:
+            try:
+                result["sample_motor_recipe"] = generate_motor_recipe(
+                    db=db,
+                    cocktail_id=int(cocktail_id),
+                    volume_ml=DEFAULT_SAMPLE_VOLUME_ML,
+                    feedback_deltas=None,
+                )
+            except Exception as exc:
+                result["sample_motor_recipe"] = None
+                result.setdefault("warnings", []).append(
+                    f"sample_motor_recipe 생성 실패: {exc}"
+                )
+
     return result
 
   
@@ -224,7 +245,21 @@ def feedback_endpoint(
         update_feedback_round(db, gid, current_round)
         result["user_turn"] = _serialize_dialogue_turn(user_turn)
 
-    # 재추천된 경우 "어떠세요?" LLM 턴 추가
+    # ADJUST → 같은 칵테일 + 레시피 조정 (sample_motor_recipe 는 이미 result 에 포함됨)
+    if result.get("status") == "adjusted":
+        name = result.get("sample_cocktail_name") or "이 칵테일"
+        question = f"피드백 반영해서 '{name}' 다시 따라드릴게요. 어떠세요?"
+        llm_turn = create_dialogue_turn(
+            db=db,
+            guest_session_id=gid,
+            speaker_role="LLM",
+            utterance_text=question,
+            extracted_slots_json=None,
+        )
+        result["llm_question"] = question
+        result["llm_turn"] = _serialize_dialogue_turn(llm_turn)
+
+    # REJECT → 새 칵테일 추천 (시음한 칵테일 제외)
     if result.get("status") == "re_recommended":
         top = (result.get("top_k") or [{}])[0]
         name = top.get("name_kr", "이 칵테일")
@@ -238,6 +273,21 @@ def feedback_endpoint(
         )
         result["llm_question"] = question
         result["llm_turn"] = _serialize_dialogue_turn(llm_turn)
+
+        cocktail_id = top.get("cocktail_id")
+        if cocktail_id is not None:
+            try:
+                result["sample_motor_recipe"] = generate_motor_recipe(
+                    db=db,
+                    cocktail_id=int(cocktail_id),
+                    volume_ml=DEFAULT_SAMPLE_VOLUME_ML,
+                    feedback_deltas=None,
+                )
+            except Exception as exc:
+                result["sample_motor_recipe"] = None
+                result.setdefault("warnings", []).append(
+                    f"sample_motor_recipe 생성 실패: {exc}"
+                )
 
     return result
 

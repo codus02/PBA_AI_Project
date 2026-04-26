@@ -56,7 +56,7 @@ from app.db.database import SessionLocal
 from scripts._eval_save import save_eval_result, short_model_name
 
 CSV_PATH = Path("data/eval/e2e_recommendation_eval_v2_2_500.csv")
-RAG_RETRIEVE_N = 50
+RAG_RETRIEVE_N = 100  # H7a: 50 → 100. negative preference 임베딩 약화로 retrieval 빠지는 26건 일부 회복.
 
 
 # ============================================================

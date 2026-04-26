@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 import re
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -26,7 +27,11 @@ from app.agents.preference_agent import (
     INTENSITY_PENDING,
     _pending_intensity_keys,
 )
-from app.agents.output_agent import generate_recipe_snapshot
+from app.agents.output_agent import (
+    generate_recipe_snapshot,
+    generate_motor_commands,
+    DEFAULT_SAMPLE_VOLUME_ML,
+)
 from app.utils.model_loader import embed_texts
 
 logger = logging.getLogger(__name__)
@@ -1165,7 +1170,7 @@ def score_cocktail_breakdown(
 # 5. Top-K 추천
 # ============================================================
 
-RAG_RETRIEVE_N = 50
+RAG_RETRIEVE_N = 100  # H7a: 50 → 100. negative preference 임베딩 약화로 retrieval 빠지는 케이스 일부 회복.
 RERANK_REASON_POOL_N = 12
 AROMA_EXPANSION_LIMIT = 8
 
@@ -1502,11 +1507,20 @@ def finalize_sample(
         final_reason_text=" ".join(reason_parts),
     )
 
+    # 최종 풀 사이즈 모터 명령 — Pi 펌프가 따라줄 칵테일.
+    # 누적 피드백 deltas 가 반영된 final_snapshot 그대로 모터 명령으로 변환.
+    try:
+        final_motor_recipe = generate_motor_commands(final_snapshot)
+    except Exception as exc:
+        logger.warning("final_motor_recipe 생성 실패: %s", exc)
+        final_motor_recipe = None
+
     return {
         "status": "accepted" if not forced else "force_finalized",
         "intent": "ACCEPT" if not forced else "FORCED",
         "final_recommendation_id": str(final_row.final_recommendation_id),
         "final_cocktail_id": sample_row.recommended_cocktail_id,
+        "final_motor_recipe": final_motor_recipe,
     }
 
 
@@ -1600,49 +1614,58 @@ def process_feedback(
     if feedback_round >= 3 and intent in ("ADJUST", "REJECT"):
         return finalize_sample(db, guest_session_id, sample_recommendation_id, forced=True)
 
-# ADJUST → 벡터 업데이트 후 재추천
+    # ADJUST → 같은 칵테일 유지, 누적 피드백으로 시음 레시피만 재조정
+    # (REJECT 일 때만 새 칵테일 추천. ACCEPT 면 위에서 finalize_sample 으로 빠짐.)
     if intent == "ADJUST":
-        # ADJUST는 "현재 방향은 맞지만 조금 수정"의 의미이므로,
-        # 현재 샘플 칵테일은 제외하지 않고 과거 다른 추천들만 배제한다.
-        # force=True: 이미 FEEDBACK_LOOP 단계 = 80% 게이트 한번 통과한 상태.
-        # 피드백으로 슬롯이 바뀌는 건 아니니 다시 게이트 걸 필요 없음.
-        current_cocktail_id = sample_row.recommended_cocktail_id
-        historical_ids = list_recommended_cocktail_ids_by_guest(db, guest_session_id)
-        adjusted_excluded = [cid for cid in historical_ids if cid != current_cocktail_id]
+        # 이 sample_recommendation_id 에 대한 모든 피드백 (방금 만든 행 포함) 집계
+        all_fb = list_feedbacks_by_sample_recommendation(db, sample_recommendation_id)
 
-        rerun = run_recommendation(
-            db=db,
-            guest_session_id=guest_session_id,
-            k=3,
-            exclude_ids=adjusted_excluded or None,
-            force=True,
+        def _aroma(fb, key: str) -> float:
+            return float((fb.aroma_delta_json or {}).get(key) or 0)
+
+        aggregated_deltas = {
+            "sweetness_delta":  sum(float(fb.sweetness_delta  or 0) for fb in all_fb),
+            "sourness_delta":   sum(float(fb.sourness_delta   or 0) for fb in all_fb),
+            "bitterness_delta": sum(float(fb.bitterness_delta or 0) for fb in all_fb),
+            "body_delta":       sum(float(fb.body_delta       or 0) for fb in all_fb),
+            "freshness_delta":  sum(float(fb.freshness_delta  or 0) for fb in all_fb),
+            "herbal_delta":     sum(_aroma(fb, "herbal_delta")  for fb in all_fb),
+            "citrus_delta":     sum(_aroma(fb, "citrus_delta")  for fb in all_fb),
+            "alcohol_delta":    sum(_aroma(fb, "alcohol_delta") for fb in all_fb),
+        }
+
+        # 새 시음 모터 명령 — 30ml 에 누적 deltas 적용해서 다시 따라줌
+        try:
+            sample_snapshot = generate_recipe_snapshot(
+                db=db,
+                cocktail_id=sample_row.recommended_cocktail_id,
+                volume_ml=DEFAULT_SAMPLE_VOLUME_ML,
+                feedback_deltas=aggregated_deltas,
+            )
+            sample_motor_recipe = generate_motor_commands(sample_snapshot)
+        except Exception as exc:
+            logger.warning("ADJUST sample motor recipe 생성 실패: %s", exc)
+            sample_motor_recipe = None
+
+        cocktail = (
+            db.query(Cocktail)
+            .filter(Cocktail.cocktail_id == sample_row.recommended_cocktail_id)
+            .first()
+        )
+        cocktail_name = (
+            getattr(cocktail, "name_kr", None) or getattr(cocktail, "name_en", "")
+            if cocktail else ""
         )
 
-        if rerun.get("status") == "no_candidates":
-            rerun = run_recommendation(
-                db=db,
-                guest_session_id=guest_session_id,
-                k=3,
-                exclude_ids=None,
-                force=True,
-            )
-            rerun["message"] = "새로운 후보가 없어 전체 후보에서 다시 추천합니다."
-
-        if rerun.get("status") != "ok":
-            return {
-                "status": "adjust_processed",
-                "intent": "ADJUST",
-                "updated_vector": updated_vec,
-                "sample_feedback_id": str(feedback_row.sample_feedback_id),
-                "next": rerun,
-            }
-
         return {
-            "status": "re_recommended",
+            "status": "adjusted",
             "intent": "ADJUST",
             "updated_vector": updated_vec,
-            "top_k": rerun["top_k"],
-            "sample_recommendation_id": rerun["sample_recommendation_id"],
+            "sample_recommendation_id": str(sample_recommendation_id),
+            "sample_cocktail_id": sample_row.recommended_cocktail_id,
+            "sample_cocktail_name": cocktail_name,
+            "sample_motor_recipe": sample_motor_recipe,
+            "aggregated_deltas": aggregated_deltas,
             "sample_feedback_id": str(feedback_row.sample_feedback_id),
         }
 
