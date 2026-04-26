@@ -1422,11 +1422,12 @@ def _extract_slots_llm(history: list[dict], user_msg: str) -> tuple[dict, str]:
         else:
             # ── 폴백: 기존 Ollama / HF backend ──────────────────────────────
             from app.utils.model_loader import llm_chat
+            from app.utils.config import SLOT_EXTRACTOR_MODEL
             messages = [
                 {"role": "system", "content": _EXTRACT_SYSTEM_PROMPT},
                 {"role": "user", "content": _build_extract_user_prompt(history, user_msg)},
             ]
-            raw = llm_chat(messages, max_new_tokens=180)
+            raw = llm_chat(messages, max_new_tokens=180, model_id=SLOT_EXTRACTOR_MODEL)
 
         parsed = _extract_json_object(raw) or {}
         es = parsed.get("extracted_slots")

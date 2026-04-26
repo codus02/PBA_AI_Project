@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Iterable, Literal, Tuple
 
 import torch
 from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-from app.utils.config import QWEN3_EMBED_MODEL, LLM_MODEL, LLM_BACKEND, OLLAMA_BASE_URL
+from app.utils.config import (
+    QWEN3_EMBED_MODEL,
+    LLM_MODEL,
+    DIALOGUE_LLM_MODEL,
+    SLOT_EXTRACTOR_BACKEND,
+    SLOT_EXTRACTOR_MODEL,
+    SLOT_EXTRACTOR_ADAPTER_PATH,
+    LLM_BACKEND,
+    OLLAMA_BASE_URL,
+)
 
 _CACHE: dict[str, Tuple] = {}
 
@@ -62,22 +72,34 @@ def _bnb_8bit_config() -> BitsAndBytesConfig:
     return BitsAndBytesConfig(load_in_8bit=True)
 
 
-def load_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
+def _resolve_adapter_path(adapter_path: str | None) -> str | None:
+    if not adapter_path:
+        return None
+    expanded = str(Path(adapter_path).expanduser())
+    return expanded or None
+
+
+def _load_causal_llm(
+    model_id: str,
+    quantization: Literal["4bit", "8bit", "fp16"] | None = None,
+    adapter_path: str | None = None,
+):
     quant = (quantization or _DEFAULT_QUANT).lower()
-    cache_key = f"{LLM_MODEL}:{quant}"
+    resolved_adapter = _resolve_adapter_path(adapter_path)
+    cache_key = f"{model_id}:{quant}:{resolved_adapter or ''}"
     if cache_key in _CACHE:
         return _CACHE[cache_key]
 
     tokenizer = _load_with_offline_fallback(
         AutoTokenizer.from_pretrained,
-        LLM_MODEL,
+        model_id,
         trust_remote_code=True,
     )
 
     if quant == "4bit":
         model = _load_with_offline_fallback(
             AutoModelForCausalLM.from_pretrained,
-            LLM_MODEL,
+            model_id,
             quantization_config=_bnb_4bit_config(),
             device_map="auto",
             trust_remote_code=True,
@@ -85,7 +107,7 @@ def load_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
     elif quant == "8bit":
         model = _load_with_offline_fallback(
             AutoModelForCausalLM.from_pretrained,
-            LLM_MODEL,
+            model_id,
             quantization_config=_bnb_8bit_config(),
             device_map="auto",
             trust_remote_code=True,
@@ -93,15 +115,46 @@ def load_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
     else:
         model = _load_with_offline_fallback(
             AutoModelForCausalLM.from_pretrained,
-            LLM_MODEL,
+            model_id,
             torch_dtype=torch.float16,
             device_map="auto",
             trust_remote_code=True,
         )
 
+    if resolved_adapter:
+        try:
+            from peft import PeftModel
+        except ImportError as e:
+            raise RuntimeError(
+                "SLOT_EXTRACTOR_ADAPTER_PATH is set but 'peft' is not installed."
+            ) from e
+        model = PeftModel.from_pretrained(model, resolved_adapter)
+
     model.eval()
     _CACHE[cache_key] = (tokenizer, model)
     return tokenizer, model
+
+
+def load_dialogue_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
+    return _load_causal_llm(DIALOGUE_LLM_MODEL, quantization=quantization)
+
+
+def load_slot_extractor_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
+    adapter_path = None
+    if SLOT_EXTRACTOR_BACKEND == "adapter" and SLOT_EXTRACTOR_ADAPTER_PATH:
+        resolved = _resolve_adapter_path(SLOT_EXTRACTOR_ADAPTER_PATH)
+        if resolved and Path(resolved).exists():
+            adapter_path = resolved
+    return _load_causal_llm(
+        SLOT_EXTRACTOR_MODEL,
+        quantization=quantization,
+        adapter_path=adapter_path,
+    )
+
+
+def load_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
+    """Legacy alias: current default LLM = dialogue model."""
+    return load_dialogue_llm(quantization=quantization)
 
 
 def _apply_template(tokenizer, messages, add_generation_prompt: bool) -> str:
@@ -121,12 +174,7 @@ def _apply_template(tokenizer, messages, add_generation_prompt: bool) -> str:
 
 
 def render_chat(tokenizer, system: str, user: str, add_generation_prompt: bool = True) -> str:
-    """모델-agnostic chat template 렌더링.
-
-    표준 [system, user] 형식을 먼저 시도하고, 템플릿이 system role 을 거부하면
-    (Gemma 계열 등) system 내용을 user 앞에 프리펜드해 단일 user 메시지로 폴백한다.
-    이름 기반 분기를 피해 로컬 스냅샷·alias 경로에서도 안전하다.
-    """
+    """모델-agnostic chat template 렌더링."""
     try:
         return _apply_template(
             tokenizer,
@@ -172,7 +220,7 @@ def load_qwen3_embedding():
 
 def build_chat_prompt(tokenizer, messages: list[dict], **kwargs) -> str:
     """apply_chat_template 래퍼 — 모델별 미지원 파라미터 자동 제거."""
-    if "qwen3" not in LLM_MODEL.lower():
+    if "qwen3" not in DIALOGUE_LLM_MODEL.lower():
         kwargs.pop("enable_thinking", None)
     return tokenizer.apply_chat_template(messages, **kwargs)
 
@@ -183,12 +231,15 @@ def llm_chat(
     temperature: float = 0.0,
     top_p: float = 1.0,
     repetition_penalty: float = 1.0,
+    model_id: str | None = None,
 ) -> str:
     """백엔드(Ollama / HF)에 무관하게 chat completion → 텍스트 반환."""
+    target_model = model_id or DIALOGUE_LLM_MODEL
     if LLM_BACKEND == "ollama":
         import requests
+
         payload = {
-            "model": LLM_MODEL,
+            "model": target_model,
             "messages": messages,
             "stream": False,
             "options": {
@@ -202,8 +253,13 @@ def llm_chat(
         resp.raise_for_status()
         return resp.json()["message"]["content"].strip()
 
-    # HF backend
-    tokenizer, model = load_llm()
+    if target_model == DIALOGUE_LLM_MODEL:
+        tokenizer, model = load_dialogue_llm()
+    elif target_model == SLOT_EXTRACTOR_MODEL:
+        tokenizer, model = load_slot_extractor_llm()
+    else:
+        tokenizer, model = _load_causal_llm(target_model)
+
     rendered = _apply_template(tokenizer, messages, add_generation_prompt=True)
     inputs = tokenizer(rendered, return_tensors="pt").to(model.device)
     input_len = inputs["input_ids"].shape[-1]
@@ -250,8 +306,7 @@ def embed_texts(
             max_length=max_length,
             return_tensors="pt",
         ).to(device)
-        hidden = model(**enc).last_hidden_state  # (B, L, H)
-        # left padding이라 마지막 실제 토큰 = 시퀀스 마지막 위치
+        hidden = model(**enc).last_hidden_state
         last = hidden[:, -1]
         last = torch.nn.functional.normalize(last, p=2, dim=1)
         out_chunks.append(last.float().cpu())

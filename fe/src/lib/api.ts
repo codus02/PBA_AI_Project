@@ -1,5 +1,6 @@
-const API_BASE = 'http://141.223.140.32:8000/api/v1';
-//야 여기 로컬호스트잖아 당연히안되지;;;;
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ??
+  'http://141.223.140.32:8000/api/v1';
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, options);
@@ -164,6 +165,26 @@ export interface FinalOutputResponse {
 
 export function getFinalOutput(finalRecommendationId: string) {
   return get<FinalOutputResponse>(`/final-output/${finalRecommendationId}`);
+}
+
+// ─────────────────────────────────────────
+// Space Image / img2tag
+// ─────────────────────────────────────────
+
+export interface Img2TagResponse {
+  mood_tag: [string, string, string];
+}
+
+export function uploadImg2Tag(file: File): Promise<Img2TagResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiFetch<Img2TagResponse>('/space/img2tag', { method: 'POST', body: formData });
+}
+
+export function uploadSpaceImage(gid: string, file: File): Promise<{ status: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiFetch<{ status: string }>(`/sessions/${gid}/space-image`, { method: 'POST', body: formData });
 }
 
 // ─────────────────────────────────────────

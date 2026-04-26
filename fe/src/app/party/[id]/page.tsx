@@ -1,10 +1,10 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePartyStore, useParty } from '@/lib/store/partyStore';
-import { createGuestSession } from '@/lib/api';
+import { createGuestSession, uploadSpaceImage } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import GuestCard from '@/components/party/GuestCard';
@@ -22,6 +22,7 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
   const [showAdd, setShowAdd] = useState(false);
   const [showSpaceUpload, setShowSpaceUpload] = useState(false);
   const hasSpaceAnalysis = Boolean(party?.spaceAnalysis && party?.spaceImage);
+  const spaceFileRef = useRef<File | null>(null);
 
   if (!party) {
     return (
@@ -38,11 +39,6 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
   }
 
   const handleAddGuest = async () => {
-    if (!hasSpaceAnalysis) {
-      setShowAdd(false);
-      setShowSpaceUpload(true);
-      return;
-    }
     if (!guestName.trim()) return;
     const guest = addGuest(id, guestName.trim());
     setGuestName('');
@@ -51,6 +47,10 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
       if (party.dbId) {
         const { guest_session_id } = await createGuestSession(party.dbId, guestName.trim());
         store.setGuestDbId(id, guest.id, guest_session_id);
+        if (spaceFileRef.current) {
+          try { await uploadSpaceImage(guest_session_id, spaceFileRef.current); } catch { /* 무시 */ }
+          spaceFileRef.current = null;
+        }
       }
     } catch {
       // DB 저장 실패해도 UI 흐름은 계속
@@ -59,7 +59,8 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
   };
   const completedGuests = party.guests.filter((g) => g.step === 'complete').length;
 
-  const handleSpaceComplete = (analysis: SpaceAnalysis, imageUrl: string) => {
+  const handleSpaceComplete = async (analysis: SpaceAnalysis, imageUrl: string, file: File) => {
+    spaceFileRef.current = file;
     store.setSpaceAnalysis(id, analysis);
     store.setSpaceImage(id, imageUrl);
     setShowSpaceUpload(false);
@@ -128,8 +129,16 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-zinc-500 mb-0.5">파티 공간</p>
-                    <p className="text-sm font-semibold text-zinc-100">{party.spaceAnalysis?.style}</p>
-                    <p className="text-xs text-zinc-400">{party.spaceAnalysis?.mood} · {party.spaceAnalysis?.colors.join(', ')}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(party.spaceAnalysis?.tags || []).map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-xs text-amber-300"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -180,7 +189,7 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
       </div>
 
       {/* 게스트 추가 */}
-      {showAdd && hasSpaceAnalysis ? (
+      {showAdd ? (
         <Card glow>
           <CardBody className="flex flex-col gap-3">
             <p className="text-sm font-medium text-zinc-300">게스트 이름 입력</p>
@@ -205,18 +214,12 @@ export default function PartyPage({ params }: { params: Promise<{ id: string }> 
         <Button
           size="lg"
           className="w-full"
-          disabled={!hasSpaceAnalysis}
           onClick={() => setShowAdd(true)}
         >
           + 게스트 추가
         </Button>
       )}
 
-      {!hasSpaceAnalysis && (
-        <p className="text-xs text-center text-zinc-500 mt-3">
-          공간 이미지 분석이 완료되면 게스트 추가 버튼이 활성화돼요.
-        </p>
-      )}
     </main>
   );
 }

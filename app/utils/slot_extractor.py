@@ -19,10 +19,13 @@ from pathlib import Path
 
 import torch
 
+from app.utils.config import SLOT_EXTRACTOR_ADAPTER_PATH
+
 logger = logging.getLogger(__name__)
 
 # 어댑터 경로 (프로젝트 루트 기준)
-_ADAPTER_DIR = Path(__file__).parent.parent.parent / "models" / "slot_extractor_adapter"
+_DEFAULT_ADAPTER_DIR = Path(__file__).parent.parent.parent / "models" / "slot_extractor_adapter"
+_ADAPTER_DIR = Path(SLOT_EXTRACTOR_ADAPTER_PATH).expanduser() if SLOT_EXTRACTOR_ADAPTER_PATH else _DEFAULT_ADAPTER_DIR
 
 # 싱글턴 캐시
 _MODEL_CACHE: dict = {}
@@ -31,7 +34,7 @@ _MODEL_CACHE: dict = {}
 def adapter_available() -> bool:
     """어댑터 디렉토리가 존재하는지 확인."""
     backend = os.getenv("SLOT_EXTRACTOR_BACKEND", "").strip().lower()
-    if backend in {"base", "ollama", "hf"}:
+    if backend != "adapter":
         return False
     return (_ADAPTER_DIR / "adapter_config.json").exists()
 

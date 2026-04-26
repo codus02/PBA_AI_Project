@@ -9,9 +9,23 @@ interface CocktailCardProps {
 
 export default function CocktailCard({ cocktail, stage = 'tasting' }: CocktailCardProps) {
   return (
-    <Card glow className="flex flex-col gap-4">
+    <Card glow className="relative flex flex-col gap-4">
       <div className="flex items-start gap-4">
         <div className="text-6xl">{cocktail.imageEmoji ?? '🍹'}</div>
+        {stage === 'tasting' && (
+          <img
+            src="/image_3.png"
+            alt=""
+            className="absolute bottom-full right-3 w-[100px] h-auto object-contain opacity-80"
+          />
+        )}
+        {stage === 'final' && (
+          <img
+            src="/image_1.png"
+            alt=""
+            className="absolute bottom-full right-3 w-[100px] h-auto object-contain opacity-80"
+          />
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             {stage === 'final' && (
@@ -38,7 +52,7 @@ export default function CocktailCard({ cocktail, stage = 'tasting' }: CocktailCa
 
       <div className="bg-zinc-800/60 rounded-xl p-4">
         <p className="text-xs text-zinc-500 mb-1">추천 이유</p>
-        <p className="text-sm text-zinc-300 leading-relaxed">{cocktail.reason}</p>
+        <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">{cocktail.reason}</p>
       </div>
 
       {cocktail.recipe && cocktail.recipe.length > 0 && (

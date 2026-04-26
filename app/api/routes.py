@@ -11,6 +11,7 @@ from app.db.crud import (
     create_party_session,
     create_guest_session,
     get_guest_session,
+    get_party_session,
     upsert_initial_tags,
     save_space_analysis,
     create_dialogue_turn,
@@ -37,7 +38,7 @@ from app.agents.preference_agent import (
 )
 from app.agents.orchestration_agent import run_recommendation, process_feedback, finalize_sample
 from app.agents.output_agent import generate_output_json
-from app.agents.mood_agent import analyze_space_image
+from app.agents.mood_agent import analyze_space_image, img2tag
 
 
 router = APIRouter()
@@ -314,20 +315,19 @@ def save_initial_tags_endpoint(
 # 3. Space Image Upload
 # ============================================================
 
-@router.post("/sessions/{gid}/space-image")
+@router.post("/sessions/{pid}/space-image")
 async def upload_space_image(
-    gid: str,
+    pid: str,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    guest = get_guest_session(db, gid)
-    if not guest:
-        raise HTTPException(status_code=404, detail="guest_session_id not found")
+    party = get_party_session(db, pid)
+    if not party:
+        raise HTTPException(status_code=404, detail="party_session_id not found")
 
-    filename = f"{gid}_{file.filename}"
+    filename = f"{pid}_{file.filename}"
     file_path = os.path.join(UPLOAD_DIR, filename)
 
-    # 업로드 폴더 없으면 생성
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
     file_path = os.path.join(UPLOAD_DIR, filename)
@@ -338,7 +338,7 @@ async def upload_space_image(
 
     analysis = save_space_analysis(
         db=db,
-        party_session_id=guest.party_session_id,
+        party_session_id=party.party_session_id,
         image_path=file_path,
         mood_tags_json=mood_result["mood_tags_json"],
     )
@@ -348,7 +348,6 @@ async def upload_space_image(
         "space_analysis": {
             "space_analysis_id": str(analysis.space_analysis_id),
             "party_session_id": str(analysis.party_session_id),
-            "guest_session_id": gid,
             "image_path": analysis.image_path,
             "caption_en": mood_result["caption_en"],
             "best_mood_tag": mood_result["best_mood_tag"],
@@ -356,6 +355,30 @@ async def upload_space_image(
             "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
         },
     }
+
+
+
+@router.post("/space/img2tag")
+async def img2tag_endpoint(file: UploadFile = File(...)):
+    """공간 이미지 → mood_tag 3-tuple. 세션 없이 동작하는 경량 엔드포인트."""
+    try:
+        image_bytes = await file.read()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"이미지 읽기 실패: {exc}")
+
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="빈 이미지 파일입니다.")
+
+    try:
+        tags = img2tag(image_bytes)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=500, detail=f"참조 파일 누락: {exc}")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Gemini 호출 실패: {exc}")
+
+    return {"mood_tag": list(tags)}
 
 
 # ============================================================

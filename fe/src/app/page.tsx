@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import LoadingAnimation from '@/components/ui/LoadingAnimation';
 import { usePartyStore } from '@/lib/store/partyStore';
 import { createPartySession } from '@/lib/api';
 import Button from '@/components/ui/Button';
@@ -14,6 +16,15 @@ export default function HomePage() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [splashing, setSplashing] = useState(true);
+
+  if (splashing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+        <LoadingAnimation loop={false} onComplete={() => setSplashing(false)} size={160} />
+      </div>
+    );
+  }
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -39,12 +50,14 @@ export default function HomePage() {
 
       <div className="w-full max-w-md relative z-10">
         <div className="text-center mb-10">
-          <div className="text-6xl mb-4">🍸</div>
+          <div className="flex justify-center mb-4">
+            <Image src="/mascot.png" alt="칵맞춤 마스코트" width={96} height={96} />
+          </div>
           <h1 className="text-4xl font-bold text-zinc-100 tracking-tight">
             칵<span className="text-amber-400">맞춤</span>
           </h1>
           <p className="text-zinc-400 mt-2 text-sm leading-relaxed">
-            AI가 취향을 분석해<br />당신에게 딱 맞는 칵테일을 추천해드려요
+            MIXY(얘 이름도 더 나은것좀 생각하자)가 취향을 분석해<br />당신에게 딱 맞는 칵테일을 추천해드려요
           </p>
         </div>
 
@@ -90,7 +103,7 @@ export default function HomePage() {
         <div className="mt-6 grid grid-cols-3 gap-3">
           {[
             { emoji: '👥', label: '게스트 추가', desc: '여러 명 동시 진행' },
-            { emoji: '🎯', label: '취향 분석', desc: '채팅기반 취향 분석' },
+            { emoji: '📱', label: '취향 분석', desc: '채팅기반 취향 분석' },
             { emoji: '🍹', label: 'AI 추천', desc: '맞춤 칵테일 제조' },
           ].map((item) => (
             <div

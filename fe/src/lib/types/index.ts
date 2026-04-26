@@ -64,12 +64,6 @@ export interface SpaceAnalysis {
   visualTag: string;
   spaceTag: string;
   tags: string[];
-  caption: string;
-  summary: string;
-  style: string;
-  mood: string;
-  colors: string[];
-  atmosphere: string;
 }
 
 // ─────────────────────────────────────────

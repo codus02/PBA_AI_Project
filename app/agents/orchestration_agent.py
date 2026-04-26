@@ -1040,13 +1040,7 @@ def run_recommendation(
     profile = build_user_profile(db, guest_session_id)
     space   = profile["space"]
 
-    if not space:
-        return {"status": "need_space_image",
-                "message": "공간 분석 결과가 없습니다. 이미지를 먼저 업로드해주세요."}
-
-    if not profile["vector"]:
-        return {"status": "need_vector",
-                "message": "선호 벡터가 없습니다. 초기 태그를 먼저 저장해주세요."}
+    # space 없어도 진행 (공간 이미지 선택사항)
 
     effective_completion = profile["effective_completion"]
 
@@ -1072,7 +1066,7 @@ def run_recommendation(
     row = create_sample_recommendation(
         db=db,
         guest_session_id=guest_session_id,
-        space_analysis_id=space.space_analysis_id,
+        space_analysis_id=space.space_analysis_id if space else None,
         recommended_cocktail_id=best["cocktail_id"],
         recommendation_reason=reason_text,
         rag_retrieved_ids_json=[r["cocktail_id"] for r in top_k],

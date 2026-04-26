@@ -2,39 +2,68 @@
 
 import { useState, useCallback, useRef } from 'react';
 import type { SpaceAnalysis } from '@/lib/types';
-import { analyzeSpaceImage } from '@/lib/mock/spaceAnalysis';
+import { uploadImg2Tag } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Card, { CardHeader, CardTitle, CardBody } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 
 interface SpaceUploadProps {
-  onComplete: (analysis: SpaceAnalysis, imageUrl: string) => void;
+  onComplete: (analysis: SpaceAnalysis, imageUrl: string, file: File) => Promise<void> | void;
   onSkip: () => void;
 }
 
 export default function SpaceUpload({ onComplete, onSkip }: SpaceUploadProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<SpaceAnalysis | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(async (file: File) => {
+    setSelectedFile(file);
+    setAnalysis(null);
+    setError(null);
+
     const reader = new FileReader();
-    reader.onload = async (e) => {
-      const dataUrl = e.target?.result as string;
-      setPreview(dataUrl);
-      setLoading(true);
-      try {
-        const result = await analyzeSpaceImage(dataUrl);
-        setAnalysis(result);
-      } finally {
-        setLoading(false);
-      }
-    };
+    reader.onload = (e) => setPreview(e.target?.result as string);
     reader.readAsDataURL(file);
+
+    setLoading(true);
+    try {
+      const data = await uploadImg2Tag(file);
+      const tags = Array.isArray(data.mood_tag) ? data.mood_tag.filter(Boolean).slice(0, 3) : [];
+      const [emotionTag = '', visualTag = '', spaceTag = ''] = tags;
+      setAnalysis({
+        emotionTag,
+        visualTag,
+        spaceTag,
+        tags,
+      });
+    } catch (err) {
+      setAnalysis(null);
+      setError(err instanceof Error ? err.message : '이미지 분석에 실패했어요.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  const handleApply = useCallback(async () => {
+    if (!analysis || !preview || !selectedFile) return;
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onComplete(analysis, preview, selectedFile);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '공간 이미지를 적용하지 못했어요.');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [analysis, onComplete, preview, selectedFile]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -120,29 +149,17 @@ export default function SpaceUpload({ onComplete, onSkip }: SpaceUploadProps) {
 
               {analysis && (
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-green-400 text-sm">✓ 분석 완료</span>
+                  <span className="text-green-400 text-sm">✓ 분석 완료</span>
+                  <div className="flex flex-wrap gap-2">
+                    {analysis.tags.map((tag) => (
+                      <Badge key={tag} variant="amber">{tag}</Badge>
+                    ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-zinc-800 rounded-xl p-3">
-                      <p className="text-xs text-zinc-500 mb-1">스타일</p>
-                      <p className="text-sm text-zinc-100 font-medium">{analysis.style}</p>
-                    </div>
-                    <div className="bg-zinc-800 rounded-xl p-3">
-                      <p className="text-xs text-zinc-500 mb-1">분위기</p>
-                      <p className="text-sm text-zinc-100 font-medium">{analysis.mood}</p>
-                    </div>
-                  </div>
-                  <div className="bg-zinc-800 rounded-xl p-3">
-                    <p className="text-xs text-zinc-500 mb-2">감지된 컬러</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {analysis.colors.map((c) => (
-                        <Badge key={c} variant="amber">{c}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-sm text-zinc-400">{analysis.atmosphere}</p>
                 </div>
+              )}
+
+              {error && (
+                <p className="text-sm text-red-400">{error}</p>
               )}
             </div>
           )}
@@ -150,11 +167,11 @@ export default function SpaceUpload({ onComplete, onSkip }: SpaceUploadProps) {
       </Card>
 
       <div className="flex gap-3">
-        <Button variant="secondary" className="flex-1" onClick={onSkip}>
+        <Button variant="secondary" className="flex-1" onClick={onSkip} disabled={loading || submitting}>
           취소
         </Button>
         {analysis && preview && (
-          <Button className="flex-1" onClick={() => onComplete(analysis, preview)}>
+          <Button className="flex-1" onClick={handleApply} loading={submitting} disabled={loading || submitting}>
             이미지 적용하고 계속
           </Button>
         )}

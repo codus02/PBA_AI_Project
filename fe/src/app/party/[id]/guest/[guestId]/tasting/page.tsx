@@ -2,13 +2,29 @@
 
 import { use, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { usePartyStore, useGuest } from '@/lib/store/partyStore';
 import { submitFeedback, getFinalOutput, type RecommendationResponse } from '@/lib/api';
 import type { CocktailRecommendation } from '@/lib/types';
 import { now } from '@/lib/utils';
 import CocktailCard from '@/components/recommendation/CocktailCard';
 import FeedbackInput from '@/components/recommendation/FeedbackInput';
+
+const MOCK_RECOMMENDATION: CocktailRecommendation = {
+  id: 'preview-1',
+  name: '아페롤 스프리츠',
+  description: '이탈리아에서 온 상큼하고 가벼운 아페리티프 칵테일',
+  reason:
+    '달콤하고 상큼한 맛을 좋아하시고 알코올은 약하게 선호하신다고 하셨어요.\n아페롤의 쌉쌀한 오렌지 향과 프로세코의 가벼운 버블이 어우러져\n부담 없이 즐기실 수 있는 칵테일이에요.',
+  imageEmoji: '🍊',
+  tags: ['상큼한', '가벼운', '과일향'],
+  recipe: [
+    { ingredient: '아페롤', amount: 60, unit: 'ml' },
+    { ingredient: '프로세코', amount: 90, unit: 'ml' },
+    { ingredient: '탄산수', amount: 30, unit: 'ml' },
+    { ingredient: '오렌지 슬라이스', amount: 1, unit: '개' },
+  ],
+};
 
 function mapApiToRecommendation(data: RecommendationResponse): CocktailRecommendation {
   const top = data.top_k[0];
@@ -29,10 +45,31 @@ export default function TastingPage({
 }) {
   const { id, guestId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isPreview = searchParams.get('preview') === 'true';
   const guest = useGuest(id, guestId);
   const store = usePartyStore();
   const [analyzing, setAnalyzing] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
+
+  if (isPreview) {
+    return (
+      <main className="min-h-screen px-4 py-8 max-w-lg mx-auto">
+        <div className="mb-6">
+          <span className="text-xs text-zinc-500">← 파티로</span>
+          <h1 className="text-xl font-bold text-zinc-100 mt-1">미리보기님의 시음 추천</h1>
+          <p className="text-sm text-zinc-400 mt-0.5">먼저 시음해보고 피드백을 남겨주세요</p>
+          <span className="inline-block mt-2 px-2 py-0.5 rounded text-xs bg-amber-400/10 text-amber-400 border border-amber-400/20">
+            디자인 미리보기 모드
+          </span>
+        </div>
+        <div className="flex flex-col gap-5">
+          <CocktailCard cocktail={MOCK_RECOMMENDATION} stage="tasting" />
+          <FeedbackInput onSubmit={() => {}} loading={false} />
+        </div>
+      </main>
+    );
+  }
 
   if (!guest) {
     return (
@@ -59,7 +96,10 @@ export default function TastingPage({
   }
 
   const handleFeedback = async (feedback: string) => {
-    if (!guest.dbId || !guest.sampleRecommendationId) return;
+    if (!guest.dbId || !guest.sampleRecommendationId) {
+      setFeedbackError(`세션 정보 누락 — dbId: ${guest.dbId ?? 'null'}, sampleId: ${guest.sampleRecommendationId ?? 'null'}`);
+      return;
+    }
     setAnalyzing(true);
     setFeedbackError('');
 

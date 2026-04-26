@@ -85,20 +85,40 @@ export default function FollowUpQuestions({ gid, onSubmit }: FollowUpQuestionsPr
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '60vh', background: '#18181b', borderRadius: 16, border: '1px solid #3f3f46', overflow: 'hidden' }}>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {messages.map((msg, i) => (
-          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'ai' ? 'flex-start' : 'flex-end' }}>
-            <div style={{
-              maxWidth: '80%', padding: '10px 14px', borderRadius: 16, fontSize: 14, lineHeight: 1.6, wordBreak: 'break-word',
-              background: msg.role === 'ai' ? '#27272a' : '#fbbf24',
-              color: msg.role === 'ai' ? '#f4f4f5' : '#0c0a09',
-              borderBottomLeftRadius: msg.role === 'ai' ? 4 : 16,
-              borderBottomRightRadius: msg.role === 'user' ? 4 : 16,
-            }}>
-              {msg.text}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {messages.map((msg, i) => {
+          const isAi = msg.role === 'ai';
+          const isLastInGroup = i === messages.length - 1 || messages[i + 1].role !== msg.role;
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-end', gap: 8, justifyContent: isAi ? 'flex-start' : 'flex-end' }}>
+              {isAi && (
+                <div style={{ width: 32, height: 32, flexShrink: 0 }}>
+                  {isLastInGroup && (
+                    <img
+                      src="/profile.png"
+                      alt=""
+                      style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', display: 'block' }}
+                    />
+                  )}
+                </div>
+              )}
+              <div style={{
+                maxWidth: '72%',
+                padding: '10px 14px',
+                fontSize: 14,
+                lineHeight: 1.6,
+                wordBreak: 'break-word',
+                background: isAi ? '#27272a' : '#fbbf24',
+                color: isAi ? '#f4f4f5' : '#0c0a09',
+                borderRadius: isAi
+                  ? (isLastInGroup ? '18px 18px 18px 4px' : '18px 18px 18px 18px')
+                  : (isLastInGroup ? '18px 18px 4px 18px' : '18px 18px 18px 18px'),
+              }}>
+                {msg.text}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={bottomRef} />
       </div>
 

@@ -75,11 +75,11 @@ export default function OnboardingChatPage({
         store.setSampleRecommendationId(id, guestId, data.sample_recommendation_id);
         router.push(`/party/${id}/guest/${guestId}/tasting`);
       } else {
-        setRecError('추천을 가져올 수 없어요. 다시 시도해주세요.');
+        setRecError(`추천 실패 (${data.status})${(data as {message?:string}).message ? ': ' + (data as {message?:string}).message : ''}`);
         setRecommending(false);
       }
-    } catch {
-      setRecError('추천 서버 오류가 발생했어요. 다시 시도해주세요.');
+    } catch (e) {
+      setRecError(`서버 오류: ${e instanceof Error ? e.message : String(e)}`);
       setRecommending(false);
     }
   };
