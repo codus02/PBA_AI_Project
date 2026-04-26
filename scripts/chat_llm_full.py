@@ -252,7 +252,7 @@ def _find_asked_slot(last_llm_msg: str) -> str | None:
     return None
 
 
-def dialogue_loop(initial_slots: dict, familiarity: str | None = None) -> dict:
+def dialogue_loop(initial_slots: dict, familiarity: str | None = None, nickname: str | None = None) -> dict:
     history: list[dict] = []
     slots = dict(initial_slots)
     turn = 0
@@ -262,7 +262,7 @@ def dialogue_loop(initial_slots: dict, familiarity: str | None = None) -> dict:
     giveup_count: dict[str, int] = {}
     last_asked_slot: str | None = None
 
-    first_q = generate_opening_question()
+    first_q = generate_opening_question(nickname=nickname)
     print(f"\nLLM: {first_q}")
     history.append({"speaker_role": "LLM", "utterance_text": first_q})
 
@@ -639,13 +639,15 @@ def main() -> None:
     print("=== LLM 전체 플로우 시뮬레이터 (메모리 only) ===")
     dialogue_mode = "default"
     print(f"대화 모드: {dialogue_mode}")
+    nickname_raw = input("닉네임 (엔터=익명): ").strip()
+    nickname = nickname_raw or None
     tag_row = ask_initial_tags()
     seeded = _seed_slots_from_initial_tags(tag_row)
     print(f"\n초기 태그 seed 결과: {json.dumps(seeded, ensure_ascii=False)}")
 
     space = ask_space_image()
 
-    slots = dialogue_loop(seeded, familiarity=tag_row.familiarity_tag)
+    slots = dialogue_loop(seeded, familiarity=tag_row.familiarity_tag, nickname=nickname)
     print("\n=== 최종 슬롯 ===")
     print(json.dumps(slots, ensure_ascii=False, indent=2))
 

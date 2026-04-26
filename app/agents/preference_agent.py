@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
 import re
 from types import SimpleNamespace
 from typing import Any, Optional
@@ -502,11 +503,20 @@ def _build_axis_question(axis_key: str) -> str:
     return _AXIS_NATURAL_QUESTION.get(axis_key, _pending_ask_template(axis_key))
 
 
+_GENERIC_PREFIX_VARIANTS = (
+    "원하시는 방향이 좁혀지면 더 또렷한 추천이 가능해요.",
+    "조금만 더 힌트 주시면 잘 맞춰볼게요.",
+    "어떤 쪽이 끌리시는지 더 들어볼게요.",
+    "마음 가는 쪽으로 차근차근 좁혀봐요.",
+    "취향이 어디에 더 가까운지 짚어보면 도움이 돼요.",
+)
+
+
 def _build_question_answer_prefix(axis_key: Optional[str]) -> str:
     outer = _AXIS_OUTER_BY_KEY.get(axis_key or "")
     if outer in _OUTER_CATEGORY_EXAMPLE:
         return _OUTER_CATEGORY_EXAMPLE[outer]
-    return "취향은 몇 가지 방향으로 좁혀가면 생각보다 금방 잡혀요."
+    return random.choice(_GENERIC_PREFIX_VARIANTS)
 
 
 def _build_unknown_guidance(axis_key: Optional[str]) -> str:
@@ -1258,9 +1268,11 @@ def _infer_last_asked_slot(history: list[dict]) -> Optional[str]:
 _MOOD_KEYWORDS = {
     "good": ["기분 좋", "기분좋", "신나", "신난", "설레", "들떠",
              "째진", "째져", "째짐", "째지", "쩐다", "쩔어",
-             "텐션", "업됐", "업됨"],
+             "텐션", "업됐", "업됨", "최고", "좋다 좋아"],
     "bad": ["기분 별로", "꿀꿀", "우울", "다운", "지쳐", "피곤", "쳐져", "안 좋", "안좋",
-            "구리다", "구려", "구림", "구리네", "구려서", "꾸리다"],
+            "구리다", "구려", "구림", "구리네", "구려서", "꾸리다",
+            "가기싫", "가기 싫", "짜증", "짜증나", "짜증남", "힘들다", "힘들어",
+            "스트레스", "스트레스 받", "기빨", "기빨림"],
     "soso": ["그냥 그래", "그냥그래", "쏘쏘", "그저 그래", "그저그래", "보통이", "그럭저럭", "무난"],
 }
 _PURPOSE_KEYWORDS = {
@@ -1295,6 +1307,23 @@ def _backfill_enum(user_msg: str, patterns: dict[str, list[str]]) -> Optional[st
             if kw in text:
                 return enum_val
     return None
+
+
+def _resolve_explicit_enum(user_msg: str, patterns: dict[str, list[str]]) -> Optional[str]:
+    """사용자 발화에 단일 enum 만 매칭되면 그 enum 반환. 다중 매칭/없음 → None.
+
+    어댑터의 wrong-value 출력 ("회식" → hangout / "째져" → bad) 을 명시적 키워드로
+    강제 교정하기 위함. 다중 enum 매칭이면 의도 모호 → 어댑터 신뢰.
+    """
+    text = (user_msg or "").lower()
+    matched: list[str] = []
+    for enum_val, kws in patterns.items():
+        for kw in kws:
+            if kw in text:
+                if enum_val not in matched:
+                    matched.append(enum_val)
+                break
+    return matched[0] if len(matched) == 1 else None
 
 
 def _has_explicit_strength_signal(user_msg: str) -> bool:
@@ -1350,18 +1379,29 @@ def _apply_rule_based_slot_guards(
     if last_slot == "favorite_drinks" and _contains_any(user_msg, _NO_FAVORITE_PATTERNS):
         fixed["favorite_drinks"] = []
 
-    # 스칼라 enum 백업 — 사용자가 명시적으로 키워드를 내뱉으면 last_slot 과
-    # 무관하게 채워준다. (예: 첫 턴에 "회식해. 기분 구리다" 면 mood/purpose 둘 다
-    # 잡혀야 하지만 LLM 이 한 축만 뽑는 케이스가 잦음.)
-    if "current_mood" not in fixed:
+    # 스칼라 enum 강제 교정 — 사용자가 명시적으로 키워드를 발화하면 어댑터 출력보다
+    # 우선. 어댑터의 분포 외 표현 약점 보완 ("회식" → hangout / "째져" → bad 같은
+    # wrong-value 사례 교정). 다중 enum 매칭이면 의도 모호 → 어댑터 신뢰 (None 반환).
+    v_mood = _resolve_explicit_enum(user_msg, _MOOD_KEYWORDS)
+    if v_mood:
+        fixed["current_mood"] = v_mood
+    elif "current_mood" not in fixed:
         v = _backfill_enum(user_msg, _MOOD_KEYWORDS)
         if v:
             fixed["current_mood"] = v
-    if "party_purpose" not in fixed:
+
+    v_purpose = _resolve_explicit_enum(user_msg, _PURPOSE_KEYWORDS)
+    if v_purpose:
+        fixed["party_purpose"] = v_purpose
+    elif "party_purpose" not in fixed:
         v = _backfill_enum(user_msg, _PURPOSE_KEYWORDS)
         if v:
             fixed["party_purpose"] = v
-    if "strength_preference" not in fixed:
+
+    v_strength = _resolve_explicit_enum(user_msg, _STRENGTH_KEYWORDS)
+    if v_strength:
+        fixed["strength_preference"] = v_strength
+    elif "strength_preference" not in fixed:
         v = _backfill_enum(user_msg, _STRENGTH_KEYWORDS)
         if v:
             fixed["strength_preference"] = v
@@ -1373,6 +1413,65 @@ def _apply_rule_based_slot_guards(
         explicit_strength = _has_explicit_strength_signal(user_msg)
         if last_slot != "strength_preference" and not explicit_strength:
             fixed.pop("strength_preference", None)
+
+    return fixed
+
+
+def _apply_taste_aroma_keyword_fallback(
+    user_msg: str,
+    extracted: dict,
+) -> dict:
+    """사용자 발화에 명시된 taste/aroma 키워드로 어댑터 출력 보정.
+
+    어댑터 (2B+LoRA) 가 분포 외 표현 ("새콤하다" 등) 에서 wrong key 로 가는
+    케이스를 키워드 매칭으로 교정. 사용자가 명시적으로 말한 axis 만 보정하고,
+    명시 없는 axis (어댑터 추측) 는 그대로 둔다.
+
+    예:
+      "새콤한 거" → 어댑터 {sweet:high} → 키워드 "새콤" → {sour:high}
+      "허브향 좋아" → 어댑터 {} → 키워드 "허브향" → {herbal:medium}
+    """
+    if not user_msg:
+        return extracted
+    text = str(user_msg)
+
+    explicit_taste: list[str] = []
+    explicit_aroma: list[str] = []
+    for kw, (axis, sub) in _PROPOSAL_WORD_TO_KEY.items():
+        if kw in text:
+            if axis == "taste_profile" and sub not in explicit_taste:
+                explicit_taste.append(sub)
+            elif axis == "aroma_profile" and sub not in explicit_aroma:
+                explicit_aroma.append(sub)
+
+    if not explicit_taste and not explicit_aroma:
+        return extracted
+
+    def _detect_intensity_from_text(s: str) -> str:
+        for level, words in _INTENSITY_WORDS:
+            if level == "zero":
+                continue
+            if any(w in s for w in words):
+                return level
+        return "medium"
+
+    fixed = dict(extracted or {})
+
+    if explicit_taste:
+        adapter_taste = dict(fixed.get("taste_profile") or {})
+        if adapter_taste:
+            ref_intensity = next(iter(adapter_taste.values()))
+        else:
+            ref_intensity = _detect_intensity_from_text(text)
+        fixed["taste_profile"] = {k: ref_intensity for k in explicit_taste}
+
+    if explicit_aroma:
+        adapter_aroma = dict(fixed.get("aroma_profile") or {})
+        if adapter_aroma:
+            ref_intensity = next(iter(adapter_aroma.values()))
+        else:
+            ref_intensity = _detect_intensity_from_text(text)
+        fixed["aroma_profile"] = {k: ref_intensity for k in explicit_aroma}
 
     return fixed
 
@@ -2879,6 +2978,9 @@ def _run_slot_extraction_pipeline(
     extracted = _apply_rule_based_slot_guards(history, user_msg, extracted)
     trace["rule_guarded"] = _trace_clone(extracted)
 
+    extracted = _apply_taste_aroma_keyword_fallback(user_msg, extracted)
+    trace["keyword_fallback"] = _trace_clone(extracted)
+
     extracted = _suppress_unanchored_scalar_overrides(slots, user_msg, extracted)
     trace["scalar_guarded"] = _trace_clone(extracted)
 
@@ -3212,11 +3314,19 @@ def analyze_user_turn(
             "trace": trace,
         }
 
-def generate_opening_question() -> str:
+def generate_opening_question(nickname: Optional[str] = None) -> str:
     """대화 첫 질문 — 열린 인사말. (LLM 호출 비용 아끼려고 고정)
 
     슬롯 질문으로 시작하지 않고 가볍게 연다 — 바텐더 톤.
+    nickname 이 있으면 "@@님 안녕하세요! 오늘 @@님 취향에 ..." 형식으로 인사.
     """
+    name = (nickname or "").strip()
+    if name:
+        return (
+            f"{name}님 안녕하세요! "
+            f"오늘 {name}님 취향에 딱 맞는 한 잔 같이 골라봐요. "
+            "어떤 자리에서 드시는지, 아니면 오늘 어떤 기분이신지 편하게 말씀해 주세요."
+        )
     return (
         "안녕하세요, 오늘 한 잔 같이 골라봐요. "
         "어떤 자리에서 드시는지, 아니면 오늘 어떤 기분이신지 편하게 말씀해 주세요."

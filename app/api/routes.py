@@ -468,8 +468,8 @@ def start_dialogue_endpoint(
         raise HTTPException(status_code=404, detail="guest_session_id not found")
 
     # 오프닝은 LLM 호출 없이 고정 문구 사용 (첫 턴은 정보가 0이라 생성 의미가 적음)
-    greeting = "안녕하세요! 오늘 취향에 맞는 칵테일 찾아드릴게요. "
-    question = greeting + generate_opening_question()
+    nickname = (guest.guest_label or "").strip() or None
+    question = generate_opening_question(nickname=nickname)
 
     llm_turn = create_dialogue_turn(
         db=db,
