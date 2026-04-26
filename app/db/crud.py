@@ -605,6 +605,18 @@ def get_final_recommendation_by_id(
     )
 
 
+def get_final_recommendation_by_sample_id(
+    db: Session,
+    sample_recommendation_id: str | Any,
+) -> Optional[FinalRecommendation]:
+    return (
+        db.query(FinalRecommendation)
+        .filter(FinalRecommendation.sample_recommendation_id == sample_recommendation_id)
+        .order_by(FinalRecommendation.confirmed_at.desc())
+        .first()
+    )
+
+
 # ============================================================
 # 11. 제조 주문 저장
 # ============================================================

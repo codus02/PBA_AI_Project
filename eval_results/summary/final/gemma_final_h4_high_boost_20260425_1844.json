@@ -1,0 +1,35 @@
+{
+  "kind": "final",
+  "tag": "h4_high_boost",
+  "model": "Gemma",
+  "timestamp": "20260425_1844",
+  "limit": null,
+  "mode": "oracle",
+  "n": 500,
+  "rec_n": 467,
+  "unevaluable_skipped": 33,
+  "unevaluable_reasons": {
+    "no_candidates_passed_hard_check": 21,
+    "zero_high_impossible": 12
+  },
+  "elapsed_sec": 52.639237489085644,
+  "scalar_avg": 0.0,
+  "scalar_per_slot": {
+    "current_mood": 0.0,
+    "party_purpose": 0.0,
+    "strength_preference": 0.0
+  },
+  "taste_key_f1": 0.0,
+  "taste_kv_f1": 0.0,
+  "aroma_key_f1": 0.0,
+  "aroma_kv_f1": 0.0,
+  "bases_f1": 0.0,
+  "exact_gold_coverage": 0.8179871520342612,
+  "hit@1_labeled": 0.6387434554973822,
+  "hit@3_labeled": 0.8298429319371727,
+  "cat_hit@3_all": 0.860813704496788,
+  "cat_hit@3_labeled": 0.9450261780104712,
+  "no_candidate_rate": 0.0,
+  "labeled_n": 382,
+  "cat_n": 467
+}

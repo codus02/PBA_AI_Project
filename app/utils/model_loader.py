@@ -8,14 +8,14 @@ import torch
 from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 from app.utils.config import (
-    QWEN3_EMBED_MODEL,
-    LLM_MODEL,
     DIALOGUE_LLM_MODEL,
-    SLOT_EXTRACTOR_BACKEND,
-    SLOT_EXTRACTOR_MODEL,
-    SLOT_EXTRACTOR_ADAPTER_PATH,
+    LLM_MODEL,
     LLM_BACKEND,
     OLLAMA_BASE_URL,
+    QWEN3_EMBED_MODEL,
+    SLOT_EXTRACTOR_ADAPTER_PATH,
+    SLOT_EXTRACTOR_BACKEND,
+    SLOT_EXTRACTOR_MODEL,
 )
 
 _CACHE: dict[str, Tuple] = {}
@@ -141,10 +141,8 @@ def load_dialogue_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = Non
 
 def load_slot_extractor_llm(quantization: Literal["4bit", "8bit", "fp16"] | None = None):
     adapter_path = None
-    if SLOT_EXTRACTOR_BACKEND == "adapter" and SLOT_EXTRACTOR_ADAPTER_PATH:
-        resolved = _resolve_adapter_path(SLOT_EXTRACTOR_ADAPTER_PATH)
-        if resolved and Path(resolved).exists():
-            adapter_path = resolved
+    if SLOT_EXTRACTOR_BACKEND == "adapter":
+        adapter_path = SLOT_EXTRACTOR_ADAPTER_PATH or None
     return _load_causal_llm(
         SLOT_EXTRACTOR_MODEL,
         quantization=quantization,

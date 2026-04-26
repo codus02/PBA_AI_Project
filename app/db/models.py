@@ -6,9 +6,11 @@ from sqlalchemy import (
     Integer,
     DECIMAL,
     TIMESTAMP,
+    Date,
     ForeignKey,
     CheckConstraint,
     UniqueConstraint,
+    Index,
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -508,4 +510,32 @@ class EvaluationLog(Base):
             "final_satisfaction_score BETWEEN 1.0 AND 5.0",
             name="chk_evaluation_logs_final_satisfaction_score",
         ),
+    )
+
+
+# ============================================================
+# Gemini API 키 로테이션 사용량 추적
+# ============================================================
+
+class GeminiKeyUsage(Base):
+    """Gemini API 키별 분당/일간 사용량.
+
+    실제 키 값은 .env 에만 있고, 여기엔 SHA256 hash 의 앞 16 자만 저장한다.
+    동시 요청 시 atomic 한 키 선택을 위해 row lock (`SELECT ... FOR UPDATE`) 사용.
+    """
+    __tablename__ = "gemini_key_usage"
+
+    key_id = Column(String(64), primary_key=True)
+    label = Column(String(50), nullable=True)
+    minute_window_start = Column(TIMESTAMP, nullable=True)
+    minute_count = Column(Integer, nullable=False, default=0, server_default=text("0"))
+    day_window_start = Column(Date, nullable=True)
+    day_count = Column(Integer, nullable=False, default=0, server_default=text("0"))
+    last_used_at = Column(TIMESTAMP, nullable=True)
+    last_quota_at = Column(TIMESTAMP, nullable=True)
+    is_disabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    updated_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_gemini_key_usage_label", "label"),
     )

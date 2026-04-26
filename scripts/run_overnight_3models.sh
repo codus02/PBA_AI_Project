@@ -6,8 +6,8 @@
 #   nohup bash scripts/run_overnight_3models.sh > logs/overnight_$(date +%Y%m%d_%H%M).out 2>&1 &
 #
 # 저장:
-#   eval_results/quantitative/{feedback,slots,rec,all}_{tag}_{stamp}.{json,txt}
-#   eval_results/per_item/{feedback,slots,rec}_{tag}_{stamp}.csv     ← per-case hit 기록
+#   eval_results/summary/{feedback,slots,rec,all}/{model}_{kind}_{tag}_{stamp}.{json,txt}
+#   eval_results/cases/{feedback,slots,rec}/{model}_{kind}_{tag}_{stamp}.csv   ← per-case hit 기록
 #   logs/run_{tag}_{stamp}.log                                      ← stdout 그대로
 
 set -uo pipefail
@@ -44,5 +44,5 @@ run_one "exaone_n${LIMIT}" "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct" || true
 
 echo ""
 echo "=========================================="
-echo " [$(date '+%F %T')] ALL DONE — see eval_results/quantitative + eval_results/per_item"
+echo " [$(date '+%F %T')] ALL DONE — see eval_results/summary + eval_results/cases"
 echo "=========================================="

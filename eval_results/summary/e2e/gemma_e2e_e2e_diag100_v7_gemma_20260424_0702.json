@@ -1,0 +1,35 @@
+{
+  "kind": "e2e",
+  "tag": "e2e_diag100_v7_gemma",
+  "model": "Gemma",
+  "timestamp": "20260424_0702",
+  "limit": 100,
+  "mode": "e2e",
+  "n": 100,
+  "rec_n": 92,
+  "unevaluable_skipped": 8,
+  "unevaluable_reasons": {
+    "no_candidates_passed_hard_check": 4,
+    "zero_high_impossible": 4
+  },
+  "elapsed_sec": 2493.2228134367615,
+  "scalar_avg": 64.98742221633789,
+  "scalar_per_slot": {
+    "current_mood": 61.44578313253012,
+    "party_purpose": 69.23076923076923,
+    "strength_preference": 64.28571428571429
+  },
+  "taste_key_f1": 83.73983739837398,
+  "taste_kv_f1": 78.04878048780489,
+  "aroma_key_f1": 46.666666666666664,
+  "aroma_kv_f1": 35.55555555555556,
+  "bases_f1": 92.78350515463917,
+  "exact_gold_coverage": 0.782608695652174,
+  "hit@1_labeled": 0.25,
+  "hit@3_labeled": 0.3888888888888889,
+  "cat_hit@3_all": 0.7065217391304348,
+  "cat_hit@3_labeled": 0.7916666666666666,
+  "no_candidate_rate": 0.0,
+  "labeled_n": 72,
+  "cat_n": 92
+}

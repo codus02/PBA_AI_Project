@@ -1,0 +1,21 @@
+{
+  "kind": "slots",
+  "tag": "slots_diag100_v8_gemma",
+  "model": "Gemma",
+  "timestamp": "20260424_0807",
+  "limit": 100,
+  "n": 100,
+  "elapsed_sec": 2901.9575550840236,
+  "scalar_avg": 63.252818035426735,
+  "scalar_per_slot": {
+    "current_mood": 62.22222222222222,
+    "party_purpose": 66.66666666666666,
+    "strength_preference": 60.86956521739131
+  },
+  "taste_key_f1": 84.13284132841329,
+  "taste_kv_f1": 76.01476014760148,
+  "aroma_key_f1": 84.09090909090908,
+  "aroma_kv_f1": 66.66666666666666,
+  "bases_f1": 92.3076923076923,
+  "favs_detected_pct": 44.44444444444444
+}

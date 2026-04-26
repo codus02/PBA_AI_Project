@@ -17,6 +17,7 @@ party_purpose, current_mood 는 초기 태그에 없으므로 대화 루프에�
 from __future__ import annotations
 
 import json
+import os
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -27,23 +28,28 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.agents.preference_agent import (
     analyze_user_turn,
     analyze_feedback,
+    build_effective_vector,
     generate_opening_question,
     merge_slots,
     should_move_to_recommendation,
     transition_opener,
     _calc_effective_completion,
     _seed_slots_from_initial_tags,
+    _sanitize_user_text,
     SLOT_ASK_ORDER,
 )
 from app.agents.orchestration_agent import (
     synthesize_query,
     retrieve_candidates,
     rerank_with_llm,
-    score_cocktail,
+    score_cocktail_breakdown,
     _has_disliked_base,
     _is_unstockable,
     _has_zero_taste_conflict,
+    _has_zero_aroma_conflict,
     _build_reason_parts,
+    _expand_retrieved_candidates,
+    _build_context_embedding,
 )
 from app.agents.mood_agent import analyze_space_image
 from app.db.database import SessionLocal
@@ -99,12 +105,50 @@ DEFAULT_VEC = {
 }
 
 
+def _trace_stdout_enabled() -> bool:
+    return os.getenv("PBA_TRACE_DIALOGUE", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _print_trace(result: dict) -> None:
+    if not _trace_stdout_enabled():
+        return
+    trace = result.get("trace") or {}
+    if not trace:
+        return
+    print("  trace:")
+    if trace.get("mode") == "relaxed":
+        for key in ("relaxed_parsed", "validated", "final"):
+            if key in trace:
+                print(f"    {key}: {json.dumps(trace[key], ensure_ascii=False)}")
+        return
+    for key in (
+        "validated",
+        "guarded",
+        "scalar_guarded",
+        "confirmed",
+        "salvaged",
+        "affirmed_pending_salvaged",
+        "hallucination_dropped",
+        "constrained_rescue",
+        "correction_guarded",
+        "repeat_suppressed",
+        "final",
+    ):
+        if key in trace:
+            print(f"    {key}: {json.dumps(trace[key], ensure_ascii=False)}")
+
+
 def vec_to_profile_obj(vec: dict) -> SimpleNamespace:
     return SimpleNamespace(**{k: Decimal(str(v)) for k, v in vec.items()})
 
 
 def make_profile(slots: dict, vec: dict, space: SimpleNamespace | None = None) -> dict:
-    return {"merged_slots": slots, "vector": vec_to_profile_obj(vec), "space": space}
+    return {
+        "merged_slots": slots,
+        "vector": vec_to_profile_obj(vec),
+        "effective_vector": build_effective_vector(vec, slots),
+        "space": space,
+    }
 
 
 def ask_space_image() -> SimpleNamespace | None:
@@ -208,7 +252,7 @@ def _find_asked_slot(last_llm_msg: str) -> str | None:
     return None
 
 
-def dialogue_loop(initial_slots: dict, familiarity: str | None = None) -> dict:
+def dialogue_loop(initial_slots: dict, familiarity: str | None = None, nickname: str | None = None) -> dict:
     history: list[dict] = []
     slots = dict(initial_slots)
     turn = 0
@@ -218,13 +262,13 @@ def dialogue_loop(initial_slots: dict, familiarity: str | None = None) -> dict:
     giveup_count: dict[str, int] = {}
     last_asked_slot: str | None = None
 
-    first_q = generate_opening_question()
+    first_q = generate_opening_question(nickname=nickname)
     print(f"\nLLM: {first_q}")
     history.append({"speaker_role": "LLM", "utterance_text": first_q})
 
     while turn < MAX_USER_TURNS:
         try:
-            user_msg = input("\n너: ").strip()
+            user_msg = _sanitize_user_text(input("\n너: ").strip())
         except (EOFError, KeyboardInterrupt):
             print("\n종료")
             sys.exit(0)
@@ -260,6 +304,7 @@ def dialogue_loop(initial_slots: dict, familiarity: str | None = None) -> dict:
         print(f"  llm_emitted: {json.dumps(result.get('extracted_raw', {}), ensure_ascii=False)}")
         print(f"  kept_after_diff: {json.dumps(extracted, ensure_ascii=False)}")
         print(f"  slots: {json.dumps(slots, ensure_ascii=False)}")
+        _print_trace(result)
 
         proceed, reason = should_move_to_recommendation(
             merged_slots=slots,
@@ -300,6 +345,13 @@ def recommend_once(
         exclude_ids=exclude_ids or None,
         strength_preference=slots.get("strength_preference"),
     )
+    retrieved = _expand_retrieved_candidates(
+        db,
+        retrieved,
+        slots,
+        all_ri,
+        exclude_ids=exclude_ids or None,
+    )
 
     survivors = []
     for c, dist in retrieved:
@@ -310,52 +362,97 @@ def recommend_once(
             continue
         if _has_zero_taste_conflict(slots, c):
             continue
+        if _has_zero_aroma_conflict(slots, ri):
+            continue
         survivors.append((c, dist))
 
     print(f"하드필터 후 생존 {len(survivors)}개")
     if not survivors:
         return []
 
-    survivor_cocktails = [c for c, _ in survivors]
-    reranked = rerank_with_llm(profile, survivor_cocktails, k=3, recipe_ingredients=all_ri)
+    scored = []
+    dist_map: dict[int, float] = {}
+    id_to_cocktail: dict[int, object] = {}
+    context_embedding = _build_context_embedding(profile)
+    for c, dist in survivors:
+        ri = all_ri.get(c.cocktail_id, [])
+        breakdown = score_cocktail_breakdown(
+            c,
+            profile,
+            ri,
+            context_embedding=context_embedding,
+        )
+        scored.append({
+            "cocktail_id": c.cocktail_id,
+            "name_kr": c.name_kr,
+            "category": c.category,
+            "score": breakdown["total"],
+            "score_breakdown": breakdown,
+            "retrieval_distance": dist,
+            "reason_parts": _build_reason_parts(c, profile, ri),
+        })
+        dist_map[c.cocktail_id] = dist
+        id_to_cocktail[c.cocktail_id] = c
+    scored.sort(key=lambda x: x["score"], reverse=True)
+
+    rerank_pool_ids = [row["cocktail_id"] for row in scored[:6]]
+    rerank_pool = [id_to_cocktail[cid] for cid in rerank_pool_ids if cid in id_to_cocktail]
+    llm_reason_by_id: dict[int, str] = {}
+    reranked = rerank_with_llm(
+        profile,
+        rerank_pool,
+        k=len(rerank_pool),
+        recipe_ingredients=all_ri,
+    )
+    if reranked:
+        llm_reason_by_id = {
+            int(item["cocktail_id"]): str(item["reason"]).strip()
+            for item in reranked
+            if item.get("cocktail_id") and item.get("reason")
+        }
 
     results: list[dict] = []
-    if reranked:
-        id_to_c = {c.cocktail_id: c for c in survivor_cocktails}
-        for item in reranked[:3]:
-            c = id_to_c.get(item["cocktail_id"])
-            if c is None:
-                continue
-            results.append({
-                "cocktail_id": c.cocktail_id,
-                "name_kr": c.name_kr,
-                "category": c.category,
-                "reason": item.get("reason", ""),
-                "source": "rag_llm",
-            })
-
-    if not results:
-        scored = []
-        for c, _d in survivors:
-            ri = all_ri.get(c.cocktail_id, [])
-            scored.append((c, score_cocktail(c, profile, ri), ri))
-        scored.sort(key=lambda x: x[1], reverse=True)
-        for c, s, ri in scored[:3]:
-            reason_parts = _build_reason_parts(c, profile, ri)
-            results.append({
-                "cocktail_id": c.cocktail_id,
-                "name_kr": c.name_kr,
-                "category": c.category,
-                "reason": " · ".join(reason_parts),
-                "score": s,
-                "source": "rag_fallback",
-            })
+    for row in scored[:3]:
+        cid = row["cocktail_id"]
+        reason = llm_reason_by_id.get(cid) or " · ".join(row["reason_parts"])
+        results.append({
+            "cocktail_id": cid,
+            "name_kr": row["name_kr"],
+            "category": row["category"],
+            "reason": reason,
+            "score": row["score"],
+            "score_breakdown": row.get("score_breakdown") or {},
+            "retrieval_distance": dist_map.get(cid),
+            "retrieval_label": (
+                "expanded_aroma"
+                if (dist_map.get(cid) is not None and dist_map.get(cid) < 0)
+                else f"{dist_map.get(cid, 0):.4f}"
+            ),
+            "source": "score_llm_reason" if cid in llm_reason_by_id else "score_fallback",
+        })
 
     print("\n=== 추천 TOP3 ===")
     for i, r in enumerate(results, 1):
-        print(f"  [{i}] {r['name_kr']} ({r['category']})  ← {r['source']}")
+        print(
+            f"  [{i}] {r['name_kr']} ({r['category']})"
+            f"  score={r.get('score', 0):.2f}"
+            f"  dist={r.get('retrieval_label', 'n/a')}"
+            f"  ← {r['source']}"
+        )
         if r["reason"]:
             print(f"      이유: {r['reason']}")
+        breakdown = r.get("score_breakdown") or {}
+        if breakdown:
+            print(
+                "      점수분해:"
+                f" vector={breakdown.get('vector_similarity', 0):.2f}"
+                f" taste={breakdown.get('taste_profile', 0):.2f}"
+                f" aroma={breakdown.get('aroma_profile', 0):.2f}"
+                f" strength={breakdown.get('strength', 0):.2f}"
+                f" context={breakdown.get('context', 0):.2f}"
+                f" favorite={breakdown.get('favorite_drinks', 0):.2f}"
+                f" space={breakdown.get('space_mood', 0):.2f}"
+            )
     return results
 
 
@@ -363,7 +460,7 @@ def _apply_feedback_on_drink(
     vec: dict, picked: dict,
 ) -> tuple[str, dict, dict | None]:
     """이미 선택된 picked 에 대해 피드백만 받아서 분석. ACCEPT/ADJUST/REJECT 반환."""
-    fb = input(f"피드백 (예: 좋아 이걸로 / 좀 달아 / 별로야 다른거 줘): ").strip()
+    fb = _sanitize_user_text(input(f"피드백 (예: 좋아 이걸로 / 좀 달아 / 별로야 다른거 줘): ").strip())
     if not fb:
         print("(피드백 비어있음 → ACCEPT 취급)")
         return "ACCEPT", vec, picked
@@ -540,13 +637,17 @@ def print_final_recommendation(
 
 def main() -> None:
     print("=== LLM 전체 플로우 시뮬레이터 (메모리 only) ===")
+    dialogue_mode = "default"
+    print(f"대화 모드: {dialogue_mode}")
+    nickname_raw = input("닉네임 (엔터=익명): ").strip()
+    nickname = nickname_raw or None
     tag_row = ask_initial_tags()
     seeded = _seed_slots_from_initial_tags(tag_row)
     print(f"\n초기 태그 seed 결과: {json.dumps(seeded, ensure_ascii=False)}")
 
     space = None  # ask_space_image()  # Gemini API 일일 제한으로 임시 비활성화
 
-    slots = dialogue_loop(seeded, familiarity=tag_row.familiarity_tag)
+    slots = dialogue_loop(seeded, familiarity=tag_row.familiarity_tag, nickname=nickname)
     print("\n=== 최종 슬롯 ===")
     print(json.dumps(slots, ensure_ascii=False, indent=2))
 

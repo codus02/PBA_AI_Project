@@ -1,0 +1,21 @@
+============================================================
+ FINAL EVAL — model=Gemma  tag=h7a_retrieve_100  20260425_2248
+ limit=full
+============================================================
+[per-item] 467 cases → eval_results/cases/e2e/gemma_e2e_h7a_retrieve_100_20260425_2248.csv  (model=google/gemma-2-9b-it)
+
+============================================================
+E2E EVAL — mode=oracle  total_rows=500  evaluable=467  unevaluable_skipped=33  (59.7s, 0.12s/case)
+  설정                      : rerank=off  retrieve_n=100  rerank_pool=12
+  unevaluable breakdown: no_candidates_passed_hard_check=21, zero_high_impossible=12
+============================================================
+
+[Slot Extraction] skipped (oracle mode — gold 슬롯 직접 주입)
+
+[Recommendation (gold slots → top-3 vs gold)]
+  exact gold 있는 케이스      : 382/467 = 81.8%
+  Hit@1  (labeled)            : 261/382 = 68.3%
+  Hit@3  (labeled)            : 337/382 = 88.2%
+  카테고리 Hit@3 (all cases)  : 410/467 = 87.8%
+  카테고리 Hit@3 (labeled)    : 369/382 = 96.6%
+  후보 없음                   : 0/467 = 0.0%

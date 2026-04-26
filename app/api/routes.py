@@ -10,8 +10,8 @@ from app.db.database import get_db
 from app.db.crud import (
     create_party_session,
     create_guest_session,
-    get_guest_session,
     get_party_session,
+    get_guest_session,
     upsert_initial_tags,
     save_space_analysis,
     create_dialogue_turn,
@@ -35,9 +35,15 @@ from app.agents.preference_agent import (
     proceed_requires_force,
     _calc_effective_completion,
     _seed_slots_from_initial_tags,
+    _sanitize_user_text,
 )
 from app.agents.orchestration_agent import run_recommendation, process_feedback, finalize_sample
-from app.agents.output_agent import generate_output_json
+from app.agents.output_agent import (
+    generate_output_json,
+    generate_motor_recipe,
+    DEFAULT_SAMPLE_VOLUME_ML,
+    DEFAULT_FINAL_VOLUME_ML,
+)
 from app.agents.mood_agent import analyze_space_image, img2tag
 
 
@@ -170,6 +176,22 @@ def recommend_sample_endpoint(
         result["llm_question"] = question
         result["llm_turn"] = _serialize_dialogue_turn(llm_turn)
 
+        # 시음용 샘플 제조 명령 (Pi 펌프). 칵테일 원본 비율 그대로, 30ml.
+        cocktail_id = top.get("cocktail_id")
+        if cocktail_id is not None:
+            try:
+                result["sample_motor_recipe"] = generate_motor_recipe(
+                    db=db,
+                    cocktail_id=int(cocktail_id),
+                    volume_ml=DEFAULT_SAMPLE_VOLUME_ML,
+                    feedback_deltas=None,
+                )
+            except Exception as exc:
+                result["sample_motor_recipe"] = None
+                result.setdefault("warnings", []).append(
+                    f"sample_motor_recipe 생성 실패: {exc}"
+                )
+
     return result
 
   
@@ -185,6 +207,7 @@ def feedback_endpoint(
     if not guest:
         raise HTTPException(status_code=404, detail="guest_session_id not found")
 
+    sanitized_feedback = _sanitize_user_text(req.feedback_text)
     current_round = (guest.feedback_round or 0) + 1
 
     # 4회차부터는 추가 피드백을 받지 않고 현재 sample을 강제 확정한다.
@@ -200,28 +223,43 @@ def feedback_endpoint(
             raise HTTPException(status_code=400, detail=str(e))
         return result
 
-    # 허용된 1~3회차 피드백만 저장/반영
-    create_dialogue_turn(
-        db=db,
-        guest_session_id=gid,
-        speaker_role="USER",
-        utterance_text=req.feedback_text,
-        extracted_slots_json=None,
-    )
-    update_feedback_round(db, gid, current_round)
-
     try:
         result = process_feedback(
             db=db,
             guest_session_id=gid,
             sample_recommendation_id=req.sample_recommendation_id,
-            feedback_text=req.feedback_text,
+            feedback_text=sanitized_feedback,
             feedback_round=current_round,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # 재추천된 경우 "어떠세요?" LLM 턴 추가
+    if result.get("status") != "already_finalized":
+        user_turn = create_dialogue_turn(
+            db=db,
+            guest_session_id=gid,
+            speaker_role="USER",
+            utterance_text=sanitized_feedback,
+            extracted_slots_json=None,
+        )
+        update_feedback_round(db, gid, current_round)
+        result["user_turn"] = _serialize_dialogue_turn(user_turn)
+
+    # ADJUST → 같은 칵테일 + 레시피 조정 (sample_motor_recipe 는 이미 result 에 포함됨)
+    if result.get("status") == "adjusted":
+        name = result.get("sample_cocktail_name") or "이 칵테일"
+        question = f"피드백 반영해서 '{name}' 다시 따라드릴게요. 어떠세요?"
+        llm_turn = create_dialogue_turn(
+            db=db,
+            guest_session_id=gid,
+            speaker_role="LLM",
+            utterance_text=question,
+            extracted_slots_json=None,
+        )
+        result["llm_question"] = question
+        result["llm_turn"] = _serialize_dialogue_turn(llm_turn)
+
+    # REJECT → 새 칵테일 추천 (시음한 칵테일 제외)
     if result.get("status") == "re_recommended":
         top = (result.get("top_k") or [{}])[0]
         name = top.get("name_kr", "이 칵테일")
@@ -235,6 +273,21 @@ def feedback_endpoint(
         )
         result["llm_question"] = question
         result["llm_turn"] = _serialize_dialogue_turn(llm_turn)
+
+        cocktail_id = top.get("cocktail_id")
+        if cocktail_id is not None:
+            try:
+                result["sample_motor_recipe"] = generate_motor_recipe(
+                    db=db,
+                    cocktail_id=int(cocktail_id),
+                    volume_ml=DEFAULT_SAMPLE_VOLUME_ML,
+                    feedback_deltas=None,
+                )
+            except Exception as exc:
+                result["sample_motor_recipe"] = None
+                result.setdefault("warnings", []).append(
+                    f"sample_motor_recipe 생성 실패: {exc}"
+                )
 
     return result
 
@@ -261,6 +314,10 @@ def create_party(req: PartySessionCreateRequest, db: Session = Depends(get_db)):
 
 @router.post("/sessions/guest")
 def create_guest(req: GuestSessionCreateRequest, db: Session = Depends(get_db)):
+    party = get_party_session(db, req.party_session_id)
+    if not party:
+        raise HTTPException(status_code=404, detail="party_session_id not found")
+
     row = create_guest_session(
         db=db,
         party_session_id=req.party_session_id,
@@ -315,19 +372,20 @@ def save_initial_tags_endpoint(
 # 3. Space Image Upload
 # ============================================================
 
-@router.post("/sessions/{pid}/space-image")
+@router.post("/sessions/{gid}/space-image")
 async def upload_space_image(
-    pid: str,
+    gid: str,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    party = get_party_session(db, pid)
-    if not party:
-        raise HTTPException(status_code=404, detail="party_session_id not found")
+    guest = get_guest_session(db, gid)
+    if not guest:
+        raise HTTPException(status_code=404, detail="guest_session_id not found")
 
-    filename = f"{pid}_{file.filename}"
+    filename = f"{gid}_{file.filename}"
     file_path = os.path.join(UPLOAD_DIR, filename)
 
+    # 업로드 폴더 없으면 생성
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
     file_path = os.path.join(UPLOAD_DIR, filename)
@@ -338,7 +396,7 @@ async def upload_space_image(
 
     analysis = save_space_analysis(
         db=db,
-        party_session_id=party.party_session_id,
+        party_session_id=guest.party_session_id,
         image_path=file_path,
         mood_tags_json=mood_result["mood_tags_json"],
     )
@@ -348,6 +406,7 @@ async def upload_space_image(
         "space_analysis": {
             "space_analysis_id": str(analysis.space_analysis_id),
             "party_session_id": str(analysis.party_session_id),
+            "guest_session_id": gid,
             "image_path": analysis.image_path,
             "caption_en": mood_result["caption_en"],
             "best_mood_tag": mood_result["best_mood_tag"],
@@ -357,10 +416,17 @@ async def upload_space_image(
     }
 
 
-
 @router.post("/space/img2tag")
 async def img2tag_endpoint(file: UploadFile = File(...)):
-    """공간 이미지 → mood_tag 3-tuple. 세션 없이 동작하는 경량 엔드포인트."""
+    """공간 이미지 → mood_tag 3-tuple. 세션 없이 동작하는 경량 엔드포인트.
+
+    내부적으로 Gemini API 키 풀 (gemini_key_pool) 에서 분당 5회/일간 20회 한도
+    안에 있는 키를 자동 선택. 모든 키 소진 시 429 반환.
+
+    응답: ``{"mood_tag": ["lively", "bright", "spacious"]}``
+    """
+    from app.services.gemini_key_pool import QuotaExhaustedError
+
     try:
         image_bytes = await file.read()
     except Exception as exc:
@@ -373,7 +439,14 @@ async def img2tag_endpoint(file: UploadFile = File(...)):
         tags = img2tag(image_bytes)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=500, detail=f"참조 파일 누락: {exc}")
+    except QuotaExhaustedError as exc:
+        # 모든 Gemini 키가 분당/일간 한도 초과 → 잠시 후 재시도 가능.
+        raise HTTPException(
+            status_code=429,
+            detail=f"Gemini quota 소진 — 잠시 후 다시 시도해주세요. ({exc})",
+        )
     except RuntimeError as exc:
+        # 키 미설정 등 server config 오류.
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Gemini 호출 실패: {exc}")
@@ -395,8 +468,8 @@ def start_dialogue_endpoint(
         raise HTTPException(status_code=404, detail="guest_session_id not found")
 
     # 오프닝은 LLM 호출 없이 고정 문구 사용 (첫 턴은 정보가 0이라 생성 의미가 적음)
-    greeting = "안녕하세요! 오늘 취향에 맞는 칵테일 찾아드릴게요. "
-    question = greeting + generate_opening_question()
+    nickname = (guest.guest_label or "").strip() or None
+    question = generate_opening_question(nickname=nickname)
 
     llm_turn = create_dialogue_turn(
         db=db,
@@ -426,11 +499,13 @@ def dialogue_endpoint(
         raise HTTPException(status_code=404, detail="guest_session_id not found")
 
     # 1) 사용자 턴 저장
+    sanitized_message = _sanitize_user_text(req.message)
+
     user_turn = create_dialogue_turn(
         db=db,
         guest_session_id=gid,
         speaker_role="USER",
-        utterance_text=req.message,
+        utterance_text=sanitized_message,
         extracted_slots_json=None,
     )
 
@@ -458,7 +533,7 @@ def dialogue_endpoint(
     agent_result = analyze_user_turn(
         history=history,
         slots=current_slots,
-        user_msg=req.message,
+        user_msg=sanitized_message,
         familiarity=getattr(tag_row, "familiarity_tag", None),
         user_turn_count=user_turn_count,
     )
@@ -477,7 +552,7 @@ def dialogue_endpoint(
     should_proceed, proceed_reason = should_move_to_recommendation(
         merged_slots=merged_slots,
         user_turn_count=user_turn_count,
-        user_msg=req.message,
+        user_msg=sanitized_message,
         llm_should_stop=agent_result["should_stop"],
         llm_stop_reason=agent_result["stop_reason"],
     )
@@ -505,7 +580,7 @@ def dialogue_endpoint(
         }
 
     # 7) LLM이 생성한 다음 질문 저장
-    question = agent_result["next_question"]
+    question = (agent_result["next_question"] or "").strip() or "좋아요. 흐름을 이어가게 한 가지만 더 여쭤볼게요."
     llm_turn = create_dialogue_turn(
         db=db,
         guest_session_id=gid,

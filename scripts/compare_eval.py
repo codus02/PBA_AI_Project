@@ -19,15 +19,15 @@ import matplotlib as mpl
 import numpy as np
 
 
-QUANT_DIR = Path("eval_results/quantitative")
+QUANT_DIR = Path("eval_results/summary/all")
 CONV_DIR = Path("eval_results/conversation")
 OUT_DIR = Path("eval_results")
 
 
 def _pick_latest(dir_path: Path, tag: str) -> Path:
-    candidates = sorted(dir_path.glob(f"{tag}_*.json"))
+    candidates = sorted(dir_path.glob(f"*{tag}*.json"))
     if not candidates:
-        raise SystemExit(f"[!] {dir_path}/{tag}_*.json 없음")
+        raise SystemExit(f"[!] {dir_path}/*{tag}*.json 없음")
     return candidates[-1]
 
 

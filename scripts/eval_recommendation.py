@@ -19,14 +19,16 @@ from app.agents.orchestration_agent import (
     synthesize_query,
     retrieve_candidates,
     rerank_with_llm,
+    RERANK_REASON_POOL_N,
     score_cocktail,
+    _expand_retrieved_candidates,
     _has_disliked_base,
     _is_unstockable,
     _has_zero_taste_conflict,
 )
-from scripts._eval_save import save_eval_result
+from scripts._eval_save import save_eval_result, short_model_name
 
-RAG_RETRIEVE_N = 20
+RAG_RETRIEVE_N = 50
 CSV_PATH = Path("data/eval/recommendation_eval_v2_500.csv")
 
 
@@ -89,6 +91,7 @@ def _llm_top3(
     profile: dict,
     all_ri: dict,
     available_ids,
+    use_rerank: bool = True,
 ) -> list[dict]:
     merged = profile["merged_slots"]
 
@@ -99,6 +102,13 @@ def _llm_top3(
         top_k=RAG_RETRIEVE_N,
         exclude_ids=None,
         strength_preference=merged.get("strength_preference"),
+    )
+    retrieved = _expand_retrieved_candidates(
+        db,
+        retrieved,
+        merged,
+        all_ri,
+        exclude_ids=None,
     )
 
     survivors: list[tuple] = []
@@ -115,40 +125,38 @@ def _llm_top3(
     if not survivors:
         return []
 
-    survivor_cocktails = [c for c, _ in survivors]
-    reranked = rerank_with_llm(profile, survivor_cocktails, k=3, recipe_ingredients=all_ri)
-
-    if reranked:
-        id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
-        top3 = []
-        for item in reranked:
-            c = id_to_cocktail.get(item["cocktail_id"])
-            if c is None:
-                continue
-            top3.append({
-                "name_kr": c.name_kr,
-                "category": c.category,
-                "source": "rag_llm",
-            })
-        if top3:
-            return top3[:3]
-
     scored = []
     for c, _dist in survivors:
         ri = all_ri.get(c.cocktail_id, [])
         s = score_cocktail(c, profile, ri)
         scored.append({
+            "cocktail_id": c.cocktail_id,
             "name_kr": c.name_kr,
             "category": c.category,
             "score": s,
-            "source": "rag_fallback",
+            "source": "score_primary",
         })
 
     scored.sort(key=lambda x: x["score"], reverse=True)
+    if use_rerank:
+        survivor_cocktails = [c for c, _ in survivors]
+        rerank_pool_ids = [item["cocktail_id"] for item in scored[:max(3, RERANK_REASON_POOL_N)]]
+        id_to_cocktail = {c.cocktail_id: c for c in survivor_cocktails}
+        rerank_pool = [id_to_cocktail[cid] for cid in rerank_pool_ids if cid in id_to_cocktail]
+        reranked = rerank_with_llm(profile, rerank_pool, k=len(rerank_pool), recipe_ingredients=all_ri)
+        if reranked:
+            llm_ids = {int(item["cocktail_id"]) for item in reranked if item.get("cocktail_id")}
+            for item in scored[:3]:
+                if item["cocktail_id"] in llm_ids:
+                    item["source"] = "score_llm_reason"
     return scored[:3]
 
 
-def eval_recommendation(limit: int | None = None, tag: str | None = None):
+def eval_recommendation(
+    limit: int | None = None,
+    tag: str | None = None,
+    use_rerank: bool = True,
+):
     df = pd.read_csv(CSV_PATH)
     if limit:
         df = df.head(limit)
@@ -175,7 +183,7 @@ def eval_recommendation(limit: int | None = None, tag: str | None = None):
                 continue
 
             profile = _make_mock_profile(row)
-            top3 = _llm_top3(db, profile, all_ri, available_ids)
+            top3 = _llm_top3(db, profile, all_ri, available_ids, use_rerank=use_rerank)
             case_id = row.get("case_id", i)
 
             if not top3:
@@ -235,6 +243,7 @@ def eval_recommendation(limit: int | None = None, tag: str | None = None):
         lines.append(msg)
 
     _log(f"\n[LLM 추천 적합도 평가] 총 {total}건")
+    _log(f"  설정:                    rerank={'on' if use_rerank else 'off'}  retrieve_n={RAG_RETRIEVE_N}  rerank_pool={RERANK_REASON_POOL_N}")
     _log(f"  Hit@1  (top1 정답 포함): {hit_k1}/{total} = {hit_k1/denom*100:.1f}%")
     _log(f"  Hit@3  (top3 정답 포함): {hit_k3}/{total} = {hit_k3/denom*100:.1f}%")
     _log(f"  카테고리 Hit@3:           {cat_hit}/{total} = {cat_hit/denom*100:.1f}%")
@@ -244,9 +253,9 @@ def eval_recommendation(limit: int | None = None, tag: str | None = None):
     if tag:
         stamp = datetime.now().strftime("%Y%m%d_%H%M")
         model_name = os.getenv("LLM_MODEL", "")
-        per_dir = Path("eval_results/per_item")
+        per_dir = Path("eval_results/cases/rec")
         per_dir.mkdir(parents=True, exist_ok=True)
-        per_csv = per_dir / f"rec_{tag}_{stamp}.csv"
+        per_csv = per_dir / f"{short_model_name(model_name)}_rec_{tag}_{stamp}.csv"
         pd.DataFrame(per_item).to_csv(per_csv, index=False)
         _log(f"  [per-item] {len(per_item)} cases → {per_csv}  (model={model_name})")
 
@@ -267,12 +276,14 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--tag", type=str, default=None,
-                    help="저장 라벨. 지정 시 eval_results/quantitative/rec_{tag}_{stamp}.{json,txt} 저장.")
+                    help="저장 라벨. 지정 시 eval_results/summary/rec/{model}_rec_{tag}_{stamp}.{json,txt} 저장.")
     ap.add_argument("--model", type=str, default=None,
                     help="결과 메타에 기록할 모델명 (미지정 시 env LLM_MODEL)")
+    ap.add_argument("--no-rerank", action="store_true",
+                    help="LLM rerank preview/보강 없이 score 기반 추천만 사용")
     args = ap.parse_args()
 
-    result = eval_recommendation(limit=args.limit, tag=args.tag)
+    result = eval_recommendation(limit=args.limit, tag=args.tag, use_rerank=not args.no_rerank)
     if args.tag:
         summary_lines = result.pop("_summary_lines", [])
         json_path, txt_path = save_eval_result(

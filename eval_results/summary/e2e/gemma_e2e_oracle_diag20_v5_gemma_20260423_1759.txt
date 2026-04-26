@@ -1,0 +1,20 @@
+============================================================
+ E2E EVAL — model=Gemma  tag=oracle_diag20_v5_gemma  20260423_1759
+ limit=20
+============================================================
+[per-item] 19 cases → eval_results/cases/e2e/gemma_e2e_oracle_diag20_v5_gemma_20260423_1759.csv  (model=google/gemma-2-9b-it)
+
+============================================================
+E2E EVAL — mode=oracle  total_rows=20  evaluable=19  unevaluable_skipped=1  (6.4s, 0.32s/case)
+  unevaluable breakdown: no_candidates_passed_hard_check=1
+============================================================
+
+[Slot Extraction] skipped (oracle mode — gold 슬롯 직접 주입)
+
+[Recommendation (gold slots → top-3 vs gold)]
+  exact gold 있는 케이스      : 12/19 = 63.2%
+  Hit@1  (labeled)            : 6/12 = 50.0%
+  Hit@3  (labeled)            : 8/12 = 66.7%
+  카테고리 Hit@3 (all cases)  : 13/19 = 68.4%
+  카테고리 Hit@3 (labeled)    : 11/12 = 91.7%
+  후보 없음                   : 0/19 = 0.0%

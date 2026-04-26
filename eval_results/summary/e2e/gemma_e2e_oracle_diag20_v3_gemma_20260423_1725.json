@@ -1,0 +1,34 @@
+{
+  "kind": "e2e",
+  "tag": "oracle_diag20_v3_gemma",
+  "model": "Gemma",
+  "timestamp": "20260423_1725",
+  "limit": 20,
+  "mode": "oracle",
+  "n": 20,
+  "rec_n": 19,
+  "unevaluable_skipped": 1,
+  "unevaluable_reasons": {
+    "no_candidates_passed_hard_check": 1
+  },
+  "elapsed_sec": 6.686921272892505,
+  "scalar_avg": 0.0,
+  "scalar_per_slot": {
+    "current_mood": 0.0,
+    "party_purpose": 0.0,
+    "strength_preference": 0.0
+  },
+  "taste_key_f1": 0.0,
+  "taste_kv_f1": 0.0,
+  "aroma_key_f1": 0.0,
+  "aroma_kv_f1": 0.0,
+  "bases_f1": 0.0,
+  "exact_gold_coverage": 0.631578947368421,
+  "hit@1_labeled": 0.4166666666666667,
+  "hit@3_labeled": 0.6666666666666666,
+  "cat_hit@3_all": 0.6842105263157895,
+  "cat_hit@3_labeled": 0.9166666666666666,
+  "no_candidate_rate": 0.0,
+  "labeled_n": 12,
+  "cat_n": 19
+}

@@ -25,7 +25,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.agents.preference_agent import analyze_user_turn
-from scripts._eval_save import save_eval_result
+from scripts._eval_save import save_eval_result, short_model_name
 
 CSV_PATH = Path("data/eval/slot_extraction_eval_v2_500.csv")
 
@@ -257,9 +257,9 @@ def run_eval(limit: int | None = None, verbose: bool = False, dump_path: str | N
     if tag:
         stamp = datetime.now().strftime("%Y%m%d_%H%M")
         model_name = os.getenv("LLM_MODEL", "")
-        per_dir = Path("eval_results/per_item")
+        per_dir = Path("eval_results/cases/slots")
         per_dir.mkdir(parents=True, exist_ok=True)
-        per_csv = per_dir / f"slots_{tag}_{stamp}.csv"
+        per_csv = per_dir / f"{short_model_name(model_name)}_slots_{tag}_{stamp}.csv"
         pd.DataFrame(per_item).to_csv(per_csv, index=False)
         _log(f"[per-item] {len(per_item)} cases → {per_csv}  (model={model_name})")
 
@@ -318,7 +318,7 @@ if __name__ == "__main__":
     ap.add_argument("--dump", nargs="?", const="data/eval/slot_failures.csv", default=None,
                     help="실패 케이스를 CSV로 저장 (경로 생략 시 data/eval/slot_failures.csv)")
     ap.add_argument("--tag", type=str, default=None,
-                    help="저장 라벨. 지정 시 eval_results/quantitative/slots_{tag}_{stamp}.{json,txt} 저장.")
+                    help="저장 라벨. 지정 시 eval_results/summary/slots/{model}_slots_{tag}_{stamp}.{json,txt} 저장.")
     ap.add_argument("--model", type=str, default=None,
                     help="결과 메타에 기록할 모델명 (미지정 시 env LLM_MODEL)")
     args = ap.parse_args()
