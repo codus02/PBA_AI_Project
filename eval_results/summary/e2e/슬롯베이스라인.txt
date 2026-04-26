@@ -1,0 +1,32 @@
+============================================================
+ E2E EVAL — model=Gemma  tag=baseline_2b_prompt_v2_2  20260425_1733
+ limit=full
+============================================================
+[per-item] 467 cases → eval_results/cases/e2e/gemma_e2e_baseline_2b_prompt_v2_2_20260425_1733.csv  (model=google/gemma-2-9b-it)
+
+============================================================
+E2E EVAL — mode=e2e  total_rows=500  evaluable=467  unevaluable_skipped=33  (35454.5s, 70.91s/case)
+  설정                      : rerank=on  retrieve_n=50  rerank_pool=12
+  unevaluable breakdown: no_candidates_passed_hard_check=21, zero_high_impossible=12
+============================================================
+
+[Slot Extraction]
+  scalar enums — exact match
+    current_mood          :  162/ 419 =  38.7%
+    party_purpose         :  189/ 421 =  44.9%
+    strength_preference   :   92/ 417 =  22.1%
+  intensity dicts
+    taste_profile KEY presence      : P= 28.9  R= 28.2  F1= 28.5  (tp=198 fp=488 fn=505)
+    taste_profile KEY+VALUE exact   : P= 16.3  R= 15.9  F1= 16.1  (tp=112 fp=574 fn=591)
+    aroma_profile KEY presence      : P= 24.9  R= 28.6  F1= 26.6  (tp=199 fp=601 fn=497)
+    aroma_profile KEY+VALUE exact   : P= 12.2  R= 14.1  F1= 13.1  (tp=98 fp=702 fn=598)
+  list enum
+    disliked_bases                  : P= 22.9  R=  4.4  F1=  7.3  (tp=11 fp=37 fn=241)
+
+[Recommendation (extracted slots → top-3 vs gold)]
+  exact gold 있는 케이스      : 382/467 = 81.8%
+  Hit@1  (labeled)            : 36/382 = 9.4%
+  Hit@3  (labeled)            : 85/382 = 22.3%
+  카테고리 Hit@3 (all cases)  : 296/467 = 63.4%
+  카테고리 Hit@3 (labeled)    : 259/382 = 67.8%
+  후보 없음                   : 0/467 = 0.0%
