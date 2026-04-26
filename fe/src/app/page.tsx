@@ -51,13 +51,13 @@ export default function HomePage() {
       <div className="w-full max-w-md relative z-10">
         <div className="text-center mb-10">
           <div className="flex justify-center mb-4">
-            <Image src="/mascot.png" alt="칵맞춤 마스코트" width={96} height={96} />
+            <Image src="/mascot.png" alt="POUR YOU 마스코트" width={96} height={96} />
           </div>
-          <h1 className="text-4xl font-bold text-zinc-100 tracking-tight">
-            칵<span className="text-amber-400">맞춤</span>
+          <h1 className="text-4xl font-bold tracking-tight">
+            POUR <span className="text-amber-400">YOU</span>
           </h1>
           <p className="text-zinc-400 mt-2 text-sm leading-relaxed">
-            MIXY(얘 이름도 더 나은것좀 생각하자)가 취향을 분석해<br />당신에게 딱 맞는 칵테일을 추천해드려요
+            AI가 취향을 분석해<br />당신에게 딱 맞는 칵테일을 추천해드려요
           </p>
         </div>
 
