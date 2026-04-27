@@ -141,8 +141,8 @@ export default function SpaceUpload({ onComplete, onSkip }: SpaceUploadProps) {
                 />
                 {loading && (
                   <div className="absolute inset-0 bg-zinc-950/70 flex flex-col items-center justify-center gap-2">
-                    <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-sm text-amber-400">공간 분석 중...</span>
+                    <div className="w-8 h-8 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm text-zinc-400">공간 분석 중...</span>
                   </div>
                 )}
               </div>
@@ -152,7 +152,7 @@ export default function SpaceUpload({ onComplete, onSkip }: SpaceUploadProps) {
                   <span className="text-green-400 text-sm">✓ 분석 완료</span>
                   <div className="flex flex-wrap gap-2">
                     {analysis.tags.map((tag) => (
-                      <Badge key={tag} variant="amber">{tag}</Badge>
+                      <Badge key={tag} variant="default">{tag}</Badge>
                     ))}
                   </div>
                 </div>

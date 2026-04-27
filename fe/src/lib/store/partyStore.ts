@@ -287,6 +287,15 @@ export const usePartyStore = create<PartyStore>()(
     }),
     {
       name: 'party-store',
+      partialize: (state) => ({
+        ...state,
+        parties: Object.fromEntries(
+          Object.entries(state.parties).map(([id, party]) => [
+            id,
+            { ...party, spaceImage: undefined },
+          ])
+        ),
+      }),
     }
   )
 );

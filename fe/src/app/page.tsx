@@ -51,10 +51,11 @@ export default function HomePage() {
       <div className="w-full max-w-md relative z-10">
         <div className="text-center mb-10">
           <div className="flex justify-center mb-4">
-            <Image src="/mascot.png" alt="POUR YOU 마스코트" width={96} height={96} />
+            <Image src="/mascot.png" alt="POUR YOU 마스코트" width={100} height={100} />
           </div>
-          <h1 className="text-4xl font-bold tracking-tight">
-            POUR <span className="text-amber-400">YOU</span>
+          <h1 className="flex items-baseline justify-center gap-2">
+            <span className="text-4xl font-bold tracking-tight text-amber-400">POUR YOU</span>
+            <span className="text-base font-medium text-[#f6f6f6]/60">포 유</span>
           </h1>
           <p className="text-zinc-400 mt-2 text-sm leading-relaxed">
             AI가 취향을 분석해<br />당신에게 딱 맞는 칵테일을 추천해드려요

@@ -108,7 +108,7 @@ export default function FollowUpQuestions({ gid, onSubmit }: FollowUpQuestionsPr
                 fontSize: 14,
                 lineHeight: 1.6,
                 wordBreak: 'break-word',
-                background: isAi ? '#27272a' : '#fbbf24',
+                background: isAi ? '#27272a' : 'rgba(187, 227, 9, 0.85)',
                 color: isAi ? '#f4f4f5' : '#0c0a09',
                 borderRadius: isAi
                   ? (isLastInGroup ? '18px 18px 18px 4px' : '18px 18px 18px 18px')
@@ -133,7 +133,7 @@ export default function FollowUpQuestions({ gid, onSubmit }: FollowUpQuestionsPr
           disabled={disabled || done}
         />
         <button
-          style={{ padding: '10px 20px', borderRadius: 24, border: 'none', background: '#fbbf24', color: '#0c0a09', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: disabled || done ? 0.4 : 1 }}
+          style={{ padding: '10px 20px', borderRadius: 24, border: 'none', background: '#bbe309', color: '#0c0a09', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: disabled || done ? 0.4 : 1 }}
           onClick={handleSend}
           disabled={disabled || done}
         >
