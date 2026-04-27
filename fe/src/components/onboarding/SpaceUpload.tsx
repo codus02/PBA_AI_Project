@@ -81,7 +81,7 @@ export default function SpaceUpload({ onComplete, onSkip }: SpaceUploadProps) {
         <CardHeader>
           <CardTitle>파티 공간 이미지 업로드</CardTitle>
           <p className="text-sm text-zinc-400 mt-1">
-            파티 분위기에 맞는 칵테일을 추천해드려요
+            공간 분위기 태그를 추출해 칵테일과 매핑해드려요
           </p>
         </CardHeader>
         <CardBody>

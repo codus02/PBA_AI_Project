@@ -16,9 +16,11 @@
 from __future__ import annotations
 
 import io
+import logging
 import os
-import pathlib
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 import numpy as np
 import torch
@@ -185,24 +187,10 @@ def analyze_space_image(
 
 # ============================================================================
 # img2tag (Gemini 기반): 공간 이미지 → mood_tag 3-tuple
-# ----------------------------------------------------------------------------
-# 기존 analyze_space_image(BLIP+atom) 와 병행. party_space_analysis 나
-# orchestration_agent.score_cocktail 의 mood_tags_json 의존성은 건드리지 않음.
 # FE 전용 경량 엔드포인트(/space/img2tag) 용.
 # ============================================================================
 
-_GEMINI_MODEL_ID = "gemini-2.5-flash"
-_PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-_IMG2TAG_EMBED_PATH = _PROJECT_ROOT / "modeling/image/final/cocktail_embeddings_st.npy"
-_IMG2TAG_IDS_PATH = _PROJECT_ROOT / "modeling/image/final/cocktail_ids_st.npy"
-
-_IMG2TAG_PROMPT = (
-    "Describe the mood and atmosphere of this space in 1-2 sentences. "
-    "Focus on the emotional vibe (e.g. cozy, lively, romantic), "
-    "the lighting and visual tone (e.g. warm, bright, dark), "
-    "and the sense of space (e.g. intimate, open, casual). "
-    "Do not describe objects."
-)
+_GEMINI_MODEL_ID = "gemini-2.0-flash"
 
 
 def _build_gemini_client(api_key: str):
@@ -220,32 +208,6 @@ def _build_gemini_client(api_key: str):
     return client
 
 
-def _load_img2tag_corpus() -> tuple[np.ndarray, np.ndarray, dict[int, str]]:
-    """사전계산된 cocktail mood_tag 임베딩 + id 배열 + (cocktail_id → mood_tag) 맵.
-
-    매핑은 DB `cocktails` 테이블에서 읽는다 (CSV 불필요).
-    """
-    if "img2tag_corpus" in _CACHE:
-        return _CACHE["img2tag_corpus"]
-
-    for p in (_IMG2TAG_EMBED_PATH, _IMG2TAG_IDS_PATH):
-        if not p.exists():
-            raise FileNotFoundError(f"img2tag 참조 파일 없음: {p}")
-
-    embeds = np.load(_IMG2TAG_EMBED_PATH)
-    ids = np.load(_IMG2TAG_IDS_PATH)
-
-    db = SessionLocal()
-    try:
-        rows = db.query(Cocktail.cocktail_id, Cocktail.mood_tag).all()
-        id_to_tag = {int(cid): (tag or "") for cid, tag in rows}
-    finally:
-        db.close()
-
-    _CACHE["img2tag_corpus"] = (embeds, ids, id_to_tag)
-    return embeds, ids, id_to_tag
-
-
 def _to_pil(image_input) -> PILImage.Image:
     """파일경로(str/Path), PIL Image, bytes 모두 수용."""
     if isinstance(image_input, PILImage.Image):
@@ -255,22 +217,39 @@ def _to_pil(image_input) -> PILImage.Image:
     return PILImage.open(image_input).convert("RGB")
 
 
-def analyze_image(image_input) -> str:
-    """Gemini 로 공간 분위기 설명 문장 생성. 키 풀에서 사용 가능한 키 자동 선택.
+def _pil_to_part(pil_img: PILImage.Image):
+    """PIL Image → google-genai Part (JPEG bytes). PIL 직전달은 SDK 버전에 따라 무시될 수 있어서 명시적으로 변환."""
+    from google.genai import types
+    buf = io.BytesIO()
+    pil_img.save(buf, format="JPEG", quality=85)
+    return types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg")
 
-    동작:
-      1. ``gemini_key_pool.acquire()`` 로 분당/일간 한도 안에 있는 키 1개 선택.
-      2. 그 키로 클라이언트 만들어서 generate_content 호출.
-      3. quota 에러면 그 키를 즉시 mark_quota_exceeded() 처리하고 다음 키로
-         자동 재시도. 모든 키가 소진되면 QuotaExhaustedError 가 위로 전파.
-      4. 최대 재시도 횟수는 키 개수만큼.
+
+def img2tag(image_input) -> tuple[str, ...]:
+    """공간 이미지 → mood_tag 튜플 (예: ("lively", "bright", "spacious")).
+
+    Gemini 에게 DB mood atom 목록을 주고 직접 3개를 고르게 함.
+    임베딩 유사도 비교 불필요 — 같은 태그를 가진 칵테일이 여럿이어도 영향 없음.
     """
     from app.services import gemini_key_pool
 
+    # DB에서 사용 가능한 mood atom 집합 구성
+    combos, _ = _load_combo_vocab()
+    atoms = sorted({atom.strip() for combo in combos for atom in combo.split("|") if atom.strip()})
+    atom_list = ", ".join(atoms)
+
+    classify_prompt = (
+        f"You are classifying the mood of a party venue photo. "
+        f"Available mood tags: [{atom_list}]. "
+        f"Select exactly 3 tags from the list that best match this space's atmosphere. "
+        f"Output ONLY the 3 tags as a comma-separated list, nothing else. "
+        f"Example: warm, intimate, cozy"
+    )
+
     pil_img = _to_pil(image_input)
+    image_part = _pil_to_part(pil_img)
     last_exc: Exception | None = None
 
-    # 키 개수만큼 재시도. 매번 acquire() 가 사용 가능한 키를 다시 골라 줌.
     keys = gemini_key_pool._parse_keys_from_env()
     max_attempts = max(len(keys), 1)
 
@@ -280,9 +259,12 @@ def analyze_image(image_input) -> str:
         try:
             response = client.models.generate_content(
                 model=_GEMINI_MODEL_ID,
-                contents=[_IMG2TAG_PROMPT, pil_img],
+                contents=[classify_prompt, image_part],
             )
-            return response.text.strip()
+            raw = response.text.strip()
+            tags = [t.strip().lower() for t in raw.split(",") if t.strip()][:3]
+            valid = [t for t in tags if t in atoms] or tags
+            return tuple(valid)
         except Exception as e:
             if gemini_key_pool.is_gemini_quota_error(e):
                 gemini_key_pool.mark_quota_exceeded(key_id)
@@ -290,33 +272,6 @@ def analyze_image(image_input) -> str:
                 continue
             raise
 
-    # 도달 시: 모든 acquire 가 quota 에러를 만남 → 풀 소진과 동치.
     raise gemini_key_pool.QuotaExhaustedError(
         "모든 Gemini 키에서 quota 에러 발생"
     ) from last_exc
-
-
-def img2tag(image_input) -> tuple[str, ...]:
-    """공간 이미지 → mood_tag 튜플 (예: ("lively", "bright", "spacious")).
-
-    Parameters
-    ----------
-    image_input : str | Path | PIL.Image | bytes
-
-    Returns
-    -------
-    tuple[str, ...]
-        cocktails_final.csv 의 mood_tag 를 "|" 로 split 한 결과.
-    """
-    vlm_text = analyze_image(image_input)
-    query_emb = _encode([vlm_text])[0]   # 기존 BERT 임베더 재사용 (같은 벡터 공간)
-
-    embeds, ids, id_to_tag = _load_img2tag_corpus()
-    norms = np.linalg.norm(embeds, axis=1) * np.linalg.norm(query_emb)
-    sims = embeds @ query_emb / np.where(norms == 0, 1e-9, norms)
-
-    best_cid = int(ids[int(np.argmax(sims))])
-    mood_tag = id_to_tag.get(best_cid, "")
-    if not mood_tag:
-        raise RuntimeError(f"cocktail_id {best_cid} 에 해당하는 mood_tag 가 DB 에 없습니다.")
-    return tuple(mood_tag.split("|"))
